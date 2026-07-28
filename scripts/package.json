@@ -1,0 +1,12 @@
+{
+  "name": "f2c-admin-scripts",
+  "version": "1.0.0",
+  "description": "F2C Admin User Creation Scripts",
+  "main": "create_admin_simple.js",
+  "scripts": {
+    "create-admin": "node create_admin_simple.js"
+  },
+  "dependencies": {
+    "firebase-admin": "^12.0.0"
+  }
+}

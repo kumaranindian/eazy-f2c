@@ -153,7 +153,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                       ),
                       const SizedBox(height: 32),
                       Text(
-                        'FARMER TO CONSUMER',
+                        'FARM2COMMUNITY',
                         style: TextStyle(
                           fontSize: 20,
                           fontWeight: FontWeight.w600,

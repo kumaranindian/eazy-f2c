@@ -1,0 +1,12 @@
+name: f2c_scripts
+description: F2C Admin Scripts
+publish_to: 'none'
+
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+
+dependencies:
+  firebase_core: ^2.24.2
+  firebase_auth: ^4.15.3
+  cloud_firestore: ^4.13.6
+  args: ^2.4.2

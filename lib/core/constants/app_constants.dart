@@ -2,7 +2,7 @@ class AppConstants {
   AppConstants._();
 
   static const String appName = 'F2C';
-  static const String appFullName = 'Farmer To Consumer';
+  static const String appFullName = 'Farm2Community';
   static const String appVersion = '1.0.0';
   static const String buildNumber = '1';
 

@@ -144,7 +144,7 @@ class _AdminDashboardPageState extends ConsumerState<AdminDashboardPage> {
                       ),
                     ),
                     Text(
-                      'FARMER TO CONSUMER',
+                      'FARM2COMMUNITY',
                       style: TextStyle(
                         fontSize: 8,
                         color: Colors.grey[600],

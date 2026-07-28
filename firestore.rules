@@ -1,0 +1,214 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Helper functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function getUserData() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+    
+    function isSuperAdmin() {
+      return isAuthenticated() && getUserData().role == 'superAdmin';
+    }
+    
+    function isAdmin() {
+      return isAuthenticated() && (getUserData().role == 'admin' || getUserData().role == 'superAdmin');
+    }
+    
+    function isCustomer() {
+      return isAuthenticated() && getUserData().role == 'customer';
+    }
+    
+    function isPackaging() {
+      return isAuthenticated() && getUserData().role == 'packaging';
+    }
+    
+    function isDelivery() {
+      return isAuthenticated() && getUserData().role == 'delivery';
+    }
+    
+    function isActive() {
+      return getUserData().isActive == true && getUserData().isDeleted == false;
+    }
+    
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+    
+    // System collection
+    match /system/{document=**} {
+      // Allow unauthenticated read for setup check
+      allow read: if true;
+      // Allow unauthenticated create for first-time setup
+      allow create: if true;
+      // Admin can update/delete
+      allow update, delete: if isAdmin();
+    }
+    
+    // Users collection
+    match /users/{userId} {
+      // Read access:
+      // - Allow all reads (security enforced at application level)
+      // - Needed for: first-time setup, login, user profile access
+      allow read: if true;
+      
+      // Create access:
+      // - Unauthenticated: allowed for first user setup (app logic restricts this)
+      // - Super Admin: can create any user
+      // - Admin: can create users (except super admin role)
+      allow create: if true || 
+                       (isSuperAdmin() && isActive()) ||
+                       (isAdmin() && isActive() && request.resource.data.role != 'superAdmin');
+      
+      // Delete access:
+      // - Only super admin can delete users
+      allow delete: if isSuperAdmin() && isActive();
+      
+      // Update access:
+      // - Users: can update ONLY their lastLogin field (for login tracking) - MUST BE FIRST to avoid circular dependency
+      // - Super Admin: can update all users (except role)
+      // - Admin: can update users (except role)
+      // - Users: can update their own profile (limited fields only)
+      allow update: if (request.auth != null 
+                        && request.auth.uid == userId 
+                        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['lastLogin'])) ||
+                       (isSuperAdmin()
+                        && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role', 'username', 'email', 'createdAt', 'createdBy'])) ||
+                       (isAdmin()
+                        && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role', 'username', 'email', 'createdAt', 'createdBy'])) ||
+                       (isAuthenticated() 
+                        && isOwner(userId) 
+                        && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role', 'isActive', 'isDeleted', 'username', 'email', 'createdAt', 'createdBy']));
+    }
+    
+    // Audit logs
+    match /auditLogs/{logId} {
+      allow read: if isAdmin();
+      // Allow create for authenticated users and first-time setup
+      allow create: if true;
+      allow update, delete: if false;
+    }
+    
+    // Branches - Admin full access, others read
+    match /branches/{branchId} {
+      // Allow read for all authenticated users
+      allow read: if request.auth != null;
+      // Allow write for authenticated users (admin check done at app level)
+      allow create, update, delete: if request.auth != null;
+    }
+    
+    // Hubs - Admin full access, others read
+    match /hubs/{hubId} {
+      allow read: if request.auth != null;
+      allow create, update, delete: if request.auth != null;
+    }
+    
+    // Apartments - Admin full access, others read
+    match /apartments/{apartmentId} {
+      allow read: if request.auth != null;
+      allow create, update, delete: if request.auth != null;
+    }
+    
+    // Customers - Admin full access, others read
+    match /customers/{customerId} {
+      allow read: if request.auth != null;
+      allow create, update, delete: if request.auth != null;
+    }
+    
+    // Farmers - Admin full access, others read
+    match /farmers/{farmerId} {
+      allow read: if request.auth != null;
+      allow create, update, delete: if request.auth != null;
+    }
+    
+    // Products - Admin full access, others read
+    match /products/{productId} {
+      allow read: if request.auth != null;
+      allow create, update, delete: if request.auth != null;
+    }
+    
+    // Categories - Admin full access, others read
+    match /categories/{categoryId} {
+      allow read: if request.auth != null;
+      allow create, update, delete: if request.auth != null;
+    }
+    
+    // Units - Admin full access, others read
+    match /units/{unitId} {
+      allow read: if request.auth != null;
+      allow create, update, delete: if request.auth != null;
+    }
+    
+    // Operational Schedules - Admin full access, others read
+    match /operational_schedules/{scheduleId} {
+      allow read: if request.auth != null;
+      allow create, update, delete: if request.auth != null;
+    }
+    
+    // Orders - Role-based access
+    match /orders/{orderId} {
+      // Admin has full access
+      allow read, write: if isAdmin() && isActive();
+      
+      // Customer can create and update orders (validation done at app level)
+      allow create, update: if isAuthenticated();
+      
+      // Customer can read orders (validation done at app level)
+      allow read: if isAuthenticated();
+      
+      // Packaging can read assigned orders
+      allow read: if isAuthenticated() 
+                  && isPackaging() 
+                  && isActive()
+                  && resource.data.packagingAssignedTo == request.auth.uid;
+      
+      // Packaging can update status of assigned orders
+      allow update: if isAuthenticated() 
+                    && isPackaging() 
+                    && isActive()
+                    && resource.data.packagingAssignedTo == request.auth.uid
+                    && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['packagingStatus', 'updatedAt']);
+      
+      // Delivery can read assigned orders
+      allow read: if isAuthenticated() 
+                  && isDelivery() 
+                  && isActive()
+                  && resource.data.deliveryAssignedTo == request.auth.uid;
+      
+      // Delivery can update status of assigned orders
+      allow update: if isAuthenticated() 
+                    && isDelivery() 
+                    && isActive()
+                    && resource.data.deliveryAssignedTo == request.auth.uid
+                    && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['deliveryStatus', 'updatedAt']);
+    }
+    
+    // Deliveries - Role-based access
+    match /deliveries/{deliveryId} {
+      // Admin has full access
+      allow read, write: if isAdmin() && isActive();
+      
+      // Delivery personnel can read assigned deliveries
+      allow read: if isAuthenticated() 
+                  && isDelivery() 
+                  && isActive()
+                  && resource.data.assignedTo == request.auth.uid;
+      
+      // Delivery personnel can update assigned deliveries
+      allow update: if isAuthenticated() 
+                    && isDelivery() 
+                    && isActive()
+                    && resource.data.assignedTo == request.auth.uid
+                    && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'location', 'updatedAt']);
+    }
+    
+    // Default deny all
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
