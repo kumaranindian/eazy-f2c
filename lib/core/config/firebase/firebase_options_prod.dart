@@ -32,13 +32,13 @@ class DefaultFirebaseOptions {
   }
 
   static const FirebaseOptions web = FirebaseOptions(
-    apiKey: 'YOUR_PROD_WEB_API_KEY',
-    appId: 'YOUR_PROD_WEB_APP_ID',
-    messagingSenderId: 'YOUR_PROD_MESSAGING_SENDER_ID',
+    apiKey: 'AIzaSyB5HsIGJZru40ZQiGqRuIqZe1TBUMsSaqE',
+    appId: '1:626500381981:web:923df2b9be6cdb737905f4',
+    messagingSenderId: '626500381981',
     projectId: 'f2c-prod',
     authDomain: 'f2c-prod.firebaseapp.com',
-    storageBucket: 'f2c-prod.appspot.com',
-    measurementId: 'YOUR_PROD_MEASUREMENT_ID',
+    storageBucket: 'f2c-prod.firebasestorage.app',
+    measurementId: 'G-450108YH53',
   );
 
   static const FirebaseOptions android = FirebaseOptions(

@@ -1,0 +1,11 @@
+{
+  "projects": {
+    "default": "f2c-dev-ddd82",
+    "dev": "f2c-dev-ddd82",
+    "test": "f2c-test",
+    "uat": "f2c-uat",
+    "prod": "f2c-prod"
+  },
+  "targets": {},
+  "etags": {}
+}
