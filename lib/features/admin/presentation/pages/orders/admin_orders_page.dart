@@ -4,6 +4,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
 import 'package:f2c/features/customer/models/order_model.dart';
 import 'package:f2c/features/admin/presentation/widgets/order_details_dialog.dart';
+import 'package:f2c/features/admin/presentation/widgets/edit_order_dialog.dart';
 import 'package:f2c/features/admin/providers/hub_providers.dart';
 
 // Provider for all orders
@@ -595,6 +596,17 @@ class _AdminOrdersPageState extends ConsumerState<AdminOrdersPage> {
             constraints: const BoxConstraints(),
           ),
           const SizedBox(width: 8),
+          // Edit button - available for pending and confirmed orders
+          if (order.status == OrderStatus.pending || order.status == OrderStatus.confirmed) ...[
+            IconButton(
+              icon: const Icon(Icons.edit_outlined, size: 18, color: Color(0xFFFF9800)),
+              onPressed: () => _showEditOrderDialog(order),
+              tooltip: 'Edit Order',
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(),
+            ),
+            const SizedBox(width: 8),
+          ],
           if (order.status == OrderStatus.pending) ...[
             IconButton(
               icon: const Icon(Icons.check_circle_outline, size: 18, color: Color(0xFF4CAF50)),
@@ -773,6 +785,18 @@ class _AdminOrdersPageState extends ConsumerState<AdminOrdersPage> {
       context: context,
       builder: (context) => OrderDetailsDialog(order: order),
     );
+  }
+
+  void _showEditOrderDialog(OrderModel order) async {
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (context) => EditOrderDialog(order: order),
+    );
+    
+    if (result == true && mounted) {
+      // Refresh orders after successful edit
+      ref.invalidate(adminOrdersProvider);
+    }
   }
 
   Widget _buildStatusTimeline(OrderModel order) {

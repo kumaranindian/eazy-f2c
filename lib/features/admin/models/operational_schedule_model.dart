@@ -80,6 +80,9 @@ class OperationalScheduleModel with _$OperationalScheduleModel {
     String? deliveryStartTime, // For daily/weekly delivery
     String? deliveryEndTime, // For daily/weekly delivery
     @Default([]) List<int> deliveryDaysOfWeek, // For weekly delivery: 1=Monday, 2=Tuesday, etc.
+    // Charges
+    @Default(0.0) double deliveryCharges,
+    @Default(0.0) double cleaningCharges,
   }) = _OperationalScheduleModel;
 
   factory OperationalScheduleModel.fromJson(Map<String, dynamic> json) =>
@@ -165,6 +168,9 @@ class OperationalScheduleModel with _$OperationalScheduleModel {
       deliveryStartTime: data['deliveryStartTime'] as String?,
       deliveryEndTime: data['deliveryEndTime'] as String?,
       deliveryDaysOfWeek: (data['deliveryDaysOfWeek'] as List<dynamic>?)?.cast<int>() ?? [],
+      // Charges
+      deliveryCharges: (data['deliveryCharges'] as num?)?.toDouble() ?? 0.0,
+      cleaningCharges: (data['cleaningCharges'] as num?)?.toDouble() ?? 0.0,
     );
   }
 

@@ -173,6 +173,31 @@ final activeSchedulesProvider = StreamProvider.autoDispose<List<OperationalSched
                     print('DEBUG: Including custom days schedule for today: ${schedule.id}');
                   }
 
+                  // Check if current time is within schedule's time range
+                  try {
+                    final startTimeParts = schedule.startTime.split(':');
+                    if (startTimeParts.length >= 2) {
+                      final startHour = int.parse(startTimeParts[0]);
+                      final startMinute = int.parse(startTimeParts[1]);
+                      
+                      final scheduleStartTime = DateTime(
+                        now.year,
+                        now.month,
+                        now.day,
+                        startHour,
+                        startMinute,
+                      );
+                      
+                      // If current time is before schedule start time, don't show products yet
+                      if (now.isBefore(scheduleStartTime)) {
+                        print('DEBUG: Skipping schedule - current time ${now.hour}:${now.minute} is before start time ${schedule.startTime}: ${schedule.id}');
+                        return false;
+                      }
+                    }
+                  } catch (e) {
+                    print('DEBUG: Error parsing schedule start time: $e');
+                  }
+
                   // Check if schedule applies to customer's apartment
                   final appliesToCustomer = schedule.visibilityScope == ScheduleVisibilityScope.entireHub ||
                       schedule.selectedApartmentIds.contains(customer.apartmentId);

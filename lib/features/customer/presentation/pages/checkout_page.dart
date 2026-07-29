@@ -507,10 +507,16 @@ class _CheckoutPageState extends ConsumerState<CheckoutPage> {
           barrierDismissible: false,
           builder: (context) => AlertDialog(
             title: const Row(
+              mainAxisSize: MainAxisSize.min,
               children: [
                 Icon(Icons.check_circle, color: Color(0xFF00C853), size: 32),
                 SizedBox(width: 12),
-                Text('Order Placed Successfully!'),
+                Expanded(
+                  child: Text(
+                    'Order Placed Successfully!',
+                    style: TextStyle(fontSize: 18),
+                  ),
+                ),
               ],
             ),
             content: Column(

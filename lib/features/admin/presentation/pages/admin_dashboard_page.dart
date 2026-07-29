@@ -12,6 +12,7 @@ import 'package:f2c/features/admin/presentation/pages/delivery/admin_delivery_pa
 import 'package:f2c/features/admin/presentation/pages/packaging/farmer_packaging_list_page.dart';
 import 'package:f2c/features/admin/presentation/pages/settings/admin_settings_page.dart';
 import 'package:f2c/features/admin/presentation/pages/transactions/admin_transactions_page.dart';
+import 'package:f2c/features/admin/presentation/pages/profit_report_page.dart';
 import 'package:f2c/features/admin/providers/branch_providers.dart';
 import 'package:f2c/features/admin/providers/hub_providers.dart';
 import 'package:f2c/features/admin/providers/apartment_providers.dart';
@@ -179,6 +180,7 @@ class _AdminDashboardPageState extends ConsumerState<AdminDashboardPage> {
                   _buildMenuItem(Icons.inventory_2_outlined, 'Farmer Packaging List', _selectedMenu == 'Farmer Packaging List'),
                   _buildMenuItem(Icons.local_shipping_outlined, 'Deliveries', _selectedMenu == 'Deliveries'),
                   _buildMenuItem(Icons.assessment_outlined, 'Reports', _selectedMenu == 'Reports'),
+                  _buildMenuItem(Icons.account_balance_wallet_outlined, 'Profit Report', _selectedMenu == 'Profit Report'),
                   _buildMenuItem(Icons.notifications_outlined, 'Notifications', _selectedMenu == 'Notifications', badge: 3),
                   _buildMenuItem(Icons.people_outline, 'Users & Roles', _selectedMenu == 'Users & Roles'),
                   _buildMenuItem(Icons.settings_outlined, 'Settings', _selectedMenu == 'Settings'),
@@ -455,6 +457,11 @@ class _AdminDashboardPageState extends ConsumerState<AdminDashboardPage> {
     // Show Deliveries page
     if (_selectedMenu == 'Deliveries') {
       return const AdminDeliveryPage();
+    }
+
+    // Show Profit Report page
+    if (_selectedMenu == 'Profit Report') {
+      return const ProfitReportPage();
     }
 
     // Show Settings page

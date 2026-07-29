@@ -610,8 +610,10 @@ class _CheckoutPageNewState extends ConsumerState<CheckoutPageNew> {
         borderRadius: BorderRadius.circular(8),
       ),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           Expanded(
+            flex: 3,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -621,6 +623,8 @@ class _CheckoutPageNewState extends ConsumerState<CheckoutPageNew> {
                     fontSize: 13,
                     fontWeight: FontWeight.w500,
                   ),
+                  overflow: TextOverflow.ellipsis,
+                  maxLines: 2,
                 ),
                 const SizedBox(height: 4),
                 Text(
@@ -633,7 +637,9 @@ class _CheckoutPageNewState extends ConsumerState<CheckoutPageNew> {
               ],
             ),
           ),
+          const SizedBox(width: 8),
           Row(
+            mainAxisSize: MainAxisSize.min,
             children: [
               IconButton(
                 icon: const Icon(Icons.remove_circle_outline, size: 20),
@@ -641,10 +647,15 @@ class _CheckoutPageNewState extends ConsumerState<CheckoutPageNew> {
                 onPressed: () {
                   ref.read(scheduleCartsProvider.notifier).decrementQuantity(cart.scheduleId, item.productId);
                 },
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(),
               ),
-              Text(
-                item.formattedQuantity,
-                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+                child: Text(
+                  item.formattedQuantity,
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                ),
               ),
               IconButton(
                 icon: const Icon(Icons.add_circle_outline, size: 20),
@@ -652,13 +663,18 @@ class _CheckoutPageNewState extends ConsumerState<CheckoutPageNew> {
                 onPressed: () {
                   ref.read(scheduleCartsProvider.notifier).incrementQuantity(cart.scheduleId, item.productId);
                 },
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(),
               ),
+              const SizedBox(width: 4),
               IconButton(
                 icon: const Icon(Icons.delete_outline, size: 20),
                 color: Colors.grey[600],
                 onPressed: () {
                   ref.read(scheduleCartsProvider.notifier).removeItem(cart.scheduleId, item.productId);
                 },
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(),
               ),
             ],
           ),
@@ -686,8 +702,10 @@ class _CheckoutPageNewState extends ConsumerState<CheckoutPageNew> {
         border: Border.all(color: Colors.orange[200] ?? Colors.orange),
       ),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           Expanded(
+            flex: 3,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -697,6 +715,8 @@ class _CheckoutPageNewState extends ConsumerState<CheckoutPageNew> {
                     fontSize: 13,
                     fontWeight: FontWeight.w500,
                   ),
+                  overflow: TextOverflow.ellipsis,
+                  maxLines: 2,
                 ),
                 const SizedBox(height: 4),
                 Text(
@@ -709,7 +729,9 @@ class _CheckoutPageNewState extends ConsumerState<CheckoutPageNew> {
               ],
             ),
           ),
+          const SizedBox(width: 8),
           Row(
+            mainAxisSize: MainAxisSize.min,
             children: [
               IconButton(
                 icon: const Icon(Icons.remove_circle_outline, size: 20),
@@ -718,7 +740,10 @@ class _CheckoutPageNewState extends ConsumerState<CheckoutPageNew> {
                   _showRemoveExistingItemDialog(item, cart);
                 },
                 tooltip: 'Remove from existing order',
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(),
               ),
+              const SizedBox(width: 8),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
@@ -968,13 +993,16 @@ class _CheckoutPageNewState extends ConsumerState<CheckoutPageNew> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Row(
+                    mainAxisSize: MainAxisSize.min,
                     children: [
-                      Text(
-                        title,
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                          color: isComingSoon ? Colors.grey : Colors.black87,
+                      Flexible(
+                        child: Text(
+                          title,
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                            color: isComingSoon ? Colors.grey : Colors.black87,
+                          ),
                         ),
                       ),
                       if (isComingSoon) ...[
@@ -1131,6 +1159,21 @@ class _CheckoutPageNewState extends ConsumerState<CheckoutPageNew> {
 
       // Check for existing pending orders for each schedule
       for (final cart in carts) {
+        // Fetch schedule to get charges
+        final scheduleDoc = await FirebaseFirestore.instance
+            .collection('operational_schedules')
+            .doc(cart.scheduleId)
+            .get();
+        
+        double deliveryCharges = 0.0;
+        double cleaningCharges = 0.0;
+        
+        if (scheduleDoc.exists) {
+          final scheduleData = scheduleDoc.data();
+          deliveryCharges = (scheduleData?['deliveryCharges'] as num?)?.toDouble() ?? 0.0;
+          cleaningCharges = (scheduleData?['cleaningCharges'] as num?)?.toDouble() ?? 0.0;
+        }
+        
         // Query for existing pending order with same schedule and delivery date
         final existingOrdersSnapshot = await FirebaseFirestore.instance
             .collection('orders')
@@ -1203,13 +1246,14 @@ class _CheckoutPageNewState extends ConsumerState<CheckoutPageNew> {
             (sum, item) => sum + item.totalPrice,
           );
 
-          // Update existing order
+          // Update existing order (keep existing charges, don't override)
           final updatedOrder = existingOrder.copyWith(
             items: mergedItems.values.toList(),
             totalAmount: newTotal,
             deliveryInstructions: _deliveryInstructionsController.text.trim().isEmpty
                 ? existingOrder.deliveryInstructions
                 : _deliveryInstructionsController.text.trim(),
+            // Charges remain the same from existing order
           );
 
           batch.update(orderRef, updatedOrder.toFirestore());
@@ -1253,6 +1297,9 @@ class _CheckoutPageNewState extends ConsumerState<CheckoutPageNew> {
             paymentMethod: _paymentMethod,
             paymentStatus: _paymentMethod == 'cash_on_delivery' ? 'pending' : 'paid',
             canEdit: true,
+            // Add charges from schedule
+            deliveryCharges: deliveryCharges,
+            cleaningCharges: cleaningCharges,
           );
 
           batch.set(orderRef, order.toFirestore());
@@ -1273,6 +1320,7 @@ class _CheckoutPageNewState extends ConsumerState<CheckoutPageNew> {
         builder: (context) => AlertDialog(
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
           title: Row(
+            mainAxisSize: MainAxisSize.min,
             children: [
               Container(
                 padding: const EdgeInsets.all(8),
@@ -1287,7 +1335,12 @@ class _CheckoutPageNewState extends ConsumerState<CheckoutPageNew> {
                 ),
               ),
               const SizedBox(width: 12),
-              const Text('Order Placed Successfully!'),
+              const Expanded(
+                child: Text(
+                  'Order Placed Successfully!',
+                  style: TextStyle(fontSize: 18),
+                ),
+              ),
             ],
           ),
           content: Column(

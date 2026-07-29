@@ -205,6 +205,9 @@ class OrderModel with _$OrderModel {
     // Unique IDs for each stage
     String? packagingId,
     String? deliveryId,
+    // Charges from schedule
+    @Default(0.0) double deliveryCharges,
+    @Default(0.0) double cleaningCharges,
     // Flags
     @Default(false) bool isDeleted,
     @Default(false) bool canEdit, // Can edit before cutoff
@@ -261,6 +264,12 @@ class OrderModel with _$OrderModel {
       ..['items'] = items.map((item) => item.toJson()).toList();
   }
 
+  // Calculate subtotal (items only)
+  double get subtotal => items.fold(0.0, (sum, item) => sum + item.totalPrice);
+  
+  // Calculate grand total (subtotal + charges)
+  double get grandTotal => subtotal + deliveryCharges + cleaningCharges;
+  
   // Check if order can be edited (before cutoff time)
   bool get isEditable {
     if (!canEdit) return false;

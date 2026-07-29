@@ -70,6 +70,12 @@ class _CreateOperationalScheduleWizardState
   TimeOfDay? _deliveryStartTime = const TimeOfDay(hour: 8, minute: 0);
   TimeOfDay? _deliveryEndTime = const TimeOfDay(hour: 18, minute: 0);
   List<int> _deliveryDaysOfWeek = [];
+  
+  // Stage 5: Charges
+  double _deliveryCharges = 0.0;
+  double _cleaningCharges = 0.0;
+  final TextEditingController _deliveryChargesController = TextEditingController();
+  final TextEditingController _cleaningChargesController = TextEditingController();
 
   void _resetFormFields() {
     setState(() {
@@ -100,6 +106,10 @@ class _CreateOperationalScheduleWizardState
       _deliveryStartTime = const TimeOfDay(hour: 8, minute: 0);
       _deliveryEndTime = const TimeOfDay(hour: 18, minute: 0);
       _deliveryDaysOfWeek.clear();
+      _deliveryCharges = 0.0;
+      _cleaningCharges = 0.0;
+      _deliveryChargesController.clear();
+      _cleaningChargesController.clear();
       _currentStep = 0;
     });
   }
@@ -307,7 +317,9 @@ class _CreateOperationalScheduleWizardState
       case 4:
         return _buildStep5DeliverySlot();
       case 5:
-        return _buildStep6Summary();
+        return _buildStep6Charges();
+      case 6:
+        return _buildStep7Summary();
       default:
         return const SizedBox();
     }
@@ -414,17 +426,36 @@ class _CreateOperationalScheduleWizardState
                           fontWeight: FontWeight.bold,
                           fontSize: 16,
                         )),
+                    const SizedBox(width: 4),
+                    const Text('*',
+                        style: TextStyle(
+                          color: Colors.red,
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        )),
                   ],
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'This name will be displayed to customers',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Colors.grey[600],
+                    fontStyle: FontStyle.italic,
+                  ),
                 ),
                 const SizedBox(height: 12),
                 TextField(
-                  decoration: const InputDecoration(
+                  decoration: InputDecoration(
                     hintText: 'Enter a name for this schedule (e.g., Morning Delivery)',
-                    border: OutlineInputBorder(),
-                    contentPadding: EdgeInsets.symmetric(
+                    border: const OutlineInputBorder(),
+                    contentPadding: const EdgeInsets.symmetric(
                       horizontal: 16,
                       vertical: 12,
                     ),
+                    errorText: _scheduleName.isEmpty && _currentStep > 0 
+                        ? 'Schedule name is required' 
+                        : null,
                   ),
                   onChanged: (value) {
                     setState(() {
@@ -529,6 +560,27 @@ class _CreateOperationalScheduleWizardState
                             const Text('Daily Schedule',
                                 style: TextStyle(fontWeight: FontWeight.bold)),
                           ],
+                        ),
+                        const SizedBox(height: 16),
+                        Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: Colors.green[100],
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: Colors.green[300]!),
+                          ),
+                          child: Row(
+                            children: [
+                              Icon(Icons.info_outline, size: 16, color: Colors.green[900]),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  'Daily Schedule: Products will be available every day from start date to end date during the specified time range (e.g., 10:00 AM - 6:00 PM daily)',
+                                  style: TextStyle(fontSize: 12, color: Colors.green[900], fontWeight: FontWeight.w500),
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
                         const SizedBox(height: 16),
                         // Start Date
@@ -710,6 +762,27 @@ class _CreateOperationalScheduleWizardState
                           ),
                         ),
                         const SizedBox(height: 16),
+                        Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: Colors.orange[100],
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: Colors.orange[300]!),
+                          ),
+                          child: Row(
+                            children: [
+                              Icon(Icons.info_outline, size: 16, color: Colors.orange[900]),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  'Weekly Schedule: Products will be available from start date + time to end date + time (e.g., Aug 2, 2026 10:00 AM to Aug 30, 2026 6:00 PM on selected days)',
+                                  style: TextStyle(fontSize: 12, color: Colors.orange[900], fontWeight: FontWeight.w500),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 16),
                         const Text('Select Days:', style: TextStyle(fontWeight: FontWeight.bold)),
                         const SizedBox(height: 8),
                         Wrap(
@@ -732,6 +805,27 @@ class _CreateOperationalScheduleWizardState
 
                 // Date Selection for One Time
                 if (_recurrenceType == ScheduleRecurrenceType.oneTime) ...[
+                  const SizedBox(height: 16),
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.blue[50],
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Colors.blue[200]!),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(Icons.info_outline, size: 16, color: Colors.blue[700]),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            'One-Time Schedule: Products will be available on the selected date during the specified time range (e.g., 10:00 AM - 6:00 PM on that day only)',
+                            style: TextStyle(fontSize: 12, color: Colors.blue[900]),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                   const SizedBox(height: 16),
                   InkWell(
                     onTap: () async {
@@ -816,9 +910,24 @@ class _CreateOperationalScheduleWizardState
                     children: [
                       Icon(Icons.access_time, color: Colors.blue[700]),
                       const SizedBox(width: 12),
-                      const Text('Time Range',
-                          style: TextStyle(fontWeight: FontWeight.bold)),
-                      const Spacer(),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text('Time Range',
+                                style: TextStyle(fontWeight: FontWeight.bold)),
+                            Text(
+                              _recurrenceType == ScheduleRecurrenceType.oneTime
+                                  ? 'Products available during this time on selected date'
+                                  : _recurrenceType == ScheduleRecurrenceType.daily
+                                      ? 'Products available daily during this time range'
+                                      : 'Start time on start date to end time on end date',
+                              style: TextStyle(fontSize: 10, color: Colors.grey[600]),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 12),
                       // Start Time
                       InkWell(
                         onTap: () async {
@@ -1880,7 +1989,153 @@ class _CreateOperationalScheduleWizardState
   }
 
 
-  Widget _buildStep6Summary() {
+  Widget _buildStep6Charges() {
+    return SingleChildScrollView(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.purple[50],
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Row(
+              children: [
+                Icon(Icons.attach_money, color: Colors.purple[700]),
+                const SizedBox(width: 12),
+                const Text(
+                  'Stage 6: Charges',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.black87),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 24),
+
+          const Text(
+            'Additional Charges (Optional)',
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'These charges will be added to each order in this schedule',
+            style: TextStyle(fontSize: 14, color: Colors.grey[600]),
+          ),
+          const SizedBox(height: 24),
+
+          // Delivery Charges
+          TextField(
+            controller: _deliveryChargesController,
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            decoration: InputDecoration(
+              labelText: 'Delivery Charges',
+              hintText: 'Enter delivery charges (₹)',
+              prefixIcon: const Icon(Icons.local_shipping),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+              filled: true,
+              fillColor: Colors.grey[50],
+            ),
+            onChanged: (value) {
+              setState(() {
+                _deliveryCharges = double.tryParse(value) ?? 0.0;
+              });
+            },
+          ),
+          const SizedBox(height: 16),
+
+          // Cleaning Charges
+          TextField(
+            controller: _cleaningChargesController,
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            decoration: InputDecoration(
+              labelText: 'Cleaning Charges',
+              hintText: 'Enter cleaning charges (₹)',
+              prefixIcon: const Icon(Icons.cleaning_services),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+              filled: true,
+              fillColor: Colors.grey[50],
+            ),
+            onChanged: (value) {
+              setState(() {
+                _cleaningCharges = double.tryParse(value) ?? 0.0;
+              });
+            },
+          ),
+          const SizedBox(height: 24),
+
+          // Summary Card
+          if (_deliveryCharges > 0 || _cleaningCharges > 0)
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.blue[50],
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.blue[200]!),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Charges Summary',
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                  ),
+                  const SizedBox(height: 12),
+                  if (_deliveryCharges > 0)
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text('Delivery Charges:'),
+                        Text(
+                          '₹${_deliveryCharges.toStringAsFixed(2)}',
+                          style: const TextStyle(fontWeight: FontWeight.w600),
+                        ),
+                      ],
+                    ),
+                  if (_cleaningCharges > 0) ...[
+                    const SizedBox(height: 8),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text('Cleaning Charges:'),
+                        Text(
+                          '₹${_cleaningCharges.toStringAsFixed(2)}',
+                          style: const TextStyle(fontWeight: FontWeight.w600),
+                        ),
+                      ],
+                    ),
+                  ],
+                  const Divider(height: 24),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text(
+                        'Total Additional Charges:',
+                        style: TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                      Text(
+                        '₹${(_deliveryCharges + _cleaningCharges).toStringAsFixed(2)}',
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                          color: Colors.blue,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStep7Summary() {
     final branchesAsync = ref.watch(branchesStreamProvider);
     final hubsAsync = ref.watch(hubsStreamProvider);
 
@@ -2446,7 +2701,7 @@ class _CreateOperationalScheduleWizardState
             child: const Text('Back'),
           ),
         if (_currentStep == 0) const SizedBox(),
-        if (_currentStep < 5)
+        if (_currentStep < 6)
           ElevatedButton(
             onPressed: _canProceed() ? () => setState(() => _currentStep++) : null,
             style: ElevatedButton.styleFrom(
@@ -2459,7 +2714,7 @@ class _CreateOperationalScheduleWizardState
             ),
             child: const Text('Next'),
           ),
-        if (_currentStep == 5)
+        if (_currentStep == 6)
           ElevatedButton(
             onPressed: (_canSubmit() && !_isCreatingSchedule) ? _submitSchedule : null,
             style: ElevatedButton.styleFrom(
@@ -2488,7 +2743,8 @@ class _CreateOperationalScheduleWizardState
   bool _canProceed() {
     switch (_currentStep) {
       case 0: // Date & Time
-        return _selectedDate != null &&
+        return _scheduleName.trim().isNotEmpty &&
+            _selectedDate != null &&
             (_isFullDay || (_startTime != null && _endTime != null)) &&
             (_recurrenceType == ScheduleRecurrenceType.oneTime ||
                 (_recurrenceType == ScheduleRecurrenceType.daily && _recurrenceEndDate != null) ||
@@ -2506,7 +2762,9 @@ class _CreateOperationalScheduleWizardState
         return (_deliverySlotType == ScheduleRecurrenceType.oneTime && _deliveryDate != null) ||
             (_deliverySlotType == ScheduleRecurrenceType.daily && _deliveryStartTime != null && _deliveryEndTime != null) ||
             (_deliverySlotType == ScheduleRecurrenceType.weekly && _deliveryDaysOfWeek.isNotEmpty && _deliveryStartTime != null && _deliveryEndTime != null);
-      case 5: // Summary
+      case 5: // Charges
+        return true; // Charges are optional
+      case 6: // Summary
         return true;
       default:
         return false;
@@ -2549,7 +2807,7 @@ class _CreateOperationalScheduleWizardState
 
       final schedule = OperationalScheduleModel(
         id: '',
-        scheduleName: _scheduleName.isEmpty ? 'Schedule ${DateFormat('dd/MM/yyyy').format(_selectedDate!)}' : _scheduleName,
+        scheduleName: _scheduleName,
         scheduledDate: _selectedDate!,
         startTime:
             '${_startTime!.hour.toString().padLeft(2, '0')}:${_startTime!.minute.toString().padLeft(2, '0')}',
@@ -2580,6 +2838,9 @@ class _CreateOperationalScheduleWizardState
             ? '${_deliveryEndTime!.hour.toString().padLeft(2, '0')}:${_deliveryEndTime!.minute.toString().padLeft(2, '0')}'
             : null,
         deliveryDaysOfWeek: _deliveryDaysOfWeek,
+        // Charges
+        deliveryCharges: _deliveryCharges,
+        cleaningCharges: _cleaningCharges,
       );
 
       final repository = ref.read(operationalScheduleRepositoryProvider);

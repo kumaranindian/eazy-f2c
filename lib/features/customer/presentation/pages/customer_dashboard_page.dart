@@ -45,6 +45,59 @@ class _CustomerDashboardPageState extends ConsumerState<CustomerDashboardPage> {
     super.dispose();
   }
 
+  // Get display string for delivery date based on schedule type
+  String _getDeliveryDateDisplay(OperationalScheduleModel schedule) {
+    // For one-time schedules, show the full date
+    if (schedule.recurrenceType == ScheduleRecurrenceType.oneTime) {
+      final date = schedule.deliveryDate ?? schedule.scheduledDate;
+      return DateFormat('EEE, dd MMM yyyy').format(date);
+    }
+    
+    // For recurring schedules (daily, weekly, custom days), show day(s) of week
+    if (schedule.recurrenceType == ScheduleRecurrenceType.daily) {
+      return 'Every Day';
+    }
+    
+    if (schedule.recurrenceType == ScheduleRecurrenceType.weekly ||
+        schedule.recurrenceType == ScheduleRecurrenceType.customDays) {
+      final daysOfWeek = schedule.deliveryDaysOfWeek.isNotEmpty 
+          ? schedule.deliveryDaysOfWeek 
+          : schedule.recurrenceDaysOfWeek;
+      
+      if (daysOfWeek.isEmpty) {
+        return 'No delivery days set';
+      }
+      
+      // Convert day numbers to day names
+      // Note: deliveryDaysOfWeek uses 0-6 (Sun-Sat), but handle both 0-6 and 1-7 formats
+      final dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+      final sortedDays = List<int>.from(daysOfWeek)..sort();
+      final dayNamesList = sortedDays.where((day) => day >= 0 && day <= 7).map((day) {
+        // Handle both 0-6 (Sun-Sat) and 1-7 (Mon-Sun) formats
+        // 0 = Sunday, 1 = Monday, ..., 6 = Saturday
+        // 7 = Sunday (alternative format)
+        final index = day == 7 ? 0 : day.clamp(0, 6);
+        return dayNames[index];
+      }).toList();
+      
+      // Format based on number of days
+      if (dayNamesList.length == 1) {
+        return 'Every ${dayNamesList[0]}';
+      } else if (dayNamesList.length == 7) {
+        return 'Every Day';
+      } else if (dayNamesList.length <= 3) {
+        return dayNamesList.join(', ');
+      } else {
+        // Show first 2 days and count
+        return '${dayNamesList[0]}, ${dayNamesList[1]} +${dayNamesList.length - 2} more';
+      }
+    }
+    
+    // Fallback to showing next occurrence date
+    final date = _getNextOccurrenceDate(schedule);
+    return DateFormat('EEE, dd MMM yyyy').format(date);
+  }
+
   // Calculate the next occurrence date for a schedule based on its recurrence type
   DateTime _getNextOccurrenceDate(OperationalScheduleModel schedule) {
     final now = DateTime.now();
@@ -1081,7 +1134,7 @@ class _CustomerDashboardPageState extends ConsumerState<CustomerDashboardPage> {
                     Icon(Icons.calendar_today, size: 14, color: Colors.grey[600]),
                     const SizedBox(width: 4),
                     Text(
-                      DateFormat('EEE, dd MMM yyyy').format(_getNextOccurrenceDate(schedule)),
+                      _getDeliveryDateDisplay(schedule),
                       style: TextStyle(
                         fontSize: 12,
                         color: Colors.grey[700],
