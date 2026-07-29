@@ -5,6 +5,7 @@ echo ========================================
 echo.
 
 echo Step 1: Building Flutter Web for Production...
+cd ..
 call flutter build web --release -t lib/main_prod.dart
 if %errorlevel% neq 0 (
     echo Build failed!
