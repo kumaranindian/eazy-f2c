@@ -45,6 +45,7 @@ import 'package:f2c/features/admin/presentation/widgets/delete_farmer_dialog.dar
 import 'package:f2c/features/admin/presentation/widgets/add_product_dialog.dart';
 import 'package:f2c/features/admin/presentation/widgets/edit_product_dialog.dart';
 import 'package:f2c/features/admin/presentation/widgets/delete_product_dialog.dart';
+import 'package:f2c/features/admin/presentation/widgets/coming_soon_banner.dart';
 import 'package:intl/intl.dart';
 
 enum DateFilterType {
@@ -464,6 +465,33 @@ class _AdminDashboardPageState extends ConsumerState<AdminDashboardPage> {
       return const ProfitReportPage();
     }
 
+    // Show Dashboard - Coming Soon
+    if (_selectedMenu == 'Dashboard') {
+      return const ComingSoonBanner(
+        title: 'Dashboard Analytics',
+        description: 'Comprehensive analytics dashboard with real-time insights, charts, and key performance indicators will be available soon.',
+        icon: Icons.dashboard_outlined,
+      );
+    }
+
+    // Show Reports - Coming Soon
+    if (_selectedMenu == 'Reports') {
+      return const ComingSoonBanner(
+        title: 'Advanced Reports',
+        description: 'Detailed reports including sales analysis, inventory reports, customer insights, and custom report generation will be available soon.',
+        icon: Icons.assessment_outlined,
+      );
+    }
+
+    // Show Notifications - Coming Soon
+    if (_selectedMenu == 'Notifications') {
+      return const ComingSoonBanner(
+        title: 'Notifications Center',
+        description: 'Real-time notifications for orders, deliveries, system alerts, and important updates will be available soon.',
+        icon: Icons.notifications_outlined,
+      );
+    }
+
     // Show Settings page
     if (_selectedMenu == 'Settings') {
       return const AdminSettingsPage();
@@ -474,7 +502,7 @@ class _AdminDashboardPageState extends ConsumerState<AdminDashboardPage> {
       return const AdminTransactionsPage();
     }
 
-    // Dashboard content for other menus
+    // Default content (should not reach here)
     return SingleChildScrollView(
       padding: EdgeInsets.all(isDesktop ? 32 : 16),
       child: Column(

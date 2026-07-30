@@ -206,6 +206,25 @@ service cloud.firestore {
                     && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'location', 'updatedAt']);
     }
     
+    // App Settings - Admin only
+    match /app_settings/{settingId} {
+      // Admin can read and write settings
+      allow read, write: if isAdmin() && isActive();
+    }
+    
+    // Transactions - Admin and related users
+    match /transactions/{transactionId} {
+      // Admin has full access
+      allow read, write: if isAdmin() && isActive();
+      
+      // Users can read their own transactions
+      allow read: if isAuthenticated() 
+                  && isActive()
+                  && (resource.data.userId == request.auth.uid 
+                      || resource.data.customerId == request.auth.uid
+                      || resource.data.farmerId == request.auth.uid);
+    }
+    
     // Default deny all
     match /{document=**} {
       allow read, write: if false;
