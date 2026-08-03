@@ -15,11 +15,12 @@ final systemSetupCheckProvider = FutureProvider<bool>((ref) async {
         .get();
     
     final hasUsers = usersQuery.docs.isNotEmpty;
-    AppLogger.info('System setup check: hasUsers=$hasUsers');
-    return !hasUsers;
+    AppLogger.info('System setup check: hasUsers=$hasUsers, needsSetup=${!hasUsers}');
+    return !hasUsers; // Returns true if no users exist (needs setup)
   } catch (e, stackTrace) {
     AppLogger.error('System setup check error', e, stackTrace);
-    return false;
+    // If there's an error checking, assume setup is needed (safer default)
+    return true;
   }
 });
 
