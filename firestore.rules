@@ -150,46 +150,15 @@ service cloud.firestore {
     
     // Orders - Role-based access
     match /orders/{orderId} {
-      // Admin has full access
-      allow read, write: if isAdmin() && isActive();
+      // ANY authenticated user can create, read, and update orders
+      // Security is enforced at application level:
+      // - customerId is set from Firebase Auth
+      // - App filters orders by customerId
+      // - Cutoff time and status checks in app logic
+      allow create, read, update: if isAuthenticated();
       
-      // ANY authenticated user can create orders (customers, admins, etc.)
-      // This is safe because customerId is set from auth in the app
-      allow create: if isAuthenticated();
-      
-      // ANY authenticated user can read orders
-      // App-level logic filters orders by customerId
-      allow read: if isAuthenticated();
-      
-      // Authenticated users can update their own orders (before cutoff)
-      // App-level logic enforces cutoff time and status checks
-      allow update: if isAuthenticated();
-      
-      // Packaging can read assigned orders
-      allow read: if isAuthenticated() 
-                  && isPackaging() 
-                  && isActive()
-                  && resource.data.packagingAssignedTo == request.auth.uid;
-      
-      // Packaging can update status of assigned orders
-      allow update: if isAuthenticated() 
-                    && isPackaging() 
-                    && isActive()
-                    && resource.data.packagingAssignedTo == request.auth.uid
-                    && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['packagingStatus', 'updatedAt']);
-      
-      // Delivery can read assigned orders
-      allow read: if isAuthenticated() 
-                  && isDelivery() 
-                  && isActive()
-                  && resource.data.deliveryAssignedTo == request.auth.uid;
-      
-      // Delivery can update status of assigned orders
-      allow update: if isAuthenticated() 
-                    && isDelivery() 
-                    && isActive()
-                    && resource.data.deliveryAssignedTo == request.auth.uid
-                    && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['deliveryStatus', 'updatedAt']);
+      // Only admin can delete orders
+      allow delete: if isAdmin() && isActive();
     }
     
     // Deliveries - Role-based access
