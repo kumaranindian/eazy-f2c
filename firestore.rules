@@ -150,15 +150,9 @@ service cloud.firestore {
     
     // Orders - Role-based access
     match /orders/{orderId} {
-      // ANY authenticated user can create, read, and update orders
-      // Security is enforced at application level:
-      // - customerId is set from Firebase Auth
-      // - App filters orders by customerId
-      // - Cutoff time and status checks in app logic
-      allow create, read, update: if isAuthenticated();
-      
-      // Only admin can delete orders
-      allow delete: if isAdmin() && isActive();
+      // TEMPORARY: Allow all authenticated users full access for debugging
+      // TODO: Add proper role-based restrictions after confirming auth works
+      allow read, write: if request.auth != null;
     }
     
     // Deliveries - Role-based access
