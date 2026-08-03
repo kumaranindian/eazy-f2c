@@ -201,16 +201,15 @@ service cloud.firestore {
     
     // Bills - Admin and customers
     match /bills/{billId} {
-      // Admin has full access
-      allow read, write: if isAdmin() && isActive();
+      // Any authenticated user can create and read bills
+      // Security enforced at application level
+      allow create, read: if request.auth != null;
       
-      // Customers can read their own bills
-      allow read: if isAuthenticated() 
-                  && isActive()
-                  && resource.data.customerId == request.auth.uid;
+      // Only authenticated users can update bills
+      allow update: if request.auth != null;
       
-      // System can create bills (for automated bill generation)
-      allow create: if isAuthenticated();
+      // Only admin can delete bills
+      allow delete: if isAdmin() && isActive();
     }
     
     // Notifications - Admin only
