@@ -270,9 +270,14 @@ class OrderModel with _$OrderModel {
   // Calculate grand total (subtotal + charges)
   double get grandTotal => subtotal + deliveryCharges + cleaningCharges;
   
-  // Check if order can be edited (before cutoff time)
+  // Check if order can be edited
+  // Orders can ONLY be edited if:
+  // 1. canEdit flag is true
+  // 2. Status is PENDING (not confirmed, preparing, ready, in_transit, delivered, or cancelled)
+  // 3. Current time is before cutoff time
   bool get isEditable {
     if (!canEdit) return false;
+    // Once order is confirmed or in any other status, editing is disabled
     if (status != OrderStatus.pending) return false;
     if (cutoffDateTime == null) return false;
     return DateTime.now().isBefore(cutoffDateTime!);

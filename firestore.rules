@@ -212,6 +212,12 @@ service cloud.firestore {
       allow read, write: if isAdmin() && isActive();
     }
     
+    // Settings - Admin only (for payment settings, etc.)
+    match /settings/{settingId} {
+      // Admin can read and write settings
+      allow read, write: if isAdmin() && isActive();
+    }
+    
     // Transactions - Admin and related users
     match /transactions/{transactionId} {
       // Admin has full access
@@ -223,6 +229,20 @@ service cloud.firestore {
                   && (resource.data.userId == request.auth.uid 
                       || resource.data.customerId == request.auth.uid
                       || resource.data.farmerId == request.auth.uid);
+    }
+    
+    // Bills - Admin and customers
+    match /bills/{billId} {
+      // Admin has full access
+      allow read, write: if isAdmin() && isActive();
+      
+      // Customers can read their own bills
+      allow read: if isAuthenticated() 
+                  && isActive()
+                  && resource.data.customerId == request.auth.uid;
+      
+      // System can create bills (for automated bill generation)
+      allow create: if isAuthenticated();
     }
     
     // Default deny all

@@ -112,11 +112,11 @@ class _FarmerPackagingListPageState extends ConsumerState<FarmerPackagingListPag
         ),
       );
       
-      // Fetch orders
+      // Fetch only confirmed orders (before packaging starts)
       final snapshot = await FirebaseFirestore.instance
           .collection('orders')
           .where('isDeleted', isEqualTo: false)
-          .where('status', whereIn: ['confirmed', 'preparing', 'ready', 'in_transit', 'delivered'])
+          .where('status', isEqualTo: 'confirmed')
           .get();
 
       final orders = snapshot.docs
@@ -166,7 +166,7 @@ class _FarmerPackagingListPageState extends ConsumerState<FarmerPackagingListPag
       csvBuffer.write('\uFEFF');
       
       // CSV Header
-      csvBuffer.writeln('Farmer Name,Farmer Location,Delivery Date,Schedule Name,Product Name,Product Category,Quantity,Unit,Total Quantity,Total Orders,Total Items');
+      csvBuffer.writeln('Farmer Name,Farmer Location,Delivery Date,Schedule Name,Product Name,Product Category,Unit Quantity,Unit,Total Quantity,Total Orders,Total Items');
 
       // Process each farmer
       for (final farmerId in farmerScheduleOrders.keys) {
@@ -189,6 +189,8 @@ class _FarmerPackagingListPageState extends ConsumerState<FarmerPackagingListPag
           final orderCount = orderIds.length;
 
           // Aggregate products for this farmer in this schedule
+          // NOTE: This report uses ORIGINAL ORDERED quantities from confirmed orders
+          // Packaging variations (actual weights/quantities) do NOT affect this report
           final Map<String, double> productQuantities = {};
           final Map<String, String> productUnits = {};
           final Map<String, String> productNames = {};
@@ -199,6 +201,7 @@ class _FarmerPackagingListPageState extends ConsumerState<FarmerPackagingListPag
             final order = orders.firstWhere((o) => o.id == orderId);
             
             // Only process items from this specific farmer
+            // Using item.quantity (original ordered quantity, not actual packaging quantity)
             for (final item in order.items) {
               if (item.farmerId == farmerId) {
                 final key = '${item.productName}_${item.unit}_${item.productCategory}';
@@ -208,6 +211,7 @@ class _FarmerPackagingListPageState extends ConsumerState<FarmerPackagingListPag
                   productNames[key] = item.productName;
                   productCategories[key] = item.productCategory;
                 }
+                // Add original ordered quantity (not affected by packaging variations)
                 productQuantities[key] = (productQuantities[key] ?? 0) + item.quantity;
               }
             }
@@ -219,12 +223,16 @@ class _FarmerPackagingListPageState extends ConsumerState<FarmerPackagingListPag
           for (final productKey in productQuantities.keys) {
             final productName = productNames[productKey] ?? '';
             final productCategory = productCategories[productKey] ?? '';
-            final quantity = productQuantities[productKey] ?? 0;
+            final aggregatedQuantity = productQuantities[productKey] ?? 0;
             final unit = productUnits[productKey] ?? '';
-            final totalQuantity = quantity; // This is already the aggregated total
+            
+            // Unit Quantity: aggregated quantity value
+            // Total Quantity: aggregated quantity with unit (e.g., "5.5 kg")
+            final unitQuantity = aggregatedQuantity;
+            final totalQuantity = '$aggregatedQuantity $unit';
 
             csvBuffer.writeln(
-              '"$farmerName","$farmerLocation","$deliveryDateStr","$scheduleName","$productName","$productCategory",$quantity,"$unit","$totalQuantity $unit",$orderCount,$itemCount'
+              '"$farmerName","$farmerLocation","$deliveryDateStr","$scheduleName","$productName","$productCategory",$unitQuantity,"$unit","$totalQuantity",$orderCount,$itemCount'
             );
           }
         }
@@ -246,7 +254,7 @@ class _FarmerPackagingListPageState extends ConsumerState<FarmerPackagingListPag
       
       final StringBuffer summaryBuffer = StringBuffer();
       summaryBuffer.write('\uFEFF'); // BOM
-      summaryBuffer.writeln('Farmer Name,Farmer Location,Delivery Date,Schedules,Product Name,Product Category,Quantity,Unit,Total Quantity,Total Orders,Total Items');
+      summaryBuffer.writeln('Farmer Name,Farmer Location,Delivery Date,Schedules,Product Name,Product Category,Unit Quantity,Unit,Total Quantity,Total Orders,Total Items');
       
       // Group by farmer and delivery date
       final Map<String, Map<String, Map<String, dynamic>>> farmerDateSummary = {};
@@ -333,11 +341,16 @@ class _FarmerPackagingListPageState extends ConsumerState<FarmerPackagingListPag
           for (final productKey in products.keys) {
             final productName = productNames[productKey] ?? '';
             final productCategory = productCategories[productKey] ?? '';
-            final quantity = products[productKey] ?? 0;
+            final aggregatedQuantity = products[productKey] ?? 0;
             final unit = productUnits[productKey] ?? '';
             
+            // Unit Quantity: aggregated quantity value
+            // Total Quantity: aggregated quantity with unit (e.g., "5.5 kg")
+            final unitQuantity = aggregatedQuantity;
+            final totalQuantity = '$aggregatedQuantity $unit';
+            
             summaryBuffer.writeln(
-              '"$farmerName","$farmerLocation","$deliveryDateStr","$scheduleNames","$productName","$productCategory",$quantity,"$unit","$quantity $unit",$totalOrders,$totalItems'
+              '"$farmerName","$farmerLocation","$deliveryDateStr","$scheduleNames","$productName","$productCategory",$unitQuantity,"$unit","$totalQuantity",$totalOrders,$totalItems'
             );
           }
         }
@@ -465,7 +478,7 @@ class _FarmerPackagingListPageState extends ConsumerState<FarmerPackagingListPag
       stream: FirebaseFirestore.instance
           .collection('orders')
           .where('isDeleted', isEqualTo: false)
-          .where('status', whereIn: ['confirmed', 'preparing', 'ready', 'in_transit', 'delivered'])
+          .where('status', isEqualTo: 'confirmed')
           .snapshots(),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
@@ -581,6 +594,7 @@ class _FarmerPackagingListPageState extends ConsumerState<FarmerPackagingListPag
 
           for (final order in orders) {
             // Only process items from this specific farmer
+            // Using original ordered quantities (not affected by packaging variations)
             for (final item in order.items) {
               if (item.farmerId == farmerId) {
                 final key = '${item.productName}_${item.unit}_${item.productCategory}';
@@ -590,6 +604,7 @@ class _FarmerPackagingListPageState extends ConsumerState<FarmerPackagingListPag
                   scheduleProductNames[scheduleKey]![key] = item.productName;
                   scheduleProductCategories[scheduleKey]![key] = item.productCategory;
                 }
+                // Add original ordered quantity
                 scheduleProductQuantities[scheduleKey]![key] = (scheduleProductQuantities[scheduleKey]![key] ?? 0) + item.quantity;
               }
             }

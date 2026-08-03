@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
 import 'package:f2c/features/customer/models/order_model.dart';
+import 'package:f2c/features/customer/services/bill_service.dart';
+import 'package:f2c/features/customer/presentation/widgets/bill_view_dialog.dart';
+import 'package:f2c/features/admin/services/whatsapp_notification_service.dart';
 
 class OrderDetailsDialog extends StatelessWidget {
   final OrderModel order;
@@ -28,6 +31,33 @@ class OrderDetailsDialog extends StatelessWidget {
                   style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
                 ),
                 const Spacer(),
+                // Show WhatsApp button only for ready/in_transit/delivered orders
+                if (order.status == OrderStatus.ready || 
+                    order.status == OrderStatus.in_transit || 
+                    order.status == OrderStatus.delivered)
+                  ElevatedButton.icon(
+                    onPressed: () => _sendWhatsAppNotification(context),
+                    icon: const Icon(Icons.send, size: 18),
+                    label: const Text('WhatsApp'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF25D366), // WhatsApp green
+                      foregroundColor: Colors.white,
+                    ),
+                  ),
+                if (order.status == OrderStatus.ready || 
+                    order.status == OrderStatus.in_transit || 
+                    order.status == OrderStatus.delivered)
+                  const SizedBox(width: 8),
+                ElevatedButton.icon(
+                  onPressed: () => _viewBill(context),
+                  icon: const Icon(Icons.receipt, size: 18),
+                  label: const Text('View Bill'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.green[700],
+                    foregroundColor: Colors.white,
+                  ),
+                ),
+                const SizedBox(width: 8),
                 IconButton(
                   icon: const Icon(Icons.close),
                   onPressed: () => Navigator.pop(context),
@@ -410,5 +440,183 @@ class OrderDetailsDialog extends StatelessWidget {
         },
       ),
     );
+  }
+
+  Future<void> _viewBill(BuildContext context) async {
+    try {
+      final billService = BillService();
+      final bill = await billService.getBillByOrderId(order.id);
+      
+      if (bill == null) {
+        if (!context.mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Bill not found for this order'),
+            backgroundColor: Colors.orange,
+          ),
+        );
+        return;
+      }
+      
+      if (!context.mounted) return;
+      showDialog(
+        context: context,
+        builder: (context) => BillViewDialog(bill: bill),
+      );
+    } catch (e) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error loading bill: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
+  Future<void> _sendWhatsAppNotification(BuildContext context) async {
+    // Get customer phone from Firestore
+    String? customerPhone;
+    try {
+      final customerDoc = await FirebaseFirestore.instance
+          .collection('customers')
+          .doc(order.customerId)
+          .get();
+      
+      if (customerDoc.exists) {
+        customerPhone = customerDoc.data()?['phone'] as String?;
+      }
+    } catch (e) {
+      print('Error fetching customer phone: $e');
+    }
+
+    // Show confirmation dialog with options
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Row(
+          children: [
+            Icon(Icons.send, color: Color(0xFF25D366)),
+            SizedBox(width: 12),
+            Text('Send WhatsApp Notification'),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Send order notification to ${order.customerName}?'),
+            const SizedBox(height: 16),
+            Text(
+              'Phone: ${customerPhone ?? "Not available"}',
+              style: const TextStyle(fontSize: 12, color: Colors.grey),
+            ),
+            const SizedBox(height: 16),
+            const Text(
+              'The message will include:',
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+            ),
+            const SizedBox(height: 8),
+            const Text('• Order status and details', style: TextStyle(fontSize: 12)),
+            const Text('• Items list', style: TextStyle(fontSize: 12)),
+            const Text('• Bill summary (if available)', style: TextStyle(fontSize: 12)),
+            const Text('• Delivery information', style: TextStyle(fontSize: 12)),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton.icon(
+            onPressed: () => Navigator.pop(context, true),
+            icon: const Icon(Icons.send, size: 16),
+            label: const Text('Send'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF25D366),
+              foregroundColor: Colors.white,
+            ),
+          ),
+        ],
+      ),
+    );
+
+    if (result != true || !context.mounted) return;
+
+    // Check if phone number is available
+    if (customerPhone == null || customerPhone.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Customer phone number not available'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
+
+    try {
+      // Show loading
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Row(
+            children: [
+              SizedBox(
+                width: 16,
+                height: 16,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                ),
+              ),
+              SizedBox(width: 12),
+              Text('Opening WhatsApp...'),
+            ],
+          ),
+          duration: Duration(seconds: 2),
+        ),
+      );
+
+      // Send notification
+      final whatsappService = WhatsAppNotificationService();
+      final success = await whatsappService.sendPackedOrderNotification(
+        order: order,
+        customerPhone: customerPhone,
+        customerName: order.customerName,
+        includeBill: true,
+      );
+
+      if (!context.mounted) return;
+      
+      if (success) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Row(
+              children: [
+                Icon(Icons.check_circle, color: Colors.white),
+                SizedBox(width: 12),
+                Text('WhatsApp opened successfully!'),
+              ],
+            ),
+            backgroundColor: Color(0xFF25D366),
+          ),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Failed to open WhatsApp'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } catch (e) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
   }
 }

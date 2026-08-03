@@ -182,7 +182,7 @@ class _AdminDashboardPageState extends ConsumerState<AdminDashboardPage> {
                   _buildMenuItem(Icons.local_shipping_outlined, 'Deliveries', _selectedMenu == 'Deliveries'),
                   _buildMenuItem(Icons.assessment_outlined, 'Reports', _selectedMenu == 'Reports'),
                   _buildMenuItem(Icons.account_balance_wallet_outlined, 'Profit Report', _selectedMenu == 'Profit Report'),
-                  _buildMenuItem(Icons.notifications_outlined, 'Notifications', _selectedMenu == 'Notifications', badge: 3),
+                  _buildMenuItem(Icons.notifications_outlined, 'Notifications', _selectedMenu == 'Notifications'),
                   _buildMenuItem(Icons.people_outline, 'Users & Roles', _selectedMenu == 'Users & Roles'),
                   _buildMenuItem(Icons.settings_outlined, 'Settings', _selectedMenu == 'Settings'),
                   _buildMenuItem(Icons.account_balance_wallet_outlined, 'Transactions', _selectedMenu == 'Transactions'),
