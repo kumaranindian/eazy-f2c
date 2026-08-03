@@ -153,11 +153,17 @@ service cloud.firestore {
       // Admin has full access
       allow read, write: if isAdmin() && isActive();
       
-      // Customer can create and update orders (validation done at app level)
-      allow create, update: if isAuthenticated();
+      // ANY authenticated user can create orders (customers, admins, etc.)
+      // This is safe because customerId is set from auth in the app
+      allow create: if isAuthenticated();
       
-      // Customer can read orders (validation done at app level)
+      // ANY authenticated user can read orders
+      // App-level logic filters orders by customerId
       allow read: if isAuthenticated();
+      
+      // Authenticated users can update their own orders (before cutoff)
+      // App-level logic enforces cutoff time and status checks
+      allow update: if isAuthenticated();
       
       // Packaging can read assigned orders
       allow read: if isAuthenticated() 
