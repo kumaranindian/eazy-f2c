@@ -57,12 +57,11 @@ service cloud.firestore {
       allow read: if true;
       
       // Create access:
-      // - Unauthenticated: allowed for first user setup (app logic restricts this)
+      // - IMPORTANT: Allow unauthenticated create for FIRST SUPER ADMIN setup only
+      //   (Application logic in FirstUserSetupNotifier ensures only one user can be created this way)
       // - Super Admin: can create any user
       // - Admin: can create users (except super admin role)
-      allow create: if true || 
-                       (isSuperAdmin() && isActive()) ||
-                       (isAdmin() && isActive() && request.resource.data.role != 'superAdmin');
+      allow create: if true;
       
       // Delete access:
       // - Only super admin can delete users
@@ -243,6 +242,20 @@ service cloud.firestore {
       
       // System can create bills (for automated bill generation)
       allow create: if isAuthenticated();
+    }
+    
+    // Notifications - Admin only
+    match /notifications/{notificationId} {
+      // Admin has full access
+      allow read, write: if isAdmin() && isActive();
+      
+      // System can create notifications (for WhatsApp, SMS, etc.)
+      allow create: if isAuthenticated();
+      
+      // Users can read their own notifications
+      allow read: if isAuthenticated() 
+                  && isActive()
+                  && resource.data.customerId == request.auth.uid;
     }
     
     // Default deny all
