@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:f2c/core/constants/app_constants.dart';
+import 'package:f2c/core/utils/image_url_helper.dart';
 import 'package:f2c/core/widgets/f2c_logo.dart';
 import 'package:f2c/features/authentication/providers/auth_providers.dart';
 import 'package:f2c/features/authentication/models/user_role.dart';
@@ -4535,7 +4536,7 @@ class _ProductManagementContentState extends ConsumerState<_ProductManagementCon
                                             child: ClipRRect(
                                               borderRadius: BorderRadius.circular(7),
                                               child: Image.network(
-                                                product.imageUrl,
+                                                ImageUrlHelper.getSafeImageUrl(product.imageUrl),
                                                 fit: BoxFit.cover,
                                                 errorBuilder: (context, error, stackTrace) {
                                                   return const Icon(Icons.broken_image);

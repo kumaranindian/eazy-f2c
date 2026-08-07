@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:f2c/core/utils/image_url_helper.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:f2c/features/customer/providers/schedule_cart_provider.dart';
@@ -276,7 +277,7 @@ class CartPage extends ConsumerWidget {
           ClipRRect(
             borderRadius: BorderRadius.circular(8),
             child: Image.network(
-              item.imageUrl,
+              ImageUrlHelper.getSafeImageUrl(item.imageUrl),
               width: 60,
               height: 60,
               fit: BoxFit.cover,

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:f2c/core/utils/image_url_helper.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
@@ -560,7 +561,7 @@ class _OrderHistoryPageNewState extends ConsumerState<OrderHistoryPageNew> {
           ClipRRect(
             borderRadius: BorderRadius.circular(8),
             child: Image.network(
-              item.imageUrl,
+              ImageUrlHelper.getSafeImageUrl(item.imageUrl),
               width: 50,
               height: 50,
               fit: BoxFit.cover,

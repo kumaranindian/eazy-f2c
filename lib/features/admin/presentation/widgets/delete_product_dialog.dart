@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:f2c/core/utils/image_url_helper.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:f2c/features/admin/models/product_model.dart';
 import 'package:f2c/features/admin/providers/product_providers.dart';
@@ -96,7 +97,7 @@ class _DeleteProductDialogState extends ConsumerState<DeleteProductDialog> {
                 ClipRRect(
                   borderRadius: BorderRadius.circular(8),
                   child: Image.network(
-                    widget.product.imageUrl,
+                    ImageUrlHelper.getSafeImageUrl(widget.product.imageUrl),
                     width: 60,
                     height: 60,
                     fit: BoxFit.cover,

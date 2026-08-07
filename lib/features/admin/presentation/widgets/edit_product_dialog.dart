@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:f2c/core/utils/image_url_helper.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:f2c/features/admin/models/product_model.dart';
 import 'package:f2c/features/admin/models/category_model.dart';
@@ -630,7 +631,7 @@ class _EditProductDialogState extends ConsumerState<EditProductDialog> {
                             ClipRRect(
                               borderRadius: BorderRadius.circular(11),
                               child: Image.network(
-                                _imageUrl!,
+                                ImageUrlHelper.getSafeImageUrl(_imageUrl),
                                 fit: BoxFit.cover,
                                 errorBuilder: (context, error, stackTrace) {
                                   return const Center(

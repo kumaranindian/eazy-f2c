@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:f2c/core/utils/image_url_helper.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:f2c/features/customer/models/order_model.dart';
@@ -521,7 +522,7 @@ class _AddProductDialogState extends State<_AddProductDialog> {
                           ? ClipRRect(
                               borderRadius: BorderRadius.circular(8),
                               child: Image.network(
-                                product.imageUrl!,
+                                ImageUrlHelper.getSafeImageUrl(product.imageUrl),
                                 width: 50,
                                 height: 50,
                                 fit: BoxFit.cover,
