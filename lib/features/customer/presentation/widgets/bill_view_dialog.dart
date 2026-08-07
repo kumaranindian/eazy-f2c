@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:f2c/features/customer/models/bill_model.dart';
+import 'package:f2c/features/customer/services/pdf_service.dart';
 
 class BillViewDialog extends StatelessWidget {
   final BillModel bill;
@@ -425,7 +426,7 @@ class BillViewDialog extends StatelessWidget {
           Expanded(
             flex: 2,
             child: Text(
-              '${item.orderedQuantity} ${item.orderedUnit}',
+              item.formattedOrderedQuantity,
               style: TextStyle(
                 fontSize: 12,
                 color: item.hasVariation ? Colors.grey[500] : Colors.black87,
@@ -438,9 +439,7 @@ class BillViewDialog extends StatelessWidget {
             Expanded(
               flex: 2,
               child: Text(
-                item.actualQuantity != null
-                    ? '${item.actualQuantity} ${item.actualUnit ?? item.orderedUnit}'
-                    : '-',
+                item.formattedActualQuantity,
                 style: TextStyle(
                   fontSize: 12,
                   fontWeight: item.hasVariation ? FontWeight.bold : FontWeight.normal,
@@ -452,8 +451,8 @@ class BillViewDialog extends StatelessWidget {
           Expanded(
             flex: 2,
             child: Text(
-              '₹${item.finalPrice.toStringAsFixed(2)}',
-              style: const TextStyle(fontSize: 12),
+              '₹${item.finalPrice.toStringAsFixed(2)}/${item.orderedUnit}',
+              style: const TextStyle(fontSize: 11),
               textAlign: TextAlign.right,
             ),
           ),
@@ -674,13 +673,28 @@ class BillViewDialog extends StatelessWidget {
             ),
           ),
           ElevatedButton.icon(
-            onPressed: () {
-              // TODO: Implement PDF download
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('PDF download will be available soon'),
-                ),
-              );
+            onPressed: () async {
+              try {
+                final pdfService = PdfService();
+                await pdfService.downloadBillPdf(bill);
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('PDF downloaded successfully'),
+                      backgroundColor: Colors.green,
+                    ),
+                  );
+                }
+              } catch (e) {
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Error downloading PDF: $e'),
+                      backgroundColor: Colors.red,
+                    ),
+                  );
+                }
+              }
             },
             icon: const Icon(Icons.download),
             label: const Text('Download PDF'),

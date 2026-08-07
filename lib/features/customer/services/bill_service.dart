@@ -171,4 +171,50 @@ class BillService {
       'updatedBy': updatedBy,
     });
   }
+
+  /// Regenerate bill from updated order
+  Future<void> regenerateBillFromOrder({
+    required String orderId,
+    required OrderModel updatedOrder,
+    required String updatedBy,
+  }) async {
+    // Get existing bill
+    final existingBill = await getBillByOrderId(orderId);
+    
+    if (existingBill == null) {
+      return; // No bill to update
+    }
+
+    // Convert updated order items to bill items
+    final billItems = updatedOrder.items.map((orderItem) {
+      return BillItemModel(
+        productId: orderItem.productId,
+        productName: orderItem.productName,
+        farmerId: orderItem.farmerId ?? '',
+        farmerName: orderItem.farmerName ?? 'Unknown',
+        orderedQuantity: orderItem.quantity,
+        orderedUnit: orderItem.unit,
+        orderedPrice: orderItem.price,
+        orderedAmount: orderItem.totalPrice,
+      );
+    }).toList();
+
+    // Calculate new totals
+    final newSubtotal = updatedOrder.totalAmount;
+    final newTotal = newSubtotal + updatedOrder.deliveryCharges + updatedOrder.cleaningCharges;
+
+    // Update the bill
+    await _firestore.collection('bills').doc(existingBill.billId).update({
+      'items': billItems.map((item) => item.toMap()).toList(),
+      'orderedSubtotal': newSubtotal,
+      'orderedTotal': newTotal,
+      'actualSubtotal': newSubtotal, // Reset actual to match ordered
+      'actualTotal': newTotal,
+      'totalVariation': 0.0,
+      'hasVariations': false,
+      'updatedAt': FieldValue.serverTimestamp(),
+      'updatedBy': updatedBy,
+      'generatedAt': FieldValue.serverTimestamp(), // Update generation time
+    });
+  }
 }

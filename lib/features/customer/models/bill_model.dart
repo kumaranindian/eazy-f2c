@@ -42,6 +42,50 @@ class BillItemModel {
   double get finalAmount => actualAmount ?? orderedAmount;
   bool get hasVariation => actualQuantity != null || actualPrice != null;
 
+  // Format quantity for display
+  String _formatQuantity(double quantity, String unit) {
+    final unitLower = unit.toLowerCase();
+    
+    // Parse unit to get base quantity (e.g., "50g" -> 50)
+    final numericMatch = RegExp(r'^(\d+(?:\.\d+)?)\s*([a-z]+)$').firstMatch(unitLower);
+    
+    // For gram-based units (e.g., 50g, 100g, 250g)
+    if (numericMatch != null) {
+      final baseQuantity = double.parse(numericMatch.group(1)!);
+      final baseUnit = numericMatch.group(2)!;
+      
+      if (baseUnit == 'g' || baseUnit == 'gram' || baseUnit == 'grams') {
+        final totalGrams = (quantity * baseQuantity).toInt();
+        return '${totalGrams}g';
+      }
+    }
+    
+    // For kg, show fractions or decimals
+    if (unitLower == 'kg' || unitLower.contains('kilogram')) {
+      if (quantity == 0.25) return '1/4 kg';
+      if (quantity == 0.5) return '1/2 kg';
+      if (quantity == 0.75) return '3/4 kg';
+      if (quantity == quantity.roundToDouble()) {
+        return '${quantity.toInt()} kg';
+      }
+      return '${quantity.toStringAsFixed(2)} kg';
+    }
+    
+    // For discrete units (piece, box, etc.), show whole numbers
+    final discreteUnits = ['box', 'piece', 'bunch', 'packet', 'dozen', 'unit'];
+    if (discreteUnits.contains(unitLower)) {
+      return '${quantity.toInt()}';
+    }
+    
+    // Default: show quantity with unit
+    return '${quantity.toStringAsFixed(2)} $unit';
+  }
+
+  String get formattedOrderedQuantity => _formatQuantity(orderedQuantity, orderedUnit);
+  String get formattedActualQuantity => actualQuantity != null 
+      ? _formatQuantity(actualQuantity!, actualUnit ?? orderedUnit) 
+      : '-';
+
   Map<String, dynamic> toMap() {
     return {
       'productId': productId,

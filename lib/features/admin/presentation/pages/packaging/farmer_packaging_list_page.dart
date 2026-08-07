@@ -29,6 +29,45 @@ class _FarmerPackagingListPageState extends ConsumerState<FarmerPackagingListPag
   int _currentPage = 1;
   final int _itemsPerPage = 10;
 
+  // Format quantity for display
+  String _formatQuantity(double quantity, String unit) {
+    final unitLower = unit.toLowerCase();
+    
+    // Parse unit to get base quantity (e.g., "50g" -> 50)
+    final numericMatch = RegExp(r'^(\d+(?:\.\d+)?)\s*([a-z]+)$').firstMatch(unitLower);
+    
+    // For gram-based units (e.g., 50g, 100g, 250g)
+    if (numericMatch != null) {
+      final baseQuantity = double.parse(numericMatch.group(1)!);
+      final baseUnit = numericMatch.group(2)!;
+      
+      if (baseUnit == 'g' || baseUnit == 'gram' || baseUnit == 'grams') {
+        final totalGrams = (quantity * baseQuantity).toInt();
+        return '${totalGrams}g';
+      }
+    }
+    
+    // For kg, show fractions or decimals
+    if (unitLower == 'kg' || unitLower.contains('kilogram')) {
+      if (quantity == 0.25) return '1/4 kg';
+      if (quantity == 0.5) return '1/2 kg';
+      if (quantity == 0.75) return '3/4 kg';
+      if (quantity == quantity.roundToDouble()) {
+        return '${quantity.toInt()} kg';
+      }
+      return '${quantity.toStringAsFixed(2)} kg';
+    }
+    
+    // For discrete units (piece, box, etc.), show whole numbers
+    final discreteUnits = ['box', 'piece', 'bunch', 'packet', 'dozen', 'unit'];
+    if (discreteUnits.contains(unitLower)) {
+      return '${quantity.toInt()}';
+    }
+    
+    // Default: show quantity with unit
+    return '${quantity.toStringAsFixed(2)} $unit';
+  }
+
   @override
   void initState() {
     super.initState();
@@ -227,9 +266,9 @@ class _FarmerPackagingListPageState extends ConsumerState<FarmerPackagingListPag
             final unit = productUnits[productKey] ?? '';
             
             // Unit Quantity: aggregated quantity value
-            // Total Quantity: aggregated quantity with unit (e.g., "5.5 kg")
+            // Total Quantity: formatted quantity (e.g., "150g", "1.5 kg")
             final unitQuantity = aggregatedQuantity;
-            final totalQuantity = '$aggregatedQuantity $unit';
+            final totalQuantity = _formatQuantity(aggregatedQuantity, unit);
 
             csvBuffer.writeln(
               '"$farmerName","$farmerLocation","$deliveryDateStr","$scheduleName","$productName","$productCategory",$unitQuantity,"$unit","$totalQuantity",$orderCount,$itemCount'
@@ -345,9 +384,9 @@ class _FarmerPackagingListPageState extends ConsumerState<FarmerPackagingListPag
             final unit = productUnits[productKey] ?? '';
             
             // Unit Quantity: aggregated quantity value
-            // Total Quantity: aggregated quantity with unit (e.g., "5.5 kg")
+            // Total Quantity: formatted quantity (e.g., "150g", "1.5 kg")
             final unitQuantity = aggregatedQuantity;
-            final totalQuantity = '$aggregatedQuantity $unit';
+            final totalQuantity = _formatQuantity(aggregatedQuantity, unit);
             
             summaryBuffer.writeln(
               '"$farmerName","$farmerLocation","$deliveryDateStr","$scheduleNames","$productName","$productCategory",$unitQuantity,"$unit","$totalQuantity",$totalOrders,$totalItems'
@@ -868,7 +907,7 @@ class _FarmerPackagingListPageState extends ConsumerState<FarmerPackagingListPag
                                               ),
                                             ),
                                             Text(
-                                              '${entry.value} $unit',
+                                              _formatQuantity(entry.value, unit),
                                               style: TextStyle(
                                                 fontSize: 11,
                                                 fontWeight: FontWeight.w600,
@@ -1023,7 +1062,7 @@ class _FarmerPackagingListPageState extends ConsumerState<FarmerPackagingListPag
                                         ),
                                       ),
                                       Text(
-                                        '${entry.value.toStringAsFixed(2)} $unit',
+                                        _formatQuantity(entry.value, unit),
                                         style: const TextStyle(
                                           fontSize: 12,
                                           fontWeight: FontWeight.w500,

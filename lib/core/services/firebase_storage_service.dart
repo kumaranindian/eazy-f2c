@@ -1,6 +1,6 @@
 import 'dart:typed_data';
 import 'package:firebase_storage/firebase_storage.dart';
-import 'package:f2c/core/utils/logger.dart';
+import 'package:f2c/core/shared/logger/app_logger.dart';
 
 /// Service for handling Firebase Storage operations
 /// Provides methods for uploading, deleting, and managing files in Firebase Storage

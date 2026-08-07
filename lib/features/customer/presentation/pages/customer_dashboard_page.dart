@@ -306,7 +306,64 @@ class _CustomerDashboardPageState extends ConsumerState<CustomerDashboardPage> {
 
   bool _isDiscreteUnit(String unit) {
     final discreteUnits = ['box', 'piece', 'bunch', 'packet', 'dozen', 'unit'];
-    return discreteUnits.contains(unit.toLowerCase());
+    final unitLower = unit.toLowerCase();
+    
+    // Check if it's a discrete unit
+    if (discreteUnits.contains(unitLower)) return true;
+    
+    // Check for gram-based units (e.g., 50g, 100g, 250g)
+    // These should be treated as discrete (increment by whole units)
+    final gramMatch = RegExp(r'^(\d+(?:\.\d+)?)\s*g(?:ram)?s?$').firstMatch(unitLower);
+    if (gramMatch != null) return true;
+    
+    return false;
+  }
+
+  double _getQuantityIncrement(String unit) {
+    final unitLower = unit.toLowerCase();
+    
+    // Discrete units increment by 1
+    if (_isDiscreteUnit(unit)) return 1.0;
+    
+    // Kg and liter increment by 0.25
+    if (unitLower == 'kg' || unitLower.contains('kilogram') || 
+        unitLower == 'l' || unitLower.contains('liter')) {
+      return 0.25;
+    }
+    
+    // Default increment
+    return 0.25;
+  }
+
+  String _formatQuantity(double quantity, String unit) {
+    final unitLower = unit.toLowerCase();
+    
+    // Check for gram-based units (e.g., 50g, 100g, 250g)
+    final gramMatch = RegExp(r'^(\d+(?:\.\d+)?)\s*g(?:ram)?s?$').firstMatch(unitLower);
+    if (gramMatch != null) {
+      final baseGrams = double.parse(gramMatch.group(1)!);
+      final totalGrams = (quantity * baseGrams).toInt();
+      return '${totalGrams}g';
+    }
+    
+    // For kg, show fractions or decimals
+    if (unitLower == 'kg' || unitLower.contains('kilogram')) {
+      if (quantity == 0.25) return '1/4 kg';
+      if (quantity == 0.5) return '1/2 kg';
+      if (quantity == 0.75) return '3/4 kg';
+      if (quantity == quantity.roundToDouble()) {
+        return '${quantity.toInt()} kg';
+      }
+      return '${quantity.toStringAsFixed(2)} kg';
+    }
+    
+    // For discrete units, show whole numbers
+    if (_isDiscreteUnit(unit)) {
+      return quantity.toInt().toString();
+    }
+    
+    // Default: show with 2 decimals
+    return quantity.toStringAsFixed(2);
   }
 
   void _showMobileCart() {
@@ -1216,7 +1273,7 @@ class _CustomerDashboardPageState extends ConsumerState<CustomerDashboardPage> {
     final quantity = cartItem?.quantity ?? 0.0;
     final inCart = quantity > 0;
     final isDiscreteUnit = cartItem?.isDiscreteUnit ?? _isDiscreteUnit(product.unit);
-    final quantityIncrement = cartItem?.quantityIncrement ?? (isDiscreteUnit ? 1.0 : 0.25);
+    final quantityIncrement = cartItem?.quantityIncrement ?? _getQuantityIncrement(product.unit);
     final isPastCutoff = _isPastCutoff(schedule);
 
     return Row(
@@ -1376,7 +1433,7 @@ class _CustomerDashboardPageState extends ConsumerState<CustomerDashboardPage> {
                 },
               ),
               Text(
-                isDiscreteUnit ? quantity.toInt().toString() : quantity.toStringAsFixed(2),
+                _formatQuantity(quantity, product.unit),
                 style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
               ),
               IconButton(

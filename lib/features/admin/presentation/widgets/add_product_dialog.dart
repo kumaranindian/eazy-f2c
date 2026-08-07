@@ -238,26 +238,6 @@ class _AddProductDialogState extends ConsumerState<AddProductDialog> {
     }
   }
 
-  void _showImagePicker() {
-    showDialog(
-      context: context,
-      builder: (context) => Dialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        child: SizedBox(
-          width: 800,
-          height: 500,
-          child: UnsplashImagePicker(
-            initialImageUrl: _imageUrl,
-            onImageSelected: (url) {
-              setState(() {
-                _imageUrl = url;
-              });
-            },
-          ),
-        ),
-      ),
-    );
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -983,11 +963,8 @@ class _AddProductDialogState extends ConsumerState<AddProductDialog> {
                   _buildSummaryItem('Price', _priceController.text),
                   _buildSummaryItem('Profit Margin', _profitMarginController.text),
                   _buildSummaryItem('Stock', _stockController.text),
-                  _buildSummaryItem('Image Source', _imageSource == 'unsplash' ? 'Unsplash' : 'Google Drive'),
-                  if (_imageUrl != null && _imageSource == 'unsplash')
-                    _buildSummaryItem('Image URL', _imageUrl!, maxLines: 2),
-                  if (_gDriveUrlController.text.isNotEmpty && _imageSource == 'gdrive')
-                    _buildSummaryItem('GDrive URL', _gDriveUrlController.text, maxLines: 2),
+                  if (_imageUrl != null)
+                    _buildSummaryItem('Image', 'Uploaded', maxLines: 2),
                   _buildSummaryItem('Category', _isCreatingNewCategory ? _newCategoryController.text : _selectedCategoryId ?? 'Not selected'),
                   _buildSummaryItem('Unit', _isCreatingNewUnit ? _newUnitController.text : _selectedUnitId ?? 'Not selected'),
                   _buildSummaryItem('Farmer', _selectedFarmerId ?? 'Not selected'),

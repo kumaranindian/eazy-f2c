@@ -48,7 +48,17 @@ class CartItemModel with _$CartItemModel {
   // Check if unit is discrete (whole numbers only)
   bool get isDiscreteUnit {
     final discreteUnits = ['box', 'piece', 'bunch', 'packet', 'dozen', 'unit'];
-    return discreteUnits.contains(unit.toLowerCase());
+    final unitLower = unit.toLowerCase();
+    
+    // Check if it's a discrete unit
+    if (discreteUnits.contains(unitLower)) return true;
+    
+    // Check for gram-based units (e.g., 50g, 100g, 250g)
+    // These should be treated as discrete (increment by whole units)
+    final gramMatch = RegExp(r'^(\d+(?:\.\d+)?)\s*g(?:ram)?s?$').firstMatch(unitLower);
+    if (gramMatch != null) return true;
+    
+    return false;
   }
 
   // Get minimum quantity increment based on unit type

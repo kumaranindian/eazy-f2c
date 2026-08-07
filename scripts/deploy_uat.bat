@@ -5,7 +5,7 @@ echo ========================================
 echo.
 
 echo Step 1: Building Flutter Web for UAT...
-cd ..
+cd /d "%~dp0.."
 call flutter build web --release -t lib/main_uat.dart
 if %errorlevel% neq 0 (
     echo Build failed!
@@ -30,12 +30,21 @@ if %errorlevel% neq 0 (
 )
 
 echo.
+echo Step 4: Deploying Storage Rules...
+call firebase deploy --only storage
+if %errorlevel% neq 0 (
+    echo Storage deployment failed!
+    exit /b %errorlevel%
+)
+
+echo.
 echo ========================================
 echo   UAT Deployment Complete!
 echo ========================================
 echo   - Web App Deployed
 echo   - Firestore Rules Updated
 echo   - Firestore Indexes Updated
+echo   - Storage Rules Updated
 echo ========================================
 echo.
 call firebase open hosting:site

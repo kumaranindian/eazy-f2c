@@ -2,9 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:f2c/core/utils/image_url_helper.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:f2c/features/customer/models/order_model.dart';
 import 'package:f2c/features/admin/models/product_model.dart';
 import 'package:f2c/features/admin/providers/product_providers.dart';
+import 'package:f2c/features/customer/services/bill_service.dart';
 
 class EditOrderDialog extends ConsumerStatefulWidget {
   final OrderModel order;
@@ -406,20 +408,30 @@ class _EditOrderDialogState extends ConsumerState<EditOrderDialog> {
 
     try {
       final orderRef = FirebaseFirestore.instance.collection('orders').doc(widget.order.id);
+      final currentUser = FirebaseAuth.instance.currentUser;
       
       final updatedOrder = widget.order.copyWith(
         items: _items,
         totalAmount: _calculateSubtotal(),
       );
 
+      // Update the order
       await orderRef.update(updatedOrder.toFirestore());
+
+      // Regenerate the bill with updated order items
+      final billService = BillService();
+      await billService.regenerateBillFromOrder(
+        orderId: widget.order.id,
+        updatedOrder: updatedOrder,
+        updatedBy: currentUser?.uid ?? 'admin',
+      );
 
       if (!mounted) return;
 
       Navigator.pop(context, true);
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Order updated successfully'),
+          content: Text('Order and bill updated successfully'),
           backgroundColor: Colors.green,
         ),
       );

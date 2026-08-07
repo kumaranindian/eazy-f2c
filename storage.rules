@@ -26,9 +26,15 @@ service firebase.storage {
       allow write: if (isOwner(userId) || isAdmin()) && isValidImage();
     }
     
-    // Product images
+    // Product images - public read, authenticated write/delete
+    match /product_images/{fileName} {
+      allow read: if true;  // Public read for product images
+      allow write, delete: if isAuthenticated();  // Authenticated users can upload/delete
+    }
+    
+    // Legacy product images path (for backward compatibility)
     match /products/{productId}/{fileName} {
-      allow read: if isAuthenticated();
+      allow read: if true;
       allow write: if isAdmin() && isValidImage();
     }
     

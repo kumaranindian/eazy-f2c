@@ -417,14 +417,15 @@ class OrderDetailsDialog extends StatelessWidget {
                 ),
                 Expanded(
                   child: Text(
-                    '${item.quantity} ${item.unit}',
+                    item.formattedQuantity,
                     textAlign: TextAlign.center,
                   ),
                 ),
                 Expanded(
                   child: Text(
-                    '₹${item.price.toStringAsFixed(2)}',
+                    '₹${item.price.toStringAsFixed(2)}/${item.unit}',
                     textAlign: TextAlign.right,
+                    style: const TextStyle(fontSize: 12),
                   ),
                 ),
                 Expanded(

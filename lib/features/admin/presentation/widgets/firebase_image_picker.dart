@@ -1,8 +1,9 @@
 import 'dart:typed_data';
+import 'dart:html' as html;
 import 'package:flutter/material.dart';
-import 'package:file_picker/file_picker.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:f2c/core/services/firebase_storage_service.dart';
-import 'package:f2c/core/utils/logger.dart';
+import 'package:f2c/core/shared/logger/app_logger.dart';
 
 /// Widget for picking and uploading images to Firebase Storage
 /// Provides a clean UI for image selection and upload progress
@@ -41,22 +42,19 @@ class _FirebaseImagePickerState extends State<FirebaseImagePicker> {
 
   Future<void> _pickAndUploadImage() async {
     try {
-      // Pick image file
-      final result = await FilePicker.platform.pickFiles(
-        type: FileType.image,
-        allowMultiple: false,
-        withData: true,
-      );
+      // Create file input element for web
+      final html.FileUploadInputElement uploadInput = html.FileUploadInputElement();
+      uploadInput.accept = 'image/jpeg,image/jpg,image/png,image/gif,image/webp';
+      uploadInput.click();
 
-      if (result == null || result.files.isEmpty) {
+      // Wait for file selection
+      await uploadInput.onChange.first;
+
+      if (uploadInput.files == null || uploadInput.files!.isEmpty) {
         return;
       }
 
-      final file = result.files.first;
-      if (file.bytes == null) {
-        _showError('Failed to read image file');
-        return;
-      }
+      final html.File file = uploadInput.files!.first;
 
       // Validate file size (max 5MB)
       if (file.size > 5 * 1024 * 1024) {
@@ -65,17 +63,26 @@ class _FirebaseImagePickerState extends State<FirebaseImagePicker> {
       }
 
       // Validate file type
-      final allowedExtensions = ['jpg', 'jpeg', 'png', 'gif', 'webp'];
-      final extension = file.extension?.toLowerCase();
-      if (extension == null || !allowedExtensions.contains(extension)) {
+      final allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
+      if (!allowedTypes.contains(file.type)) {
         _showError('Please select a valid image file (JPG, PNG, GIF, or WebP)');
         return;
       }
 
       setState(() {
-        _selectedImageBytes = file.bytes;
         _isUploading = true;
         _uploadProgress = 0.0;
+      });
+
+      // Read file as bytes
+      final reader = html.FileReader();
+      reader.readAsArrayBuffer(file);
+      await reader.onLoad.first;
+
+      final Uint8List bytes = reader.result as Uint8List;
+
+      setState(() {
+        _selectedImageBytes = bytes;
       });
 
       // Generate unique file name
@@ -83,7 +90,7 @@ class _FirebaseImagePickerState extends State<FirebaseImagePicker> {
 
       // Upload to Firebase Storage
       final downloadUrl = await _storageService.uploadFile(
-        bytes: file.bytes!,
+        bytes: bytes,
         fileName: fileName,
         folder: widget.folder,
       );
@@ -176,24 +183,17 @@ class _FirebaseImagePickerState extends State<FirebaseImagePicker> {
       children: [
         ClipRRect(
           borderRadius: BorderRadius.circular(11),
-          child: Image.network(
-            _imageUrl!,
+          child: CachedNetworkImage(
+            imageUrl: _imageUrl!,
             fit: BoxFit.cover,
-            loadingBuilder: (context, child, loadingProgress) {
-              if (loadingProgress == null) return child;
-              return Center(
-                child: CircularProgressIndicator(
-                  value: loadingProgress.expectedTotalBytes != null
-                      ? loadingProgress.cumulativeBytesLoaded /
-                          loadingProgress.expectedTotalBytes!
-                      : null,
-                ),
-              );
-            },
-            errorBuilder: (context, error, stackTrace) {
-              return const Center(
-                child: Icon(Icons.broken_image, size: 48, color: Colors.grey),
-              );
+            placeholder: (context, url) => const Center(
+              child: CircularProgressIndicator(),
+            ),
+            errorWidget: (context, url, error) => const Center(
+              child: Icon(Icons.broken_image, size: 48, color: Colors.grey),
+            ),
+            httpHeaders: const {
+              'Access-Control-Allow-Origin': '*',
             },
           ),
         ),
