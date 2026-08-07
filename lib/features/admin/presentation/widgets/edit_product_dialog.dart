@@ -9,7 +9,7 @@ import 'package:f2c/features/admin/providers/product_providers.dart';
 import 'package:f2c/features/admin/providers/category_providers.dart';
 import 'package:f2c/features/admin/providers/farmer_providers.dart';
 import 'package:f2c/features/admin/providers/unit_providers.dart';
-import 'package:f2c/features/admin/presentation/widgets/unsplash_image_picker.dart';
+import 'package:f2c/features/admin/presentation/widgets/firebase_image_picker.dart';
 import 'package:f2c/features/authentication/providers/auth_providers.dart';
 
 class EditProductDialog extends ConsumerStatefulWidget {
@@ -34,7 +34,6 @@ class _EditProductDialogState extends ConsumerState<EditProductDialog> {
   late TextEditingController _newUnitController;
   late TextEditingController _newCategoryController;
   late TextEditingController _stockController;
-  late TextEditingController _gDriveUrlController;
   String? _selectedCategoryId;
   String? _selectedFarmerId;
   String? _selectedUnitId;
@@ -43,7 +42,6 @@ class _EditProductDialogState extends ConsumerState<EditProductDialog> {
   bool _isLoading = false;
   bool _isCreatingNewCategory = false;
   bool _isCreatingNewUnit = false;
-  String _imageSource = 'unsplash'; // 'unsplash' or 'gdrive'
   int _currentStep = 0;
   final int _totalSteps = 5;
 
@@ -61,14 +59,6 @@ class _EditProductDialogState extends ConsumerState<EditProductDialog> {
     _selectedFarmerId = widget.product.farmerId;
     _imageUrl = widget.product.imageUrl;
     _isActive = widget.product.isActive;
-    
-    // Detect if current image is from Google Drive
-    if (_imageUrl != null && _imageUrl!.contains('drive.google.com')) {
-      _imageSource = 'gdrive';
-      _gDriveUrlController = TextEditingController(text: _imageUrl);
-    } else {
-      _gDriveUrlController = TextEditingController();
-    }
     
     // Initialize category and unit IDs after first frame
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -118,34 +108,20 @@ class _EditProductDialogState extends ConsumerState<EditProductDialog> {
     _newUnitController.dispose();
     _newCategoryController.dispose();
     _stockController.dispose();
-    _gDriveUrlController.dispose();
     super.dispose();
   }
 
   Future<void> _handleSubmit() async {
     if (!_formKey.currentState!.validate()) return;
 
-    if (_imageSource == 'gdrive') {
-      if (_gDriveUrlController.text.trim().isEmpty) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Please enter Google Drive URL'),
-            backgroundColor: Colors.red,
-          ),
-        );
-        return;
-      }
-      _imageUrl = _gDriveUrlController.text.trim();
-    } else {
-      if (_imageUrl == null || _imageUrl!.isEmpty) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Please select an image'),
-            backgroundColor: Colors.red,
-          ),
-        );
-        return;
-      }
+    if (_imageUrl == null || _imageUrl!.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please upload a product image'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
     }
 
     if (!_isCreatingNewCategory && (_selectedCategoryId == null || _selectedCategoryId!.isEmpty)) {
@@ -577,145 +553,49 @@ class _EditProductDialogState extends ConsumerState<EditProductDialog> {
             'Product Image',
             style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
           ),
-          const SizedBox(height: 16),
-          
-          // Image Source Selection
-          Row(
-            children: [
-              Expanded(
-                child: SegmentedButton<String>(
-                  segments: const [
-                    ButtonSegment(
-                      value: 'unsplash',
-                      label: Text('Unsplash'),
-                      icon: Icon(Icons.image),
-                    ),
-                    ButtonSegment(
-                      value: 'gdrive',
-                      label: Text('Google Drive'),
-                      icon: Icon(Icons.cloud),
-                    ),
-                  ],
-                  selected: {_imageSource},
-                  onSelectionChanged: (Set<String> newSelection) {
-                    setState(() {
-                      _imageSource = newSelection.first;
-                      if (_imageSource == 'gdrive') {
-                        _gDriveUrlController.text = _imageUrl ?? '';
-                      } else {
-                        _gDriveUrlController.clear();
-                      }
-                    });
-                  },
-                ),
-              ),
-            ],
+          const SizedBox(height: 8),
+          const Text(
+            'Upload a high-quality image of your product',
+            style: TextStyle(fontSize: 14, color: Colors.grey),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 24),
           
-          // Image Selection
-          if (_imageSource == 'unsplash')
-            Column(
+          // Firebase Image Picker
+          Center(
+            child: FirebaseImagePicker(
+              initialImageUrl: _imageUrl,
+              onImageSelected: (url) {
+                setState(() {
+                  _imageUrl = url;
+                });
+              },
+              folder: 'product_images',
+              width: 400,
+              height: 400,
+            ),
+          ),
+          
+          const SizedBox(height: 16),
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.blue[50],
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: Colors.blue[200]!),
+            ),
+            child: Row(
               children: [
-                Container(
-                  height: 200,
-                  decoration: BoxDecoration(
-                    color: Colors.grey[100],
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: Colors.grey[300]!),
+                Icon(Icons.info_outline, color: Colors.blue[700], size: 20),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    'Supported formats: JPG, PNG, GIF, WebP. Maximum size: 5MB',
+                    style: TextStyle(color: Colors.blue[900], fontSize: 12),
                   ),
-                  child: _imageUrl != null
-                      ? Stack(
-                          fit: StackFit.expand,
-                          children: [
-                            ClipRRect(
-                              borderRadius: BorderRadius.circular(11),
-                              child: Image.network(
-                                ImageUrlHelper.getSafeImageUrl(_imageUrl),
-                                fit: BoxFit.cover,
-                                errorBuilder: (context, error, stackTrace) {
-                                  return const Center(
-                                    child: Icon(Icons.broken_image, size: 48),
-                                  );
-                                },
-                              ),
-                            ),
-                            Positioned(
-                              top: 8,
-                              right: 8,
-                              child: IconButton(
-                                icon: const Icon(Icons.edit, color: Colors.white),
-                                style: IconButton.styleFrom(
-                                  backgroundColor: Colors.black54,
-                                ),
-                                onPressed: _showImagePicker,
-                              ),
-                            ),
-                          ],
-                        )
-                      : Center(
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(Icons.add_photo_alternate, size: 48, color: Colors.grey[400]),
-                              const SizedBox(height: 8),
-                              Text(
-                                'Select Image',
-                                style: TextStyle(color: Colors.grey[600]),
-                              ),
-                            ],
-                          ),
-                        ),
-                ),
-                const SizedBox(height: 8),
-                TextButton.icon(
-                  onPressed: _showImagePicker,
-                  icon: const Icon(Icons.image),
-                  label: const Text('Choose from Unsplash'),
-                ),
-              ],
-            )
-          else
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                if (_gDriveUrlController.text.isNotEmpty)
-                  Container(
-                    height: 200,
-                    decoration: BoxDecoration(
-                      color: Colors.grey[100],
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: Colors.grey[300]!),
-                    ),
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(11),
-                      child: Image.network(
-                        _gDriveUrlController.text,
-                        fit: BoxFit.cover,
-                        errorBuilder: (context, error, stackTrace) {
-                          return const Center(
-                            child: Icon(Icons.broken_image, size: 48),
-                          );
-                        },
-                      ),
-                    ),
-                  ),
-                const SizedBox(height: 8),
-                TextFormField(
-                  controller: _gDriveUrlController,
-                  decoration: const InputDecoration(
-                    labelText: 'Google Drive Image URL *',
-                    hintText: 'https://drive.google.com/...',
-                    border: OutlineInputBorder(),
-                    prefixIcon: Icon(Icons.link),
-                    helperText: 'Paste the Google Drive image URL here',
-                  ),
-                  onChanged: (value) {
-                    setState(() {});
-                  },
                 ),
               ],
             ),
+          ),
         ],
       ),
     );
