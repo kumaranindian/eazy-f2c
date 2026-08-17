@@ -30,9 +30,60 @@ class _AddCustomerDialogState extends ConsumerState<AddCustomerDialog> {
   String? _selectedBranchName;
   bool _isActive = true;
   bool _isLoading = false;
+  bool _obscurePassword = true;
+
+  @override
+  void initState() {
+    super.initState();
+    // Listen to email changes to auto-populate username
+    _emailController.addListener(_onEmailChanged);
+    // Listen to phone changes to update default password
+    _phoneController.addListener(_onPhoneChanged);
+  }
+
+  void _onEmailChanged() {
+    final email = _emailController.text.trim();
+    if (email.isNotEmpty) {
+      // Auto-populate username with email
+      _usernameController.text = email;
+      _generateDefaultPassword();
+    }
+  }
+
+  void _onPhoneChanged() {
+    _generateDefaultPassword();
+  }
+
+  void _generateDefaultPassword() {
+    final email = _emailController.text.trim();
+    final phone = _phoneController.text.trim();
+    
+    if (email.isNotEmpty && phone.isNotEmpty) {
+      // Get first 4 characters from email (before @)
+      final emailPart = email.split('@')[0];
+      final first4Chars = emailPart.length >= 4 
+          ? emailPart.substring(0, 4) 
+          : emailPart.padRight(4, '0');
+      
+      // Capitalize first letter
+      final capitalizedPart = first4Chars[0].toUpperCase() + first4Chars.substring(1).toLowerCase();
+      
+      // Get last 5 digits of phone
+      final phoneDigits = phone.replaceAll(RegExp(r'\D'), ''); // Remove non-digits
+      final last5Digits = phoneDigits.length >= 5 
+          ? phoneDigits.substring(phoneDigits.length - 5) 
+          : phoneDigits.padLeft(5, '0');
+      
+      // Format: First4Char@Last5Digits
+      final defaultPassword = '$capitalizedPart@$last5Digits';
+      _passwordController.text = defaultPassword;
+    }
+  }
 
   @override
   void dispose() {
+    _emailController.removeListener(_onEmailChanged);
+    _phoneController.removeListener(_onPhoneChanged);
     _nameController.dispose();
     _phoneController.dispose();
     _alternativePhoneController.dispose();
@@ -224,10 +275,13 @@ class _AddCustomerDialogState extends ConsumerState<AddCustomerDialog> {
                 controller: _usernameController,
                 decoration: const InputDecoration(
                   labelText: 'Username (for login) *',
-                  hintText: 'Enter username',
+                  hintText: 'Auto-populated from email',
                   border: OutlineInputBorder(),
                   prefixIcon: Icon(Icons.person_outline),
+                  helperText: 'Username is same as email',
                 ),
+                readOnly: true,
+                enabled: false,
                 validator: (value) {
                   if (value == null || value.trim().isEmpty) {
                     return 'Username is required';
@@ -241,13 +295,25 @@ class _AddCustomerDialogState extends ConsumerState<AddCustomerDialog> {
               const SizedBox(height: 16),
               TextFormField(
                 controller: _passwordController,
-                decoration: const InputDecoration(
+                decoration: InputDecoration(
                   labelText: 'Password (for login) *',
-                  hintText: 'Enter password',
-                  border: OutlineInputBorder(),
-                  prefixIcon: Icon(Icons.lock_outline),
+                  hintText: 'Auto-generated or edit manually',
+                  border: const OutlineInputBorder(),
+                  prefixIcon: const Icon(Icons.lock_outline),
+                  suffixIcon: IconButton(
+                    icon: Icon(
+                      _obscurePassword ? Icons.visibility_off : Icons.visibility,
+                    ),
+                    onPressed: () {
+                      setState(() {
+                        _obscurePassword = !_obscurePassword;
+                      });
+                    },
+                  ),
+                  helperText: 'Format: First4Char@Last5Digits (editable)',
+                  helperMaxLines: 2,
                 ),
-                obscureText: true,
+                obscureText: _obscurePassword,
                 validator: (value) {
                   if (value == null || value.trim().isEmpty) {
                     return 'Password is required';
