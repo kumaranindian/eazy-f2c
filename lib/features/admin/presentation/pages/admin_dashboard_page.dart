@@ -2895,25 +2895,6 @@ class _OperationalScheduleContentState extends ConsumerState<_OperationalSchedul
   DateTime? _customEndDate;
   int _currentPage = 1;
   final int _itemsPerPage = 10;
-  final Set<String> _expandedScheduleIds = {};
-  final Map<String, List<OperationalScheduleModel>> _childSchedulesCache = {};
-
-  Future<void> _fetchChildSchedules(String parentId) async {
-    if (_childSchedulesCache.containsKey(parentId)) return;
-
-    try {
-      final repository = ref.read(operationalScheduleRepositoryProvider);
-      final allSchedules = await repository.getSchedules();
-      final childSchedules = allSchedules
-          .where((s) => s.parentScheduleId == parentId && !s.isDeleted)
-          .toList();
-      setState(() {
-        _childSchedulesCache[parentId] = childSchedules;
-      });
-    } catch (e) {
-      print('Error fetching child schedules: $e');
-    }
-  }
 
   DateTimeRange _getDateRange() {
     final now = DateTime.now();
@@ -3327,11 +3308,9 @@ class _OperationalScheduleContentState extends ConsumerState<_OperationalSchedul
                 // Apply filters
                 List<OperationalScheduleModel> filteredSchedules = schedules
                     .where((s) => !s.isDeleted)
-                    .where((s) => s.parentScheduleId == null || s.parentScheduleId!.isEmpty)
                     .toList();
 
-                print('DEBUG: Total schedules fetched: ${schedules.length}');
-                print('DEBUG: After deleted and parent filter: ${filteredSchedules.length}');
+                print('DEBUG: After deleted filter: ${filteredSchedules.length}');
 
                 if (_selectedStatusFilter != null) {
                   if (_selectedStatusFilter == 'active') {
@@ -3476,18 +3455,6 @@ class _OperationalScheduleContentState extends ConsumerState<_OperationalSchedul
                             final isDeleted = schedule.isDeleted;
                             
                             return ExpansionTile(
-                                onExpansionChanged: (isExpanded) {
-                                  if (isExpanded && schedule.recurrenceType != ScheduleRecurrenceType.oneTime) {
-                                    _fetchChildSchedules(schedule.id);
-                                    setState(() {
-                                      _expandedScheduleIds.add(schedule.id);
-                                    });
-                                  } else if (!isExpanded) {
-                                    setState(() {
-                                      _expandedScheduleIds.remove(schedule.id);
-                                    });
-                                  }
-                                },
                                 leading: Container(
                                   width: 60,
                                   height: 60,
@@ -3691,68 +3658,6 @@ class _OperationalScheduleContentState extends ConsumerState<_OperationalSchedul
                                                 ),
                                               ),
                                             )),
-                                        if (schedule.recurrenceType != ScheduleRecurrenceType.oneTime &&
-                                            _expandedScheduleIds.contains(schedule.id)) ...[
-                                          const Divider(),
-                                          const SizedBox(height: 12),
-                                          Text(
-                                            'Child Schedules (${_childSchedulesCache[schedule.id]?.length ?? 0})',
-                                            style: const TextStyle(
-                                              fontWeight: FontWeight.bold,
-                                              fontSize: 14,
-                                            ),
-                                          ),
-                                          const SizedBox(height: 12),
-                                          if (_childSchedulesCache[schedule.id] == null)
-                                            const Center(child: CircularProgressIndicator())
-                                          else if (_childSchedulesCache[schedule.id]!.isEmpty)
-                                            const Text('No child schedules found')
-                                          else
-                                            ...(_childSchedulesCache[schedule.id]!.map((child) {
-                                              return Padding(
-                                                padding: const EdgeInsets.only(bottom: 8),
-                                                child: Container(
-                                                  padding: const EdgeInsets.all(12),
-                                                  decoration: BoxDecoration(
-                                                    color: Colors.grey[50],
-                                                    borderRadius: BorderRadius.circular(8),
-                                                    border: Border.all(color: Colors.grey[200]!),
-                                                  ),
-                                                  child: Row(
-                                                    children: [
-                                                      Icon(Icons.event, size: 16, color: Colors.grey[600]),
-                                                      const SizedBox(width: 8),
-                                                      Text(
-                                                        DateFormat('dd/MM/yyyy').format(child.scheduledDate),
-                                                        style: const TextStyle(fontWeight: FontWeight.w500),
-                                                      ),
-                                                      const SizedBox(width: 16),
-                                                      Text(
-                                                        '${child.startTime} - ${child.endTime}',
-                                                        style: TextStyle(color: Colors.grey[600]),
-                                                      ),
-                                                      const Spacer(),
-                                                      Container(
-                                                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                                        decoration: BoxDecoration(
-                                                          color: _getStatusColor(child.status).withOpacity(0.1),
-                                                          borderRadius: BorderRadius.circular(12),
-                                                        ),
-                                                        child: Text(
-                                                          child.statusCategoryDisplay,
-                                                          style: TextStyle(
-                                                            color: _getStatusColor(child.status),
-                                                            fontSize: 11,
-                                                            fontWeight: FontWeight.bold,
-                                                          ),
-                                                        ),
-                                                      ),
-                                                    ],
-                                                  ),
-                                                ),
-                                              );
-                                            }).toList()),
-                                        ],
                                       ],
                                     ),
                                   ),
