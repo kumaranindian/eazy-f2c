@@ -6,11 +6,11 @@ import 'package:f2c/features/customer/models/order_model.dart';
 import 'package:f2c/features/admin/presentation/widgets/order_details_dialog.dart';
 import 'package:f2c/features/admin/providers/hub_providers.dart';
 
-// Provider for packaging orders (confirmed status)
+// Provider for packaging orders (confirmed and preparing status)
 final packagingOrdersProvider = StreamProvider.autoDispose<List<OrderModel>>((ref) {
   return FirebaseFirestore.instance
       .collection('orders')
-      .where('status', isEqualTo: 'confirmed')
+      .where('status', whereIn: ['confirmed', 'preparing'])
       .where('isDeleted', isEqualTo: false)
       .orderBy('createdAt', descending: false)
       .snapshots()
@@ -19,11 +19,11 @@ final packagingOrdersProvider = StreamProvider.autoDispose<List<OrderModel>>((re
   });
 });
 
-// Provider for in-progress packaging orders
+// Provider for ready/packed orders (ready for delivery)
 final inProgressPackagingProvider = StreamProvider.autoDispose<List<OrderModel>>((ref) {
   return FirebaseFirestore.instance
       .collection('orders')
-      .where('status', isEqualTo: 'preparing')
+      .where('status', isEqualTo: 'ready')
       .where('isDeleted', isEqualTo: false)
       .orderBy('createdAt', descending: false)
       .snapshots()
@@ -613,13 +613,17 @@ class _AdminPackagingPageState extends ConsumerState<AdminPackagingPage> {
     Color bgColor;
     
     switch (status.toLowerCase()) {
+      case 'pending':
+        color = const Color(0xFF2196F3);
+        bgColor = const Color(0xFF2196F3).withOpacity(0.1);
+        break;
+      case 'preparing':
+        color = const Color(0xFFFFC107);
+        bgColor = const Color(0xFFFFC107).withOpacity(0.1);
+        break;
       case 'packed':
         color = const Color(0xFF4CAF50);
         bgColor = const Color(0xFF4CAF50).withOpacity(0.1);
-        break;
-      case 'pending':
-        color = const Color(0xFFFFC107);
-        bgColor = const Color(0xFFFFC107).withOpacity(0.1);
         break;
       case 'notified':
         color = const Color(0xFF9C27B0);
@@ -669,7 +673,18 @@ class _AdminPackagingPageState extends ConsumerState<AdminPackagingPage> {
               ),
               child: const Text('Start', style: TextStyle(fontSize: 12)),
             )
-          else
+          else if (status == 'Preparing')
+            ElevatedButton(
+              onPressed: () => _showPackingDialog(order),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFFFFC107),
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                minimumSize: const Size(60, 32),
+              ),
+              child: const Text('Continue', style: TextStyle(fontSize: 12)),
+            )
+          else if (status == 'Packed')
             ElevatedButton(
               onPressed: () {},
               style: ElevatedButton.styleFrom(
@@ -713,9 +728,9 @@ class _AdminPackagingPageState extends ConsumerState<AdminPackagingPage> {
     if (order.status == OrderStatus.confirmed) {
       return 'Pending';
     } else if (order.status == OrderStatus.preparing) {
-      return 'Packed';
+      return 'Preparing';
     } else if (order.status == OrderStatus.ready) {
-      return 'Notified';
+      return 'Packed';
     }
     return 'Pending';
   }
@@ -837,25 +852,7 @@ class _AdminPackagingPageState extends ConsumerState<AdminPackagingPage> {
   }
 
   Future<void> _showPackingDialog(OrderModel order) async {
-    // Generate packagingId and update status to preparing if not already done
-    if (order.status == OrderStatus.confirmed) {
-      try {
-        final orderRef = FirebaseFirestore.instance.collection('orders').doc(order.id);
-        final packagingId = 'PKG${DateTime.now().millisecondsSinceEpoch.toString().substring(0, 8).toUpperCase()}';
-        
-        await orderRef.update({
-          'status': 'preparing',
-          'preparingAt': Timestamp.fromDate(DateTime.now()),
-          'packagingId': packagingId,
-        });
-        
-        print('Generated packagingId: $packagingId');
-      } catch (e) {
-        print('Error generating packagingId: $e');
-        // Continue anyway to show the dialog
-      }
-    }
-    
+    // Just show the dialog - status will be updated when user saves
     if (mounted) {
       showDialog(
         context: context,
@@ -1256,6 +1253,14 @@ class _PackingDialogState extends State<PackingDialog> {
         'items': updatedItems.map((item) => item.toJson()).toList(),
         'totalAmount': newTotal,
       };
+
+      // Generate packagingId if not already present
+      if (widget.order.packagingId == null || widget.order.packagingId!.isEmpty) {
+        final packagingId = 'PKG${DateTime.now().millisecondsSinceEpoch.toString().substring(0, 8).toUpperCase()}';
+        updateData['packagingId'] = packagingId;
+        updateData['preparingAt'] = Timestamp.fromDate(DateTime.now());
+        print('Generated packagingId: $packagingId');
+      }
 
       // Ensure deliveryDate is set if not already present (required for Delivery page query)
       if (widget.order.deliveryDate == null) {

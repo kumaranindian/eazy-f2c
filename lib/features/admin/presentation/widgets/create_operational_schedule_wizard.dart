@@ -509,6 +509,8 @@ class _CreateOperationalScheduleWizardState
                           _resetFormFields();
                           setState(() {
                             _recurrenceType = ScheduleRecurrenceType.oneTime;
+                            // One-time schedule must have one-time delivery
+                            _deliverySlotType = ScheduleRecurrenceType.oneTime;
                           });
                         }
                       },
@@ -521,6 +523,12 @@ class _CreateOperationalScheduleWizardState
                           _resetFormFields();
                           setState(() {
                             _recurrenceType = ScheduleRecurrenceType.daily;
+                            // Daily schedule can have any delivery type, keep current if valid
+                            if (_deliverySlotType != ScheduleRecurrenceType.oneTime &&
+                                _deliverySlotType != ScheduleRecurrenceType.daily &&
+                                _deliverySlotType != ScheduleRecurrenceType.weekly) {
+                              _deliverySlotType = ScheduleRecurrenceType.oneTime;
+                            }
                           });
                         }
                       },
@@ -533,6 +541,10 @@ class _CreateOperationalScheduleWizardState
                           _resetFormFields();
                           setState(() {
                             _recurrenceType = ScheduleRecurrenceType.weekly;
+                            // Weekly schedule can only have one-time or weekly delivery
+                            if (_deliverySlotType == ScheduleRecurrenceType.daily) {
+                              _deliverySlotType = ScheduleRecurrenceType.oneTime;
+                            }
                           });
                         }
                       },
@@ -1035,10 +1047,15 @@ class _CreateOperationalScheduleWizardState
 
   Widget _buildDeliveryDayChip(int day, String label) {
     final isSelected = _deliveryDaysOfWeek.contains(day);
+    // For weekly schedule, only allow days that are in the schedule recurrence
+    final isEnabled = (_recurrenceType != ScheduleRecurrenceType.weekly && 
+                       _recurrenceType != ScheduleRecurrenceType.customDays) ||
+                      _recurrenceDaysOfWeek.contains(day);
+    
     return FilterChip(
       label: Text(label),
       selected: isSelected,
-      onSelected: (selected) {
+      onSelected: isEnabled ? (selected) {
         setState(() {
           if (selected) {
             _deliveryDaysOfWeek.add(day);
@@ -1046,9 +1063,11 @@ class _CreateOperationalScheduleWizardState
             _deliveryDaysOfWeek.remove(day);
           }
         });
-      },
+      } : null,
       selectedColor: Colors.orange[100],
       checkmarkColor: Colors.orange[700],
+      backgroundColor: isEnabled ? null : Colors.grey[200],
+      disabledColor: Colors.grey[200],
     );
   }
 
@@ -1660,6 +1679,9 @@ class _CreateOperationalScheduleWizardState
   }
 
   Widget _buildStep5DeliverySlot() {
+    // Get allowed delivery slot types based on schedule recurrence
+    final allowedDeliveryTypes = _getAllowedDeliverySlotTypes();
+    
     return SingleChildScrollView(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1683,6 +1705,29 @@ class _CreateOperationalScheduleWizardState
           ),
           const SizedBox(height: 24),
 
+          // Info message based on schedule type
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.blue[50],
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: Colors.blue[200]!),
+            ),
+            child: Row(
+              children: [
+                Icon(Icons.info_outline, color: Colors.blue[700], size: 20),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    _getDeliverySlotInfoMessage(),
+                    style: TextStyle(fontSize: 13, color: Colors.blue[900]),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+
           const Text(
             'When should products be delivered?',
             style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
@@ -1691,21 +1736,24 @@ class _CreateOperationalScheduleWizardState
 
           // Delivery Slot Type Selection
           SegmentedButton<ScheduleRecurrenceType>(
-            segments: const [
+            segments: [
               ButtonSegment(
                 value: ScheduleRecurrenceType.oneTime,
-                label: Text('Once'),
-                icon: Icon(Icons.event),
+                label: const Text('Once'),
+                icon: const Icon(Icons.event),
+                enabled: allowedDeliveryTypes.contains(ScheduleRecurrenceType.oneTime),
               ),
               ButtonSegment(
                 value: ScheduleRecurrenceType.daily,
-                label: Text('Daily'),
-                icon: Icon(Icons.today),
+                label: const Text('Daily'),
+                icon: const Icon(Icons.today),
+                enabled: allowedDeliveryTypes.contains(ScheduleRecurrenceType.daily),
               ),
               ButtonSegment(
                 value: ScheduleRecurrenceType.weekly,
-                label: Text('Weekly'),
-                icon: Icon(Icons.calendar_view_week),
+                label: const Text('Weekly'),
+                icon: const Icon(Icons.calendar_view_week),
+                enabled: allowedDeliveryTypes.contains(ScheduleRecurrenceType.weekly),
               ),
             ],
             selected: {_deliverySlotType},
@@ -1896,6 +1944,31 @@ class _CreateOperationalScheduleWizardState
                     ],
                   ),
                   const SizedBox(height: 16),
+                  // Show warning if schedule is weekly
+                  if (_recurrenceType == ScheduleRecurrenceType.weekly || 
+                      _recurrenceType == ScheduleRecurrenceType.customDays) ...[
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: Colors.amber[50],
+                        borderRadius: BorderRadius.circular(6),
+                        border: Border.all(color: Colors.amber[300]!),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(Icons.warning_amber, color: Colors.amber[700], size: 16),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              'Only days selected in schedule are available',
+                              style: TextStyle(fontSize: 11, color: Colors.amber[900]),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                  ],
                   Wrap(
                     spacing: 8,
                     runSpacing: 8,
@@ -1988,6 +2061,66 @@ class _CreateOperationalScheduleWizardState
     );
   }
 
+
+  // Get allowed delivery slot types based on schedule recurrence
+  List<ScheduleRecurrenceType> _getAllowedDeliverySlotTypes() {
+    switch (_recurrenceType) {
+      case ScheduleRecurrenceType.oneTime:
+        // One-time schedule can only have one-time delivery
+        return [ScheduleRecurrenceType.oneTime];
+      case ScheduleRecurrenceType.daily:
+        // Daily schedule can have any delivery type
+        return [
+          ScheduleRecurrenceType.oneTime,
+          ScheduleRecurrenceType.daily,
+          ScheduleRecurrenceType.weekly,
+        ];
+      case ScheduleRecurrenceType.weekly:
+      case ScheduleRecurrenceType.customDays:
+        // Weekly/custom schedule can have one-time or weekly delivery
+        return [
+          ScheduleRecurrenceType.oneTime,
+          ScheduleRecurrenceType.weekly,
+        ];
+      default:
+        return [ScheduleRecurrenceType.oneTime];
+    }
+  }
+
+  // Get info message based on schedule type
+  String _getDeliverySlotInfoMessage() {
+    switch (_recurrenceType) {
+      case ScheduleRecurrenceType.oneTime:
+        return 'One-time schedules must have one-time delivery on the same date.';
+      case ScheduleRecurrenceType.daily:
+        return 'Daily schedules can have one-time, daily, or weekly delivery slots.';
+      case ScheduleRecurrenceType.weekly:
+      case ScheduleRecurrenceType.customDays:
+        return 'Weekly schedules can have one-time or weekly delivery. Delivery days must match schedule days.';
+      default:
+        return 'Select when products should be delivered.';
+    }
+  }
+
+  // Validate delivery days for weekly delivery
+  bool _validateDeliveryDays() {
+    // If not weekly delivery, no validation needed
+    if (_deliverySlotType != ScheduleRecurrenceType.weekly) {
+      return true;
+    }
+
+    // If schedule is weekly, delivery days must be subset of schedule days
+    if (_recurrenceType == ScheduleRecurrenceType.weekly ||
+        _recurrenceType == ScheduleRecurrenceType.customDays) {
+      for (var deliveryDay in _deliveryDaysOfWeek) {
+        if (!_recurrenceDaysOfWeek.contains(deliveryDay)) {
+          return false;
+        }
+      }
+    }
+
+    return true;
+  }
 
   Widget _buildStep6Charges() {
     return SingleChildScrollView(
@@ -2759,9 +2892,11 @@ class _CreateOperationalScheduleWizardState
       case 3: // Products
         return _selectedProducts.isNotEmpty;
       case 4: // Delivery Slot
-        return (_deliverySlotType == ScheduleRecurrenceType.oneTime && _deliveryDate != null) ||
+        final basicValidation = (_deliverySlotType == ScheduleRecurrenceType.oneTime && _deliveryDate != null) ||
             (_deliverySlotType == ScheduleRecurrenceType.daily && _deliveryStartTime != null && _deliveryEndTime != null) ||
             (_deliverySlotType == ScheduleRecurrenceType.weekly && _deliveryDaysOfWeek.isNotEmpty && _deliveryStartTime != null && _deliveryEndTime != null);
+        // Also validate delivery days match schedule days
+        return basicValidation && _validateDeliveryDays();
       case 5: // Charges
         return true; // Charges are optional
       case 6: // Summary
