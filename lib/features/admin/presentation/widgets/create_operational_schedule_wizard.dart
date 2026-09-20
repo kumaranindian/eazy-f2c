@@ -1485,12 +1485,14 @@ class _CreateOperationalScheduleWizardState
                             children: [
                               Icon(Icons.person, size: 20, color: Colors.orange[700]),
                               const SizedBox(width: 8),
-                              Text(
-                                farmerName,
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.black87,
-                                  fontSize: 16,
+                              Expanded(
+                                child: Text(
+                                  farmerName,
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.black87,
+                                    fontSize: 16,
+                                  ),
                                 ),
                               ),
                               const SizedBox(width: 8),
@@ -1507,6 +1509,73 @@ class _CreateOperationalScheduleWizardState
                                     fontSize: 12,
                                   ),
                                 ),
+                              ),
+                              const SizedBox(width: 12),
+                              // Select/Deselect All button for this farmer
+                              Builder(
+                                builder: (context) {
+                                  final farmerProductIds = farmerProducts.map((p) => p.id).toSet();
+                                  final selectedCount = _selectedProducts
+                                      .where((sp) => farmerProductIds.contains(sp.productId))
+                                      .length;
+                                  final allSelected = selectedCount == farmerProducts.length;
+                                  
+                                  return TextButton.icon(
+                                    onPressed: () {
+                                      setState(() {
+                                        if (allSelected) {
+                                          // Deselect all products from this farmer
+                                          _selectedProducts.removeWhere(
+                                            (sp) => farmerProductIds.contains(sp.productId),
+                                          );
+                                          for (var product in farmerProducts) {
+                                            _productPricing.remove(product.id);
+                                            _priceControllers.remove(product.id);
+                                            _profitControllers.remove(product.id);
+                                          }
+                                        } else {
+                                          // Select all products from this farmer
+                                          for (var product in farmerProducts) {
+                                            if (!_selectedProducts.any((sp) => sp.productId == product.id)) {
+                                              _selectedProducts.add(ScheduleProductItem(
+                                                productId: product.id,
+                                                productName: product.name,
+                                                productCategory: product.category,
+                                                quantity: 1,
+                                                price: product.price,
+                                                profitMargin: product.profitMargin,
+                                                farmerId: product.farmerId,
+                                                farmerName: farmerName,
+                                              ));
+                                              _productPricing[product.id] = ProductPricing(
+                                                price: product.price,
+                                                profitMargin: product.profitMargin,
+                                              );
+                                              _priceControllers[product.id] = TextEditingController(
+                                                text: product.price > 0 ? product.price.toStringAsFixed(0) : '',
+                                              );
+                                              _profitControllers[product.id] = TextEditingController(
+                                                text: product.profitMargin > 0 ? product.profitMargin.toStringAsFixed(0) : '',
+                                              );
+                                            }
+                                          }
+                                        }
+                                      });
+                                    },
+                                    icon: Icon(
+                                      allSelected ? Icons.toggle_on : Icons.toggle_off,
+                                      size: 20,
+                                    ),
+                                    label: Text(
+                                      allSelected ? 'All ON' : 'All OFF',
+                                      style: const TextStyle(fontSize: 12),
+                                    ),
+                                    style: TextButton.styleFrom(
+                                      foregroundColor: allSelected ? Colors.orange[700] : Colors.grey[600],
+                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                    ),
+                                  );
+                                },
                               ),
                             ],
                           ),
