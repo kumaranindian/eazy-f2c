@@ -4,8 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:f2c/core/services/firebase_storage_service.dart';
 import 'package:f2c/core/shared/logger/app_logger.dart';
-import 'package:f2c/core/widgets/optimized_image.dart';
-import 'package:f2c/core/utils/image_utils.dart';
 
 /// Widget for picking and uploading images to Firebase Storage
 /// Provides a clean UI for image selection and upload progress
@@ -183,11 +181,25 @@ class _FirebaseImagePickerState extends State<FirebaseImagePicker> {
     return Stack(
       fit: StackFit.expand,
       children: [
-        OptimizedImage(
-          imageUrl: _imageUrl!,
-          size: ImageSize.medium,
-          fit: BoxFit.cover,
+        ClipRRect(
           borderRadius: BorderRadius.circular(11),
+          child: CachedNetworkImage(
+            imageUrl: _imageUrl!,
+            fit: BoxFit.cover,
+            memCacheWidth: 400, // Optimize for preview size
+            memCacheHeight: 400,
+            maxWidthDiskCache: 600,
+            maxHeightDiskCache: 600,
+            placeholder: (context, url) => const Center(
+              child: CircularProgressIndicator(),
+            ),
+            errorWidget: (context, url, error) => const Center(
+              child: Icon(Icons.broken_image, size: 48, color: Colors.grey),
+            ),
+            httpHeaders: const {
+              'Access-Control-Allow-Origin': '*',
+            },
+          ),
         ),
         Positioned(
           top: 8,
