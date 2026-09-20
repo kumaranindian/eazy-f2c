@@ -1293,27 +1293,78 @@ class _CreateOperationalScheduleWizardState
                   ),
                 );
               }
-              return Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: activeFarmers.map((farmer) {
-                  final isSelected = _selectedFarmerIds.contains(farmer.id);
-                  return FilterChip(
-                    label: Text(farmer.name),
-                    selected: isSelected,
-                    onSelected: (selected) {
-                      setState(() {
-                        if (selected) {
-                          _selectedFarmerIds.add(farmer.id);
-                          _selectedFarmerNames.add(farmer.name);
-                        } else {
-                          _selectedFarmerIds.remove(farmer.id);
-                          _selectedFarmerNames.remove(farmer.name);
-                        }
-                      });
-                    },
-                  );
-                }).toList(),
+              
+              final allSelected = activeFarmers.every((f) => _selectedFarmerIds.contains(f.id));
+              
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Select All / Deselect All button
+                  Row(
+                    children: [
+                      ElevatedButton.icon(
+                        onPressed: () {
+                          setState(() {
+                            if (allSelected) {
+                              // Deselect all
+                              _selectedFarmerIds.clear();
+                              _selectedFarmerNames.clear();
+                            } else {
+                              // Select all
+                              _selectedFarmerIds.clear();
+                              _selectedFarmerNames.clear();
+                              for (var farmer in activeFarmers) {
+                                _selectedFarmerIds.add(farmer.id);
+                                _selectedFarmerNames.add(farmer.name);
+                              }
+                            }
+                          });
+                        },
+                        icon: Icon(allSelected ? Icons.deselect : Icons.select_all),
+                        label: Text(allSelected ? 'Deselect All' : 'Select All'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: allSelected ? Colors.grey[600] : Colors.green[700],
+                          foregroundColor: Colors.white,
+                        ),
+                      ),
+                      const SizedBox(width: 16),
+                      Text(
+                        '${_selectedFarmerIds.length} of ${activeFarmers.length} selected',
+                        style: TextStyle(
+                          color: Colors.grey[600],
+                          fontSize: 14,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  
+                  // Farmers list
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: activeFarmers.map((farmer) {
+                      final isSelected = _selectedFarmerIds.contains(farmer.id);
+                      return FilterChip(
+                        label: Text(farmer.name),
+                        selected: isSelected,
+                        onSelected: (selected) {
+                          setState(() {
+                            if (selected) {
+                              _selectedFarmerIds.add(farmer.id);
+                              _selectedFarmerNames.add(farmer.name);
+                            } else {
+                              _selectedFarmerIds.remove(farmer.id);
+                              _selectedFarmerNames.remove(farmer.name);
+                            }
+                          });
+                        },
+                        selectedColor: Colors.green[100],
+                        checkmarkColor: Colors.green[700],
+                      );
+                    }).toList(),
+                  ),
+                ],
               );
             },
             loading: () => const Center(child: CircularProgressIndicator()),
