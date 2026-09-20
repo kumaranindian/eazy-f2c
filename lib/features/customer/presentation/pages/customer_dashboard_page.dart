@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:intl/intl.dart';
 import 'package:f2c/core/constants/app_constants.dart';
+import 'package:f2c/core/widgets/optimized_image.dart';
 import 'package:f2c/features/authentication/providers/auth_providers.dart';
 import 'package:f2c/features/customer/models/cart_item_model.dart';
 import 'package:f2c/features/customer/providers/customer_providers.dart';
@@ -1344,25 +1345,11 @@ class _CustomerDashboardPageState extends ConsumerState<CustomerDashboardPage> {
 
     return Row(
       children: [
-        // Product Image
-        ClipRRect(
-          borderRadius: BorderRadius.circular(8),
-          child: Container(
-            width: isMobile ? 60 : 80,
-            height: isMobile ? 60 : 80,
-            color: Colors.grey[100],
-            child: CachedNetworkImage(
-              imageUrl: product.imageUrl,
-              fit: BoxFit.cover,
-              placeholder: (context, url) => const Center(
-                child: CircularProgressIndicator(strokeWidth: 2),
-              ),
-              errorWidget: (context, url, error) => Icon(
-                Icons.image_not_supported,
-                color: Colors.grey[400],
-              ),
-            ),
-          ),
+        // Product Image - Optimized
+        OptimizedProductImage(
+          imageUrl: product.imageUrl,
+          size: isMobile ? 60 : 80,
+          isMobile: isMobile,
         ),
         const SizedBox(width: 12),
         // Product Details
