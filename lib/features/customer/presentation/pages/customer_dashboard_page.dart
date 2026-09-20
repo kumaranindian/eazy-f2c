@@ -933,6 +933,58 @@ class _CustomerDashboardPageState extends ConsumerState<CustomerDashboardPage> {
 
             const SizedBox(height: 16),
 
+            // Category and Farmer Filters
+            Padding(
+              padding: EdgeInsets.symmetric(horizontal: isMobile ? 16 : 24),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Category Filter
+                  const Text(
+                    'Category',
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.black87,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: Row(
+                      children: [
+                        _buildCategoryChip('All'),
+                        ..._getCategories(products).map((category) => _buildCategoryChip(category)),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  
+                  // Farmer Filter
+                  const Text(
+                    'Farmer',
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.black87,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: Row(
+                      children: [
+                        _buildFarmerChip(null, 'All Farmers'),
+                        ..._getFarmers(products).map((farmer) => _buildFarmerChip(farmer['id'], farmer['name'])),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+            const SizedBox(height: 16),
+
             // Schedule Accordions
             Padding(
               padding: EdgeInsets.symmetric(horizontal: isMobile ? 16 : 24),
@@ -979,18 +1031,32 @@ class _CustomerDashboardPageState extends ConsumerState<CustomerDashboardPage> {
             ))
         .toList();
 
-    // Filter by search query
-    final filteredProducts = _searchQuery.isEmpty
-        ? scheduleProducts
-        : scheduleProducts.where((p) {
-            final searchLower = _searchQuery.toLowerCase();
-            final productName = p.product.displayName.toLowerCase();
-            final category = p.product.category.toLowerCase();
-            final farmerName = p.farmerName?.toLowerCase() ?? '';
-            return productName.contains(searchLower) ||
-                category.contains(searchLower) ||
-                farmerName.contains(searchLower);
-          }).toList();
+    // Filter by search query, category, and farmer
+    final filteredProducts = scheduleProducts.where((p) {
+      // Search filter
+      if (_searchQuery.isNotEmpty) {
+        final searchLower = _searchQuery.toLowerCase();
+        final productName = p.product.displayName.toLowerCase();
+        final category = p.product.category.toLowerCase();
+        final farmerName = p.farmerName?.toLowerCase() ?? '';
+        final matchesSearch = productName.contains(searchLower) ||
+            category.contains(searchLower) ||
+            farmerName.contains(searchLower);
+        if (!matchesSearch) return false;
+      }
+
+      // Category filter
+      if (_selectedCategory != 'All' && p.product.category != _selectedCategory) {
+        return false;
+      }
+
+      // Farmer filter
+      if (_selectedFarmer != null && p.farmerId != _selectedFarmer) {
+        return false;
+      }
+
+      return true;
+    }).toList();
 
     return Card(
       elevation: 2,
@@ -1563,6 +1629,76 @@ class _CustomerDashboardPageState extends ConsumerState<CustomerDashboardPage> {
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+
+  // Get unique categories from products
+  List<String> _getCategories(List<ProductWithSchedule> products) {
+    final categories = products.map((p) => p.product.category).toSet().toList();
+    categories.sort();
+    return categories;
+  }
+
+  // Get unique farmers from products
+  List<Map<String, String>> _getFarmers(List<ProductWithSchedule> products) {
+    final farmersMap = <String, String>{};
+    for (var p in products) {
+      if (p.farmerId != null && p.farmerName != null) {
+        farmersMap[p.farmerId!] = p.farmerName!;
+      }
+    }
+    final farmers = farmersMap.entries
+        .map((e) => {'id': e.key, 'name': e.value})
+        .toList();
+    farmers.sort((a, b) => a['name']!.compareTo(b['name']!));
+    return farmers;
+  }
+
+  // Build category filter chip
+  Widget _buildCategoryChip(String category) {
+    final isSelected = _selectedCategory == category;
+    return Padding(
+      padding: const EdgeInsets.only(right: 8),
+      child: FilterChip(
+        label: Text(category),
+        selected: isSelected,
+        onSelected: (selected) {
+          setState(() {
+            _selectedCategory = category;
+          });
+        },
+        selectedColor: const Color(0xFF00C853).withOpacity(0.2),
+        checkmarkColor: const Color(0xFF00C853),
+        backgroundColor: Colors.grey[100],
+        labelStyle: TextStyle(
+          color: isSelected ? const Color(0xFF00C853) : Colors.black87,
+          fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+        ),
+      ),
+    );
+  }
+
+  // Build farmer filter chip
+  Widget _buildFarmerChip(String? farmerId, String farmerName) {
+    final isSelected = _selectedFarmer == farmerId;
+    return Padding(
+      padding: const EdgeInsets.only(right: 8),
+      child: FilterChip(
+        label: Text(farmerName),
+        selected: isSelected,
+        onSelected: (selected) {
+          setState(() {
+            _selectedFarmer = farmerId;
+          });
+        },
+        selectedColor: const Color(0xFF00C853).withOpacity(0.2),
+        checkmarkColor: const Color(0xFF00C853),
+        backgroundColor: Colors.grey[100],
+        labelStyle: TextStyle(
+          color: isSelected ? const Color(0xFF00C853) : Colors.black87,
+          fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
         ),
       ),
     );
