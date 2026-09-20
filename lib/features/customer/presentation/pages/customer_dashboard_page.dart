@@ -975,7 +975,7 @@ class _CustomerDashboardPageState extends ConsumerState<CustomerDashboardPage> {
                     child: Row(
                       children: [
                         _buildFarmerChip(null, 'All Farmers'),
-                        ..._getFarmers(products).map((farmer) => _buildFarmerChip(farmer['id'], farmer['name'])),
+                        ..._getFarmers(products).map((farmer) => _buildFarmerChip(farmer['id']!, farmer['name']!)),
                       ],
                     ),
                   ),
