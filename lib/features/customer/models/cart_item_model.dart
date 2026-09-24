@@ -32,32 +32,42 @@ class CartItemModel with _$CartItemModel {
   // Examples: "50g" -> (50, "g"), "100g" -> (100, "g"), "kg" -> (1, "kg")
   (double baseQuantity, String baseUnit) get _parsedUnit {
     final unitLower = unit.toLowerCase();
-    
+
     // Check for numeric prefix (e.g., 50g, 100g, 250g)
-    final numericMatch = RegExp(r'^(\d+(?:\.\d+)?)\s*([a-z]+)$').firstMatch(unitLower);
+    final numericMatch =
+        RegExp(r'^(\d+(?:\.\d+)?)\s*([a-z]+)$').firstMatch(unitLower);
     if (numericMatch != null) {
       final qty = double.parse(numericMatch.group(1)!);
       final baseUnit = numericMatch.group(2)!;
       return (qty, baseUnit);
     }
-    
+
     // Default case (e.g., "kg", "liter", "piece")
     return (1.0, unitLower);
   }
 
   // Check if unit is discrete (whole numbers only)
   bool get isDiscreteUnit {
-    final discreteUnits = ['box', 'piece', 'bunch', 'packet', 'dozen', 'unit'];
+    final discreteUnits = [
+      'box',
+      'piece',
+      'bunch',
+      'packet',
+      'dozen',
+      'unit',
+      'pcs'
+    ];
     final unitLower = unit.toLowerCase();
-    
+
     // Check if it's a discrete unit
     if (discreteUnits.contains(unitLower)) return true;
-    
+
     // Check for gram-based units (e.g., 50g, 100g, 250g)
     // These should be treated as discrete (increment by whole units)
-    final gramMatch = RegExp(r'^(\d+(?:\.\d+)?)\s*g(?:ram)?s?$').firstMatch(unitLower);
+    final gramMatch =
+        RegExp(r'^(\d+(?:\.\d+)?)\s*g(?:ram)?s?$').firstMatch(unitLower);
     if (gramMatch != null) return true;
-    
+
     return false;
   }
 
@@ -66,24 +76,24 @@ class CartItemModel with _$CartItemModel {
     if (isDiscreteUnit) {
       return 1.0;
     }
-    
+
     final (baseQuantity, baseUnit) = _parsedUnit;
-    
+
     // For gram-based units, increment by 1.0 (one more unit of the base quantity)
     if (baseUnit == 'g' || baseUnit == 'gram' || baseUnit == 'grams') {
       return 1.0;
     }
-    
+
     // For kg, increment by 0.25 (1/4 kg)
     if (baseUnit == 'kg' || baseUnit == 'kilogram' || baseUnit == 'kilograms') {
       return 0.25;
     }
-    
+
     // For liter, increment by 0.25
     if (baseUnit == 'l' || baseUnit == 'liter' || baseUnit == 'liters') {
       return 0.25;
     }
-    
+
     // Default increment
     return 0.25;
   }
@@ -93,15 +103,15 @@ class CartItemModel with _$CartItemModel {
     if (isDiscreteUnit) {
       return quantity.toInt().toString();
     }
-    
+
     final (baseQuantity, baseUnit) = _parsedUnit;
-    
+
     // For gram-based units, show actual grams (e.g., 75g, 150g)
     if (baseUnit == 'g' || baseUnit == 'gram' || baseUnit == 'grams') {
       final actualGrams = (quantity * baseQuantity).toInt();
       return '$actualGrams$baseUnit';
     }
-    
+
     // For kg, show as fractions or whole numbers
     if (baseUnit == 'kg' || baseUnit == 'kilogram' || baseUnit == 'kilograms') {
       if (quantity == 0.25) return '1/4 kg';
@@ -112,12 +122,12 @@ class CartItemModel with _$CartItemModel {
       }
       return '${quantity.toStringAsFixed(2)} kg';
     }
-    
+
     // For liter, show decimals
     if (baseUnit == 'l' || baseUnit == 'liter' || baseUnit == 'liters') {
       return '${quantity.toStringAsFixed(2)} $baseUnit';
     }
-    
+
     // Default
     return quantity.toStringAsFixed(2);
   }

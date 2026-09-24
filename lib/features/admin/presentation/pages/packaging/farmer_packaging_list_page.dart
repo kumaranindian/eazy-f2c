@@ -18,10 +18,12 @@ class FarmerPackagingListPage extends ConsumerStatefulWidget {
   const FarmerPackagingListPage({super.key});
 
   @override
-  ConsumerState<FarmerPackagingListPage> createState() => _FarmerPackagingListPageState();
+  ConsumerState<FarmerPackagingListPage> createState() =>
+      _FarmerPackagingListPageState();
 }
 
-class _FarmerPackagingListPageState extends ConsumerState<FarmerPackagingListPage> {
+class _FarmerPackagingListPageState
+    extends ConsumerState<FarmerPackagingListPage> {
   String _selectedDateFilter = 'This Week';
   DateFilterType _dateFilterType = DateFilterType.thisWeek;
   DateTime? _startDate;
@@ -32,21 +34,22 @@ class _FarmerPackagingListPageState extends ConsumerState<FarmerPackagingListPag
   // Format quantity for display
   String _formatQuantity(double quantity, String unit) {
     final unitLower = unit.toLowerCase();
-    
+
     // Parse unit to get base quantity (e.g., "50g" -> 50)
-    final numericMatch = RegExp(r'^(\d+(?:\.\d+)?)\s*([a-z]+)$').firstMatch(unitLower);
-    
+    final numericMatch =
+        RegExp(r'^(\d+(?:\.\d+)?)\s*([a-z]+)$').firstMatch(unitLower);
+
     // For gram-based units (e.g., 50g, 100g, 250g)
     if (numericMatch != null) {
       final baseQuantity = double.parse(numericMatch.group(1)!);
       final baseUnit = numericMatch.group(2)!;
-      
+
       if (baseUnit == 'g' || baseUnit == 'gram' || baseUnit == 'grams') {
         final totalGrams = (quantity * baseQuantity).toInt();
         return '${totalGrams}g';
       }
     }
-    
+
     // For kg, show fractions or decimals
     if (unitLower == 'kg' || unitLower.contains('kilogram')) {
       if (quantity == 0.25) return '1/4 kg';
@@ -57,13 +60,21 @@ class _FarmerPackagingListPageState extends ConsumerState<FarmerPackagingListPag
       }
       return '${quantity.toStringAsFixed(2)} kg';
     }
-    
+
     // For discrete units (piece, box, etc.), show whole numbers
-    final discreteUnits = ['box', 'piece', 'bunch', 'packet', 'dozen', 'unit'];
+    final discreteUnits = [
+      'box',
+      'piece',
+      'bunch',
+      'packet',
+      'dozen',
+      'unit',
+      'pcs'
+    ];
     if (discreteUnits.contains(unitLower)) {
       return '${quantity.toInt()}';
     }
-    
+
     // Default: show quantity with unit
     return '${quantity.toStringAsFixed(2)} $unit';
   }
@@ -78,7 +89,7 @@ class _FarmerPackagingListPageState extends ConsumerState<FarmerPackagingListPag
     final now = DateTime.now();
     setState(() {
       _selectedDateFilter = filter;
-      
+
       switch (filter) {
         case 'This Week':
           _dateFilterType = DateFilterType.thisWeek;
@@ -150,7 +161,7 @@ class _FarmerPackagingListPageState extends ConsumerState<FarmerPackagingListPag
           duration: Duration(seconds: 2),
         ),
       );
-      
+
       // Fetch only confirmed orders (before packaging starts)
       final snapshot = await FirebaseFirestore.instance
           .collection('orders')
@@ -161,33 +172,36 @@ class _FarmerPackagingListPageState extends ConsumerState<FarmerPackagingListPag
       final orders = snapshot.docs
           .map((doc) => OrderModel.fromFirestore(doc))
           .where((order) {
-            if (_startDate == null || _endDate == null) return true;
-            final deliveryDate = order.deliveryDate ?? order.createdAt;
-            final dateOnly = DateTime(deliveryDate.year, deliveryDate.month, deliveryDate.day);
-            final start = DateTime(_startDate!.year, _startDate!.month, _startDate!.day);
-            final end = DateTime(_endDate!.year, _endDate!.month, _endDate!.day, 23, 59, 59);
-            return dateOnly.isAfter(start.subtract(const Duration(days: 1))) && 
-                   dateOnly.isBefore(end.add(const Duration(days: 1)));
-          })
-          .toList();
+        if (_startDate == null || _endDate == null) return true;
+        final deliveryDate = order.deliveryDate ?? order.createdAt;
+        final dateOnly =
+            DateTime(deliveryDate.year, deliveryDate.month, deliveryDate.day);
+        final start =
+            DateTime(_startDate!.year, _startDate!.month, _startDate!.day);
+        final end = DateTime(
+            _endDate!.year, _endDate!.month, _endDate!.day, 23, 59, 59);
+        return dateOnly.isAfter(start.subtract(const Duration(days: 1))) &&
+            dateOnly.isBefore(end.add(const Duration(days: 1)));
+      }).toList();
 
       if (orders.isEmpty) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('No orders found for the selected date range')),
+          const SnackBar(
+              content: Text('No orders found for the selected date range')),
         );
         return;
       }
 
       // Group orders by farmer and schedule
       final Map<String, Map<String, Set<String>>> farmerScheduleOrders = {};
-      
+
       for (final order in orders) {
         for (final item in order.items) {
           final farmerId = item.farmerId ?? 'unknown';
           // Use scheduleId if available, otherwise use scheduleName + deliveryDate as key
-          final scheduleKey = order.scheduleId ?? 
+          final scheduleKey = order.scheduleId ??
               '${order.scheduleName ?? "No Schedule"}_${DateFormat('yyyy-MM-dd').format(order.deliveryDate ?? order.createdAt)}';
-          
+
           if (!farmerScheduleOrders.containsKey(farmerId)) {
             farmerScheduleOrders[farmerId] = {};
           }
@@ -200,24 +214,28 @@ class _FarmerPackagingListPageState extends ConsumerState<FarmerPackagingListPag
 
       // Build CSV content
       final StringBuffer csvBuffer = StringBuffer();
-      
+
       // Add BOM for Excel compatibility
       csvBuffer.write('\uFEFF');
-      
+
       // CSV Header
-      csvBuffer.writeln('Farmer Name,Farmer Location,Delivery Date,Schedule Name,Product Name,Product Category,Unit Quantity,Unit,Total Quantity,Total Orders,Total Items');
+      csvBuffer.writeln(
+          'Farmer Name,Farmer Location,Delivery Date,Schedule Name,Product Name,Product Category,Unit Quantity,Unit,Total Quantity,Total Orders,Total Items');
 
       // Process each farmer
       for (final farmerId in farmerScheduleOrders.keys) {
         // Fetch farmer details
-        final farmerDoc = await FirebaseFirestore.instance.collection('farmers').doc(farmerId).get();
+        final farmerDoc = await FirebaseFirestore.instance
+            .collection('farmers')
+            .doc(farmerId)
+            .get();
         final farmerName = farmerDoc.data()?['name'] ?? 'Unknown Farmer';
         final farmerLocation = farmerDoc.data()?['location'] ?? '';
 
         // Process each schedule for this farmer
         for (final scheduleKey in farmerScheduleOrders[farmerId]!.keys) {
           final orderIds = farmerScheduleOrders[farmerId]![scheduleKey]!;
-          
+
           // Get schedule details from first order
           final firstOrder = orders.firstWhere((o) => o.id == orderIds.first);
           final scheduleName = firstOrder.scheduleName ?? 'Unknown Schedule';
@@ -238,12 +256,13 @@ class _FarmerPackagingListPageState extends ConsumerState<FarmerPackagingListPag
           // Process only orders for this schedule
           for (final orderId in orderIds) {
             final order = orders.firstWhere((o) => o.id == orderId);
-            
+
             // Only process items from this specific farmer
             // Using item.quantity (original ordered quantity, not actual packaging quantity)
             for (final item in order.items) {
               if (item.farmerId == farmerId) {
-                final key = '${item.productName}_${item.unit}_${item.productCategory}';
+                final key =
+                    '${item.productName}_${item.unit}_${item.productCategory}';
                 if (!productQuantities.containsKey(key)) {
                   productQuantities[key] = 0;
                   productUnits[key] = item.unit;
@@ -251,7 +270,8 @@ class _FarmerPackagingListPageState extends ConsumerState<FarmerPackagingListPag
                   productCategories[key] = item.productCategory;
                 }
                 // Add original ordered quantity (not affected by packaging variations)
-                productQuantities[key] = (productQuantities[key] ?? 0) + item.quantity;
+                productQuantities[key] =
+                    (productQuantities[key] ?? 0) + item.quantity;
               }
             }
           }
@@ -264,22 +284,21 @@ class _FarmerPackagingListPageState extends ConsumerState<FarmerPackagingListPag
             final productCategory = productCategories[productKey] ?? '';
             final aggregatedQuantity = productQuantities[productKey] ?? 0;
             final unit = productUnits[productKey] ?? '';
-            
+
             // Unit Quantity: aggregated quantity value
             // Total Quantity: formatted quantity (e.g., "150g", "1.5 kg")
             final unitQuantity = aggregatedQuantity;
             final totalQuantity = _formatQuantity(aggregatedQuantity, unit);
 
             csvBuffer.writeln(
-              '"$farmerName","$farmerLocation","$deliveryDateStr","$scheduleName","$productName","$productCategory",$unitQuantity,"$unit","$totalQuantity",$orderCount,$itemCount'
-            );
+                '"$farmerName","$farmerLocation","$deliveryDateStr","$scheduleName","$productName","$productCategory",$unitQuantity,"$unit","$totalQuantity",$orderCount,$itemCount');
           }
         }
       }
 
       // Create and download Schedule Details CSV file
       final scheduleDetailsCSV = csvBuffer.toString();
-      
+
       final blob1 = html.Blob([scheduleDetailsCSV], 'text/csv;charset=utf-8');
       final url1 = html.Url.createObjectUrlFromBlob(blob1);
       final timestamp = DateFormat('yyyyMMdd_HHmmss').format(DateTime.now());
@@ -289,27 +308,34 @@ class _FarmerPackagingListPageState extends ConsumerState<FarmerPackagingListPag
       html.Url.revokeObjectUrl(url1);
 
       // Now create Delivery Date Summary CSV
-      await Future.delayed(const Duration(milliseconds: 500)); // Small delay between downloads
-      
+      await Future.delayed(
+          const Duration(milliseconds: 500)); // Small delay between downloads
+
       final StringBuffer summaryBuffer = StringBuffer();
       summaryBuffer.write('\uFEFF'); // BOM
-      summaryBuffer.writeln('Farmer Name,Farmer Location,Delivery Date,Schedules,Product Name,Product Category,Unit Quantity,Unit,Total Quantity,Total Orders,Total Items');
-      
+      summaryBuffer.writeln(
+          'Farmer Name,Farmer Location,Delivery Date,Schedules,Product Name,Product Category,Unit Quantity,Unit,Total Quantity,Total Orders,Total Items');
+
       // Group by farmer and delivery date
-      final Map<String, Map<String, Map<String, dynamic>>> farmerDateSummary = {};
-      
+      final Map<String, Map<String, Map<String, dynamic>>> farmerDateSummary =
+          {};
+
       for (final farmerId in farmerScheduleOrders.keys) {
-        final farmerDoc = await FirebaseFirestore.instance.collection('farmers').doc(farmerId).get();
+        final farmerDoc = await FirebaseFirestore.instance
+            .collection('farmers')
+            .doc(farmerId)
+            .get();
         final farmerName = farmerDoc.data()?['name'] ?? 'Unknown Farmer';
         final farmerLocation = farmerDoc.data()?['location'] ?? '';
-        
+
         for (final scheduleKey in farmerScheduleOrders[farmerId]!.keys) {
           final orderIds = farmerScheduleOrders[farmerId]![scheduleKey]!;
           final firstOrder = orders.firstWhere((o) => o.id == orderIds.first);
           final deliveryDate = firstOrder.deliveryDate ?? firstOrder.createdAt;
-          final dateKey = '${deliveryDate.year}-${deliveryDate.month}-${deliveryDate.day}';
+          final dateKey =
+              '${deliveryDate.year}-${deliveryDate.month}-${deliveryDate.day}';
           final scheduleName = firstOrder.scheduleName ?? 'Unknown Schedule';
-          
+
           if (!farmerDateSummary.containsKey(farmerId)) {
             farmerDateSummary[farmerId] = {};
           }
@@ -326,26 +352,36 @@ class _FarmerPackagingListPageState extends ConsumerState<FarmerPackagingListPag
               'productCategories': <String, String>{},
             };
           }
-          
+
           // Add schedule name
-          farmerDateSummary[farmerId]![dateKey]!['scheduleNames'].add(scheduleName);
-          
+          farmerDateSummary[farmerId]![dateKey]!['scheduleNames']
+              .add(scheduleName);
+
           // Add order IDs
           for (final orderId in orderIds) {
             farmerDateSummary[farmerId]![dateKey]!['orderIds'].add(orderId);
           }
-          
+
           // Aggregate products for this date
           for (final orderId in orderIds) {
             final order = orders.firstWhere((o) => o.id == orderId);
             for (final item in order.items) {
               if (item.farmerId == farmerId) {
-                final key = '${item.productName}_${item.unit}_${item.productCategory}';
-                final products = farmerDateSummary[farmerId]![dateKey]!['products'] as Map<String, double>;
-                final productUnits = farmerDateSummary[farmerId]![dateKey]!['productUnits'] as Map<String, String>;
-                final productNames = farmerDateSummary[farmerId]![dateKey]!['productNames'] as Map<String, String>;
-                final productCategories = farmerDateSummary[farmerId]![dateKey]!['productCategories'] as Map<String, String>;
-                
+                final key =
+                    '${item.productName}_${item.unit}_${item.productCategory}';
+                final products =
+                    farmerDateSummary[farmerId]![dateKey]!['products']
+                        as Map<String, double>;
+                final productUnits =
+                    farmerDateSummary[farmerId]![dateKey]!['productUnits']
+                        as Map<String, String>;
+                final productNames =
+                    farmerDateSummary[farmerId]![dateKey]!['productNames']
+                        as Map<String, String>;
+                final productCategories =
+                    farmerDateSummary[farmerId]![dateKey]!['productCategories']
+                        as Map<String, String>;
+
                 if (!products.containsKey(key)) {
                   products[key] = 0;
                   productUnits[key] = item.unit;
@@ -358,7 +394,7 @@ class _FarmerPackagingListPageState extends ConsumerState<FarmerPackagingListPag
           }
         }
       }
-      
+
       // Write summary CSV
       for (final farmerId in farmerDateSummary.keys) {
         for (final dateKey in farmerDateSummary[farmerId]!.keys) {
@@ -367,37 +403,38 @@ class _FarmerPackagingListPageState extends ConsumerState<FarmerPackagingListPag
           final farmerLocation = summary['farmerLocation'];
           final deliveryDate = summary['deliveryDate'] as DateTime;
           final deliveryDateStr = DateFormat('dd/MM/yyyy').format(deliveryDate);
-          final scheduleNames = (summary['scheduleNames'] as Set<String>).join(', ');
+          final scheduleNames =
+              (summary['scheduleNames'] as Set<String>).join(', ');
           final orderIds = summary['orderIds'] as Set<String>;
           final products = summary['products'] as Map<String, double>;
           final productUnits = summary['productUnits'] as Map<String, String>;
           final productNames = summary['productNames'] as Map<String, String>;
-          final productCategories = summary['productCategories'] as Map<String, String>;
-          
+          final productCategories =
+              summary['productCategories'] as Map<String, String>;
+
           final totalOrders = orderIds.length;
           final totalItems = products.length;
-          
+
           for (final productKey in products.keys) {
             final productName = productNames[productKey] ?? '';
             final productCategory = productCategories[productKey] ?? '';
             final aggregatedQuantity = products[productKey] ?? 0;
             final unit = productUnits[productKey] ?? '';
-            
+
             // Unit Quantity: aggregated quantity value
             // Total Quantity: formatted quantity (e.g., "150g", "1.5 kg")
             final unitQuantity = aggregatedQuantity;
             final totalQuantity = _formatQuantity(aggregatedQuantity, unit);
-            
+
             summaryBuffer.writeln(
-              '"$farmerName","$farmerLocation","$deliveryDateStr","$scheduleNames","$productName","$productCategory",$unitQuantity,"$unit","$totalQuantity",$totalOrders,$totalItems'
-            );
+                '"$farmerName","$farmerLocation","$deliveryDateStr","$scheduleNames","$productName","$productCategory",$unitQuantity,"$unit","$totalQuantity",$totalOrders,$totalItems');
           }
         }
       }
-      
+
       // Download summary CSV
       final summaryCSV = summaryBuffer.toString();
-      
+
       final blob2 = html.Blob([summaryCSV], 'text/csv;charset=utf-8');
       final url2 = html.Url.createObjectUrlFromBlob(blob2);
       final anchor2 = html.AnchorElement(href: url2)
@@ -474,8 +511,18 @@ class _FarmerPackagingListPageState extends ConsumerState<FarmerPackagingListPag
                 isDense: true,
                 isExpanded: true,
                 style: const TextStyle(fontSize: 13),
-                items: ['This Week', 'This Month', 'This Quarter', 'Fiscal Year', 'Calendar Year', 'Custom'].map((filter) {
-                  return DropdownMenuItem(value: filter, child: Text(filter, style: const TextStyle(fontSize: 13)));
+                items: [
+                  'This Week',
+                  'This Month',
+                  'This Quarter',
+                  'Fiscal Year',
+                  'Calendar Year',
+                  'Custom'
+                ].map((filter) {
+                  return DropdownMenuItem(
+                      value: filter,
+                      child:
+                          Text(filter, style: const TextStyle(fontSize: 13)));
                 }).toList(),
                 onChanged: (value) {
                   if (value == 'Custom') {
@@ -488,7 +535,9 @@ class _FarmerPackagingListPageState extends ConsumerState<FarmerPackagingListPag
             ),
           ),
           const SizedBox(width: 12),
-          if (_selectedDateFilter == 'Custom' && _startDate != null && _endDate != null)
+          if (_selectedDateFilter == 'Custom' &&
+              _startDate != null &&
+              _endDate != null)
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               decoration: BoxDecoration(
@@ -498,11 +547,13 @@ class _FarmerPackagingListPageState extends ConsumerState<FarmerPackagingListPag
               ),
               child: Row(
                 children: [
-                  const Icon(Icons.date_range, size: 16, color: Color(0xFF4CAF50)),
+                  const Icon(Icons.date_range,
+                      size: 16, color: Color(0xFF4CAF50)),
                   const SizedBox(width: 6),
                   Text(
                     '${DateFormat('MMM dd, yyyy').format(_startDate!)} - ${DateFormat('MMM dd, yyyy').format(_endDate!)}',
-                    style: const TextStyle(fontSize: 12, color: Color(0xFF4CAF50)),
+                    style:
+                        const TextStyle(fontSize: 12, color: Color(0xFF4CAF50)),
                   ),
                 ],
               ),
@@ -535,15 +586,17 @@ class _FarmerPackagingListPageState extends ConsumerState<FarmerPackagingListPag
         final orders = snapshot.data!.docs
             .map((doc) => OrderModel.fromFirestore(doc))
             .where((order) {
-              if (_startDate == null || _endDate == null) return true;
-              final deliveryDate = order.deliveryDate ?? order.createdAt;
-              final dateOnly = DateTime(deliveryDate.year, deliveryDate.month, deliveryDate.day);
-              final start = DateTime(_startDate!.year, _startDate!.month, _startDate!.day);
-              final end = DateTime(_endDate!.year, _endDate!.month, _endDate!.day, 23, 59, 59);
-              return dateOnly.isAfter(start.subtract(const Duration(days: 1))) && 
-                     dateOnly.isBefore(end.add(const Duration(days: 1)));
-            })
-            .toList();
+          if (_startDate == null || _endDate == null) return true;
+          final deliveryDate = order.deliveryDate ?? order.createdAt;
+          final dateOnly =
+              DateTime(deliveryDate.year, deliveryDate.month, deliveryDate.day);
+          final start =
+              DateTime(_startDate!.year, _startDate!.month, _startDate!.day);
+          final end = DateTime(
+              _endDate!.year, _endDate!.month, _endDate!.day, 23, 59, 59);
+          return dateOnly.isAfter(start.subtract(const Duration(days: 1))) &&
+              dateOnly.isBefore(end.add(const Duration(days: 1)));
+        }).toList();
 
         if (orders.isEmpty) {
           return _buildEmptyState();
@@ -551,14 +604,14 @@ class _FarmerPackagingListPageState extends ConsumerState<FarmerPackagingListPag
 
         // Group orders by farmer and schedule
         final Map<String, Map<String, Set<String>>> farmerScheduleOrders = {};
-        
+
         for (final order in orders) {
           for (final item in order.items) {
             final farmerId = item.farmerId ?? 'unknown';
             // Use scheduleId if available, otherwise use scheduleName + deliveryDate as key
-            final scheduleKey = order.scheduleId ?? 
+            final scheduleKey = order.scheduleId ??
                 '${order.scheduleName ?? "No Schedule"}_${DateFormat('yyyy-MM-dd').format(order.deliveryDate ?? order.createdAt)}';
-            
+
             if (!farmerScheduleOrders.containsKey(farmerId)) {
               farmerScheduleOrders[farmerId] = {};
             }
@@ -575,7 +628,8 @@ class _FarmerPackagingListPageState extends ConsumerState<FarmerPackagingListPag
           farmerScheduleMap[farmerId] = {};
           for (final scheduleKey in farmerScheduleOrders[farmerId]!.keys) {
             final orderIds = farmerScheduleOrders[farmerId]![scheduleKey]!;
-            farmerScheduleMap[farmerId]![scheduleKey] = orders.where((o) => orderIds.contains(o.id)).toList();
+            farmerScheduleMap[farmerId]![scheduleKey] =
+                orders.where((o) => orderIds.contains(o.id)).toList();
           }
         }
 
@@ -585,7 +639,7 @@ class _FarmerPackagingListPageState extends ConsumerState<FarmerPackagingListPag
           itemBuilder: (context, index) {
             final farmerId = farmerScheduleMap.keys.elementAt(index);
             final scheduleMap = farmerScheduleMap[farmerId]!;
-            
+
             return _buildFarmerCard(farmerId, scheduleMap);
           },
         );
@@ -593,9 +647,11 @@ class _FarmerPackagingListPageState extends ConsumerState<FarmerPackagingListPag
     );
   }
 
-  Widget _buildFarmerCard(String farmerId, Map<String, List<OrderModel>> scheduleMap) {
+  Widget _buildFarmerCard(
+      String farmerId, Map<String, List<OrderModel>> scheduleMap) {
     return FutureBuilder<DocumentSnapshot>(
-      future: FirebaseFirestore.instance.collection('farmers').doc(farmerId).get(),
+      future:
+          FirebaseFirestore.instance.collection('farmers').doc(farmerId).get(),
       builder: (context, farmerSnapshot) {
         final farmerName = farmerSnapshot.data?.get('name') ?? 'Unknown Farmer';
         final farmerLocation = farmerSnapshot.data?.get('location') ?? '';
@@ -612,12 +668,12 @@ class _FarmerPackagingListPageState extends ConsumerState<FarmerPackagingListPag
 
         for (final scheduleKey in scheduleMap.keys) {
           final orders = scheduleMap[scheduleKey]!;
-          
+
           // Get schedule name and delivery date from first order
           final firstOrder = orders.first;
           final scheduleName = firstOrder.scheduleName ?? 'Unknown Schedule';
           final deliveryDate = firstOrder.deliveryDate ?? firstOrder.createdAt;
-          
+
           scheduleLabels.add(scheduleName);
           scheduleDeliveryDates[scheduleKey] = deliveryDate;
 
@@ -636,38 +692,46 @@ class _FarmerPackagingListPageState extends ConsumerState<FarmerPackagingListPag
             // Using original ordered quantities (not affected by packaging variations)
             for (final item in order.items) {
               if (item.farmerId == farmerId) {
-                final key = '${item.productName}_${item.unit}_${item.productCategory}';
+                final key =
+                    '${item.productName}_${item.unit}_${item.productCategory}';
                 if (!scheduleProductQuantities[scheduleKey]!.containsKey(key)) {
                   scheduleProductQuantities[scheduleKey]![key] = 0;
                   scheduleProductUnits[scheduleKey]![key] = item.unit;
                   scheduleProductNames[scheduleKey]![key] = item.productName;
-                  scheduleProductCategories[scheduleKey]![key] = item.productCategory;
+                  scheduleProductCategories[scheduleKey]![key] =
+                      item.productCategory;
                 }
                 // Add original ordered quantity
-                scheduleProductQuantities[scheduleKey]![key] = (scheduleProductQuantities[scheduleKey]![key] ?? 0) + item.quantity;
+                scheduleProductQuantities[scheduleKey]![key] =
+                    (scheduleProductQuantities[scheduleKey]![key] ?? 0) +
+                        item.quantity;
               }
             }
           }
-          
+
           // Count items (unique products) for this schedule
-          scheduleItemCounts[scheduleKey] = scheduleProductQuantities[scheduleKey]!.length;
+          scheduleItemCounts[scheduleKey] =
+              scheduleProductQuantities[scheduleKey]!.length;
         }
 
         // Create delivery date summaries (aggregate all schedules by delivery date)
         final Map<String, List<String>> deliveryDateSchedules = {};
-        final Map<String, Map<String, double>> deliveryDateProductQuantities = {};
+        final Map<String, Map<String, double>> deliveryDateProductQuantities =
+            {};
         final Map<String, Map<String, String>> deliveryDateProductUnits = {};
         final Map<String, Map<String, String>> deliveryDateProductNames = {};
         final Map<String, int> deliveryDateTotalOrders = {};
         final Map<String, int> deliveryDateTotalItems = {};
-        
+
         for (final scheduleKey in scheduleMap.keys) {
           final deliveryDate = scheduleDeliveryDates[scheduleKey];
           if (deliveryDate == null) continue;
-          
-          final dateKey = '${deliveryDate.year}-${deliveryDate.month}-${deliveryDate.day}';
-          final scheduleName = scheduleLabels[scheduleMap.keys.toList().indexOf(scheduleKey)];
-          
+
+          final dateKey =
+              '${deliveryDate.year}-${deliveryDate.month}-${deliveryDate.day}';
+          final scheduleName =
+              scheduleLabels[scheduleMap.keys.toList().indexOf(scheduleKey)];
+
           // Track schedules for this date
           if (!deliveryDateSchedules.containsKey(dateKey)) {
             deliveryDateSchedules[dateKey] = [];
@@ -678,26 +742,33 @@ class _FarmerPackagingListPageState extends ConsumerState<FarmerPackagingListPag
             deliveryDateTotalItems[dateKey] = 0;
           }
           deliveryDateSchedules[dateKey]!.add(scheduleName);
-          
+
           // Aggregate products for this date
           final scheduleProducts = scheduleProductQuantities[scheduleKey] ?? {};
           for (final productKey in scheduleProducts.keys) {
-            if (!deliveryDateProductQuantities[dateKey]!.containsKey(productKey)) {
+            if (!deliveryDateProductQuantities[dateKey]!
+                .containsKey(productKey)) {
               deliveryDateProductQuantities[dateKey]![productKey] = 0;
-              deliveryDateProductUnits[dateKey]![productKey] = scheduleProductUnits[scheduleKey]![productKey]!;
-              deliveryDateProductNames[dateKey]![productKey] = scheduleProductNames[scheduleKey]![productKey]!;
+              deliveryDateProductUnits[dateKey]![productKey] =
+                  scheduleProductUnits[scheduleKey]![productKey]!;
+              deliveryDateProductNames[dateKey]![productKey] =
+                  scheduleProductNames[scheduleKey]![productKey]!;
             }
-            deliveryDateProductQuantities[dateKey]![productKey] = 
-                (deliveryDateProductQuantities[dateKey]![productKey] ?? 0) + scheduleProducts[productKey]!;
+            deliveryDateProductQuantities[dateKey]![productKey] =
+                (deliveryDateProductQuantities[dateKey]![productKey] ?? 0) +
+                    scheduleProducts[productKey]!;
           }
-          
+
           // Sum orders and items
-          deliveryDateTotalOrders[dateKey] = (deliveryDateTotalOrders[dateKey] ?? 0) + (scheduleOrderCounts[scheduleKey] ?? 0);
+          deliveryDateTotalOrders[dateKey] =
+              (deliveryDateTotalOrders[dateKey] ?? 0) +
+                  (scheduleOrderCounts[scheduleKey] ?? 0);
         }
-        
+
         // Calculate total items per date
         for (final dateKey in deliveryDateProductQuantities.keys) {
-          deliveryDateTotalItems[dateKey] = deliveryDateProductQuantities[dateKey]!.length;
+          deliveryDateTotalItems[dateKey] =
+              deliveryDateProductQuantities[dateKey]!.length;
         }
 
         return Card(
@@ -708,7 +779,8 @@ class _FarmerPackagingListPageState extends ConsumerState<FarmerPackagingListPag
               children: [
                 CircleAvatar(
                   backgroundColor: Colors.green[100],
-                  child: Icon(Icons.agriculture, color: Colors.green[700], size: 20),
+                  child: Icon(Icons.agriculture,
+                      color: Colors.green[700], size: 20),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
@@ -734,7 +806,8 @@ class _FarmerPackagingListPageState extends ConsumerState<FarmerPackagingListPag
                   ),
                 ),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   decoration: BoxDecoration(
                     color: Colors.green[50],
                     borderRadius: BorderRadius.circular(12),
@@ -757,7 +830,8 @@ class _FarmerPackagingListPageState extends ConsumerState<FarmerPackagingListPag
                 runSpacing: 4,
                 children: scheduleLabels.take(3).map((scheduleLabel) {
                   return Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                     decoration: BoxDecoration(
                       color: Colors.blue[50],
                       borderRadius: BorderRadius.circular(4),
@@ -786,14 +860,16 @@ class _FarmerPackagingListPageState extends ConsumerState<FarmerPackagingListPag
                         decoration: BoxDecoration(
                           color: Colors.green[50],
                           borderRadius: BorderRadius.circular(8),
-                          border: Border.all(color: Colors.green[300]!, width: 2),
+                          border:
+                              Border.all(color: Colors.green[300]!, width: 2),
                         ),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Row(
                               children: [
-                                Icon(Icons.summarize, size: 18, color: Colors.green[700]),
+                                Icon(Icons.summarize,
+                                    size: 18, color: Colors.green[700]),
                                 const SizedBox(width: 8),
                                 const Text(
                                   'Delivery Date Summary',
@@ -807,14 +883,21 @@ class _FarmerPackagingListPageState extends ConsumerState<FarmerPackagingListPag
                             const SizedBox(height: 12),
                             ...deliveryDateSchedules.keys.map((dateKey) {
                               final parts = dateKey.split('-');
-                              final date = DateTime(int.parse(parts[0]), int.parse(parts[1]), int.parse(parts[2]));
-                              final schedules = deliveryDateSchedules[dateKey] ?? [];
-                              final totalOrders = deliveryDateTotalOrders[dateKey] ?? 0;
-                              final totalItems = deliveryDateTotalItems[dateKey] ?? 0;
-                              final products = deliveryDateProductQuantities[dateKey] ?? {};
-                              final productUnits = deliveryDateProductUnits[dateKey] ?? {};
-                              final productNames = deliveryDateProductNames[dateKey] ?? {};
-                              
+                              final date = DateTime(int.parse(parts[0]),
+                                  int.parse(parts[1]), int.parse(parts[2]));
+                              final schedules =
+                                  deliveryDateSchedules[dateKey] ?? [];
+                              final totalOrders =
+                                  deliveryDateTotalOrders[dateKey] ?? 0;
+                              final totalItems =
+                                  deliveryDateTotalItems[dateKey] ?? 0;
+                              final products =
+                                  deliveryDateProductQuantities[dateKey] ?? {};
+                              final productUnits =
+                                  deliveryDateProductUnits[dateKey] ?? {};
+                              final productNames =
+                                  deliveryDateProductNames[dateKey] ?? {};
+
                               return Container(
                                 margin: const EdgeInsets.only(bottom: 12),
                                 padding: const EdgeInsets.all(10),
@@ -828,10 +911,12 @@ class _FarmerPackagingListPageState extends ConsumerState<FarmerPackagingListPag
                                   children: [
                                     Row(
                                       children: [
-                                        Icon(Icons.calendar_today, size: 14, color: Colors.green[700]),
+                                        Icon(Icons.calendar_today,
+                                            size: 14, color: Colors.green[700]),
                                         const SizedBox(width: 6),
                                         Text(
-                                          DateFormat('MMM dd, yyyy').format(date),
+                                          DateFormat('MMM dd, yyyy')
+                                              .format(date),
                                           style: TextStyle(
                                             fontSize: 13,
                                             fontWeight: FontWeight.w600,
@@ -840,10 +925,12 @@ class _FarmerPackagingListPageState extends ConsumerState<FarmerPackagingListPag
                                         ),
                                         const Spacer(),
                                         Container(
-                                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                          padding: const EdgeInsets.symmetric(
+                                              horizontal: 6, vertical: 2),
                                           decoration: BoxDecoration(
                                             color: Colors.orange[100],
-                                            borderRadius: BorderRadius.circular(10),
+                                            borderRadius:
+                                                BorderRadius.circular(10),
                                           ),
                                           child: Text(
                                             '$totalOrders Orders',
@@ -856,10 +943,12 @@ class _FarmerPackagingListPageState extends ConsumerState<FarmerPackagingListPag
                                         ),
                                         const SizedBox(width: 6),
                                         Container(
-                                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                          padding: const EdgeInsets.symmetric(
+                                              horizontal: 6, vertical: 2),
                                           decoration: BoxDecoration(
                                             color: Colors.blue[100],
-                                            borderRadius: BorderRadius.circular(10),
+                                            borderRadius:
+                                                BorderRadius.circular(10),
                                           ),
                                           child: Text(
                                             '$totalItems Items',
@@ -893,21 +982,27 @@ class _FarmerPackagingListPageState extends ConsumerState<FarmerPackagingListPag
                                     ),
                                     const SizedBox(height: 6),
                                     ...products.entries.map((entry) {
-                                      final productName = productNames[entry.key] ?? 'Unknown';
-                                      final unit = productUnits[entry.key] ?? '';
+                                      final productName =
+                                          productNames[entry.key] ?? 'Unknown';
+                                      final unit =
+                                          productUnits[entry.key] ?? '';
                                       return Padding(
-                                        padding: const EdgeInsets.only(bottom: 3),
+                                        padding:
+                                            const EdgeInsets.only(bottom: 3),
                                         child: Row(
-                                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                          mainAxisAlignment:
+                                              MainAxisAlignment.spaceBetween,
                                           children: [
                                             Expanded(
                                               child: Text(
                                                 productName,
-                                                style: const TextStyle(fontSize: 11),
+                                                style: const TextStyle(
+                                                    fontSize: 11),
                                               ),
                                             ),
                                             Text(
-                                              _formatQuantity(entry.value, unit),
+                                              _formatQuantity(
+                                                  entry.value, unit),
                                               style: TextStyle(
                                                 fontSize: 11,
                                                 fontWeight: FontWeight.w600,
@@ -938,15 +1033,21 @@ class _FarmerPackagingListPageState extends ConsumerState<FarmerPackagingListPag
                     ),
                     const SizedBox(height: 8),
                     ...scheduleMap.keys.map((scheduleKey) {
-                      final scheduleLabel = scheduleLabels[scheduleMap.keys.toList().indexOf(scheduleKey)] ?? 'Unknown Schedule';
+                      final scheduleLabel = scheduleLabels[
+                              scheduleMap.keys.toList().indexOf(scheduleKey)] ??
+                          'Unknown Schedule';
                       final deliveryDate = scheduleDeliveryDates[scheduleKey];
                       final orderCount = scheduleOrderCounts[scheduleKey] ?? 0;
                       final itemCount = scheduleItemCounts[scheduleKey] ?? 0;
-                      final productQuantities = scheduleProductQuantities[scheduleKey] ?? {};
-                      final productUnits = scheduleProductUnits[scheduleKey] ?? {};
-                      final productNames = scheduleProductNames[scheduleKey] ?? {};
-                      final productCategories = scheduleProductCategories[scheduleKey] ?? {};
-                      
+                      final productQuantities =
+                          scheduleProductQuantities[scheduleKey] ?? {};
+                      final productUnits =
+                          scheduleProductUnits[scheduleKey] ?? {};
+                      final productNames =
+                          scheduleProductNames[scheduleKey] ?? {};
+                      final productCategories =
+                          scheduleProductCategories[scheduleKey] ?? {};
+
                       return Container(
                         margin: const EdgeInsets.only(bottom: 16),
                         padding: const EdgeInsets.all(12),
@@ -960,11 +1061,13 @@ class _FarmerPackagingListPageState extends ConsumerState<FarmerPackagingListPag
                           children: [
                             Row(
                               children: [
-                                Icon(Icons.schedule, size: 16, color: Colors.blue[700]),
+                                Icon(Icons.schedule,
+                                    size: 16, color: Colors.blue[700]),
                                 const SizedBox(width: 8),
                                 Expanded(
                                   child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
                                     children: [
                                       Text(
                                         scheduleLabel,
@@ -986,7 +1089,8 @@ class _FarmerPackagingListPageState extends ConsumerState<FarmerPackagingListPag
                                   ),
                                 ),
                                 Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 8, vertical: 4),
                                   decoration: BoxDecoration(
                                     color: Colors.orange[100],
                                     borderRadius: BorderRadius.circular(12),
@@ -1002,7 +1106,8 @@ class _FarmerPackagingListPageState extends ConsumerState<FarmerPackagingListPag
                                 ),
                                 const SizedBox(width: 8),
                                 Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 8, vertical: 4),
                                   decoration: BoxDecoration(
                                     color: Colors.blue[100],
                                     borderRadius: BorderRadius.circular(12),
@@ -1032,16 +1137,20 @@ class _FarmerPackagingListPageState extends ConsumerState<FarmerPackagingListPag
                               const SizedBox(height: 8),
                               ...productQuantities.entries.map((entry) {
                                 final unit = productUnits[entry.key] ?? '';
-                                final productName = productNames[entry.key] ?? 'Unknown Product';
-                                final productCategory = productCategories[entry.key] ?? '';
+                                final productName = productNames[entry.key] ??
+                                    'Unknown Product';
+                                final productCategory =
+                                    productCategories[entry.key] ?? '';
                                 return Padding(
                                   padding: const EdgeInsets.only(bottom: 4),
                                   child: Row(
-                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                    mainAxisAlignment:
+                                        MainAxisAlignment.spaceBetween,
                                     children: [
                                       Expanded(
                                         child: Column(
-                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
                                           children: [
                                             Text(
                                               productName,

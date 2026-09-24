@@ -9,7 +9,7 @@ class BillItemModel {
   final String orderedUnit;
   final double orderedPrice;
   final double orderedAmount;
-  
+
   // Packaging variations
   final double? actualQuantity;
   final String? actualUnit;
@@ -45,21 +45,22 @@ class BillItemModel {
   // Format quantity for display
   String _formatQuantity(double quantity, String unit) {
     final unitLower = unit.toLowerCase();
-    
+
     // Parse unit to get base quantity (e.g., "50g" -> 50)
-    final numericMatch = RegExp(r'^(\d+(?:\.\d+)?)\s*([a-z]+)$').firstMatch(unitLower);
-    
+    final numericMatch =
+        RegExp(r'^(\d+(?:\.\d+)?)\s*([a-z]+)$').firstMatch(unitLower);
+
     // For gram-based units (e.g., 50g, 100g, 250g)
     if (numericMatch != null) {
       final baseQuantity = double.parse(numericMatch.group(1)!);
       final baseUnit = numericMatch.group(2)!;
-      
+
       if (baseUnit == 'g' || baseUnit == 'gram' || baseUnit == 'grams') {
         final totalGrams = (quantity * baseQuantity).toInt();
         return '${totalGrams}g';
       }
     }
-    
+
     // For kg, show fractions or decimals
     if (unitLower == 'kg' || unitLower.contains('kilogram')) {
       if (quantity == 0.25) return '1/4 kg';
@@ -70,20 +71,29 @@ class BillItemModel {
       }
       return '${quantity.toStringAsFixed(2)} kg';
     }
-    
+
     // For discrete units (piece, box, etc.), show whole numbers
-    final discreteUnits = ['box', 'piece', 'bunch', 'packet', 'dozen', 'unit'];
+    final discreteUnits = [
+      'box',
+      'piece',
+      'bunch',
+      'packet',
+      'dozen',
+      'unit',
+      'pcs'
+    ];
     if (discreteUnits.contains(unitLower)) {
       return '${quantity.toInt()}';
     }
-    
+
     // Default: show quantity with unit
     return '${quantity.toStringAsFixed(2)} $unit';
   }
 
-  String get formattedOrderedQuantity => _formatQuantity(orderedQuantity, orderedUnit);
-  String get formattedActualQuantity => actualQuantity != null 
-      ? _formatQuantity(actualQuantity!, actualUnit ?? orderedUnit) 
+  String get formattedOrderedQuantity =>
+      _formatQuantity(orderedQuantity, orderedUnit);
+  String get formattedActualQuantity => actualQuantity != null
+      ? _formatQuantity(actualQuantity!, actualUnit ?? orderedUnit)
       : '-';
 
   Map<String, dynamic> toMap() {
@@ -135,32 +145,32 @@ class BillModel {
   final String customerPhone;
   final String? customerEmail;
   final String? customerAddress;
-  
+
   // Order details
   final DateTime orderDate;
   final DateTime deliveryDate;
   final String scheduleId;
   final String scheduleName;
-  
+
   // Bill items
   final List<BillItemModel> items;
-  
+
   // Financial details - Original
   final double orderedSubtotal;
   final double deliveryCharges;
   final double cleaningCharges;
   final double orderedTotal;
-  
+
   // Financial details - Actual (after packaging)
   final double? actualSubtotal;
   final double? actualTotal;
   final double? totalVariation;
-  
+
   // Payment details
   final String paymentMethod;
   final String paymentStatus;
   final DateTime? paidAt;
-  
+
   // Bill metadata
   final String billNumber;
   final DateTime generatedAt;
@@ -169,7 +179,7 @@ class BillModel {
   final String? updatedBy;
   final bool hasVariations;
   final String status; // draft, final, cancelled
-  
+
   // Notes
   final String? notes;
   final String? packagingNotes;
@@ -262,7 +272,8 @@ class BillModel {
       scheduleId: data['scheduleId'] ?? '',
       scheduleName: data['scheduleName'] ?? '',
       items: (data['items'] as List<dynamic>?)
-              ?.map((item) => BillItemModel.fromMap(item as Map<String, dynamic>))
+              ?.map(
+                  (item) => BillItemModel.fromMap(item as Map<String, dynamic>))
               .toList() ??
           [],
       orderedSubtotal: (data['orderedSubtotal'] as num?)?.toDouble() ?? 0.0,
@@ -274,10 +285,14 @@ class BillModel {
       totalVariation: (data['totalVariation'] as num?)?.toDouble(),
       paymentMethod: data['paymentMethod'] ?? 'cash',
       paymentStatus: data['paymentStatus'] ?? 'pending',
-      paidAt: data['paidAt'] != null ? (data['paidAt'] as Timestamp).toDate() : null,
+      paidAt: data['paidAt'] != null
+          ? (data['paidAt'] as Timestamp).toDate()
+          : null,
       billNumber: data['billNumber'] ?? '',
       generatedAt: (data['generatedAt'] as Timestamp).toDate(),
-      updatedAt: data['updatedAt'] != null ? (data['updatedAt'] as Timestamp).toDate() : null,
+      updatedAt: data['updatedAt'] != null
+          ? (data['updatedAt'] as Timestamp).toDate()
+          : null,
       generatedBy: data['generatedBy'] ?? '',
       updatedBy: data['updatedBy'],
       hasVariations: data['hasVariations'] ?? false,

@@ -79,32 +79,42 @@ class OrderItem with _$OrderItem {
   // Examples: "50g" -> (50, "g"), "100g" -> (100, "g"), "kg" -> (1, "kg")
   (double baseQuantity, String baseUnit) get _parsedUnit {
     final unitLower = unit.toLowerCase();
-    
+
     // Check for numeric prefix (e.g., 50g, 100g, 250g)
-    final numericMatch = RegExp(r'^(\d+(?:\.\d+)?)\s*([a-z]+)$').firstMatch(unitLower);
+    final numericMatch =
+        RegExp(r'^(\d+(?:\.\d+)?)\s*([a-z]+)$').firstMatch(unitLower);
     if (numericMatch != null) {
       final qty = double.parse(numericMatch.group(1)!);
       final baseUnit = numericMatch.group(2)!;
       return (qty, baseUnit);
     }
-    
+
     // Default case (e.g., "kg", "liter", "piece")
     return (1.0, unitLower);
   }
 
   // Check if unit is discrete (whole numbers only)
   bool get isDiscreteUnit {
-    final discreteUnits = ['box', 'piece', 'bunch', 'packet', 'dozen', 'unit'];
+    final discreteUnits = [
+      'box',
+      'piece',
+      'bunch',
+      'packet',
+      'dozen',
+      'unit',
+      'pcs'
+    ];
     final unitLower = unit.toLowerCase();
-    
+
     // Check if it's a discrete unit
     if (discreteUnits.contains(unitLower)) return true;
-    
+
     // Check for gram-based units (e.g., 50g, 100g, 250g)
     // These should be treated as discrete (increment by whole units)
-    final gramMatch = RegExp(r'^(\d+(?:\.\d+)?)\s*g(?:ram)?s?$').firstMatch(unitLower);
+    final gramMatch =
+        RegExp(r'^(\d+(?:\.\d+)?)\s*g(?:ram)?s?$').firstMatch(unitLower);
     if (gramMatch != null) return true;
-    
+
     return false;
   }
 
@@ -113,24 +123,24 @@ class OrderItem with _$OrderItem {
     if (isDiscreteUnit) {
       return 1.0;
     }
-    
+
     final (baseQuantity, baseUnit) = _parsedUnit;
-    
+
     // For gram-based units, increment by 1.0 (one more unit of the base quantity)
     if (baseUnit == 'g' || baseUnit == 'gram' || baseUnit == 'grams') {
       return 1.0;
     }
-    
+
     // For kg, increment by 0.25 (1/4 kg)
     if (baseUnit == 'kg' || baseUnit == 'kilogram' || baseUnit == 'kilograms') {
       return 0.25;
     }
-    
+
     // For liter, increment by 0.25
     if (baseUnit == 'l' || baseUnit == 'liter' || baseUnit == 'liters') {
       return 0.25;
     }
-    
+
     // Default increment
     return 0.25;
   }
@@ -140,15 +150,15 @@ class OrderItem with _$OrderItem {
     if (isDiscreteUnit) {
       return quantity.toInt().toString();
     }
-    
+
     final (baseQuantity, baseUnit) = _parsedUnit;
-    
+
     // For gram-based units, show actual grams (e.g., 75g, 150g)
     if (baseUnit == 'g' || baseUnit == 'gram' || baseUnit == 'grams') {
       final actualGrams = (quantity * baseQuantity).toInt();
       return '$actualGrams$baseUnit';
     }
-    
+
     // For kg, show as fractions or whole numbers
     if (baseUnit == 'kg' || baseUnit == 'kilogram' || baseUnit == 'kilograms') {
       if (quantity == 0.25) return '1/4 kg';
@@ -159,12 +169,12 @@ class OrderItem with _$OrderItem {
       }
       return '${quantity.toStringAsFixed(2)} kg';
     }
-    
+
     // For liter, show decimals
     if (baseUnit == 'l' || baseUnit == 'liter' || baseUnit == 'liters') {
       return '${quantity.toStringAsFixed(2)} $baseUnit';
     }
-    
+
     // Default
     return quantity.toStringAsFixed(2);
   }
@@ -228,10 +238,10 @@ class OrderModel with _$OrderModel {
 
   factory OrderModel.fromFirestore(DocumentSnapshot doc) {
     final data = doc.data() as Map<String, dynamic>;
-    
+
     // Convert Timestamps to ISO strings for fromJson
     final convertedData = Map<String, dynamic>.from(data);
-    
+
     // Helper function to convert Timestamp to ISO string
     String? timestampToIso(dynamic value) {
       if (value == null) return null;
@@ -240,7 +250,7 @@ class OrderModel with _$OrderModel {
       }
       return value as String?;
     }
-    
+
     // Convert all timestamp fields
     convertedData['createdAt'] = timestampToIso(data['createdAt']);
     convertedData['scheduledDate'] = timestampToIso(data['scheduledDate']);
@@ -252,8 +262,9 @@ class OrderModel with _$OrderModel {
     convertedData['inTransitAt'] = timestampToIso(data['inTransitAt']);
     convertedData['deliveredAt'] = timestampToIso(data['deliveredAt']);
     convertedData['cancelledAt'] = timestampToIso(data['cancelledAt']);
-    convertedData['transactionVerifiedAt'] = timestampToIso(data['transactionVerifiedAt']);
-    
+    convertedData['transactionVerifiedAt'] =
+        timestampToIso(data['transactionVerifiedAt']);
+
     return OrderModel.fromJson(convertedData).copyWith(id: doc.id);
   }
 
@@ -262,24 +273,33 @@ class OrderModel with _$OrderModel {
       ..['status'] = status.name
       ..['createdAt'] = Timestamp.fromDate(createdAt)
       ..['scheduledDate'] = Timestamp.fromDate(scheduledDate)
-      ..['deliveryDate'] = deliveryDate != null ? Timestamp.fromDate(deliveryDate!) : null
-      ..['cutoffDateTime'] = cutoffDateTime != null ? Timestamp.fromDate(cutoffDateTime!) : null
-      ..['confirmedAt'] = confirmedAt != null ? Timestamp.fromDate(confirmedAt!) : null
-      ..['preparingAt'] = preparingAt != null ? Timestamp.fromDate(preparingAt!) : null
+      ..['deliveryDate'] =
+          deliveryDate != null ? Timestamp.fromDate(deliveryDate!) : null
+      ..['cutoffDateTime'] =
+          cutoffDateTime != null ? Timestamp.fromDate(cutoffDateTime!) : null
+      ..['confirmedAt'] =
+          confirmedAt != null ? Timestamp.fromDate(confirmedAt!) : null
+      ..['preparingAt'] =
+          preparingAt != null ? Timestamp.fromDate(preparingAt!) : null
       ..['readyAt'] = readyAt != null ? Timestamp.fromDate(readyAt!) : null
-      ..['inTransitAt'] = inTransitAt != null ? Timestamp.fromDate(inTransitAt!) : null
-      ..['deliveredAt'] = deliveredAt != null ? Timestamp.fromDate(deliveredAt!) : null
-      ..['cancelledAt'] = cancelledAt != null ? Timestamp.fromDate(cancelledAt!) : null
-      ..['transactionVerifiedAt'] = transactionVerifiedAt != null ? Timestamp.fromDate(transactionVerifiedAt!) : null
+      ..['inTransitAt'] =
+          inTransitAt != null ? Timestamp.fromDate(inTransitAt!) : null
+      ..['deliveredAt'] =
+          deliveredAt != null ? Timestamp.fromDate(deliveredAt!) : null
+      ..['cancelledAt'] =
+          cancelledAt != null ? Timestamp.fromDate(cancelledAt!) : null
+      ..['transactionVerifiedAt'] = transactionVerifiedAt != null
+          ? Timestamp.fromDate(transactionVerifiedAt!)
+          : null
       ..['items'] = items.map((item) => item.toJson()).toList();
   }
 
   // Calculate subtotal (items only)
   double get subtotal => items.fold(0.0, (sum, item) => sum + item.totalPrice);
-  
+
   // Calculate grand total (subtotal + charges)
   double get grandTotal => subtotal + deliveryCharges + cleaningCharges;
-  
+
   // Check if order can be edited
   // Orders can ONLY be edited if:
   // 1. canEdit flag is true
