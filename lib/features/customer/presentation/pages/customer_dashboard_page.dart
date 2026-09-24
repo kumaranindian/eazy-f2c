@@ -17,7 +17,8 @@ class CustomerDashboardPage extends ConsumerStatefulWidget {
   const CustomerDashboardPage({super.key});
 
   @override
-  ConsumerState<CustomerDashboardPage> createState() => _CustomerDashboardPageState();
+  ConsumerState<CustomerDashboardPage> createState() =>
+      _CustomerDashboardPageState();
 }
 
 class _CustomerDashboardPageState extends ConsumerState<CustomerDashboardPage> {
@@ -52,34 +53,43 @@ class _CustomerDashboardPageState extends ConsumerState<CustomerDashboardPage> {
       final date = schedule.deliveryDate ?? schedule.scheduledDate;
       return DateFormat('EEE, dd MMM yyyy').format(date);
     }
-    
+
     // For recurring schedules (daily, weekly, custom days), show day(s) of week
     if (schedule.recurrenceType == ScheduleRecurrenceType.daily) {
       return 'Every Day';
     }
-    
+
     if (schedule.recurrenceType == ScheduleRecurrenceType.weekly ||
         schedule.recurrenceType == ScheduleRecurrenceType.customDays) {
-      final daysOfWeek = schedule.deliveryDaysOfWeek.isNotEmpty 
-          ? schedule.deliveryDaysOfWeek 
+      final daysOfWeek = schedule.deliveryDaysOfWeek.isNotEmpty
+          ? schedule.deliveryDaysOfWeek
           : schedule.recurrenceDaysOfWeek;
-      
+
       if (daysOfWeek.isEmpty) {
         return 'No delivery days set';
       }
-      
+
       // Convert day numbers to day names
       // Note: deliveryDaysOfWeek uses 0-6 (Sun-Sat), but handle both 0-6 and 1-7 formats
-      final dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+      final dayNames = [
+        'Sunday',
+        'Monday',
+        'Tuesday',
+        'Wednesday',
+        'Thursday',
+        'Friday',
+        'Saturday'
+      ];
       final sortedDays = List<int>.from(daysOfWeek)..sort();
-      final dayNamesList = sortedDays.where((day) => day >= 0 && day <= 7).map((day) {
+      final dayNamesList =
+          sortedDays.where((day) => day >= 0 && day <= 7).map((day) {
         // Handle both 0-6 (Sun-Sat) and 1-7 (Mon-Sun) formats
         // 0 = Sunday, 1 = Monday, ..., 6 = Saturday
         // 7 = Sunday (alternative format)
         final index = day == 7 ? 0 : day.clamp(0, 6);
         return dayNames[index];
       }).toList();
-      
+
       // Format based on number of days
       if (dayNamesList.length == 1) {
         return 'Every ${dayNamesList[0]}';
@@ -92,7 +102,7 @@ class _CustomerDashboardPageState extends ConsumerState<CustomerDashboardPage> {
         return '${dayNamesList[0]}, ${dayNamesList[1]} +${dayNamesList.length - 2} more';
       }
     }
-    
+
     // Fallback to showing next occurrence date
     final date = _getNextOccurrenceDate(schedule);
     return DateFormat('EEE, dd MMM yyyy').format(date);
@@ -102,16 +112,17 @@ class _CustomerDashboardPageState extends ConsumerState<CustomerDashboardPage> {
   DateTime _getNextOccurrenceDate(OperationalScheduleModel schedule) {
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
-    
-    print('DEBUG _getNextOccurrenceDate: schedule=${schedule.scheduleName}, recurrenceType=${schedule.recurrenceType}, recurrenceDaysOfWeek=${schedule.recurrenceDaysOfWeek}, today.weekday=${today.weekday}');
-    
+
+    print(
+        'DEBUG _getNextOccurrenceDate: schedule=${schedule.scheduleName}, recurrenceType=${schedule.recurrenceType}, recurrenceDaysOfWeek=${schedule.recurrenceDaysOfWeek}, today.weekday=${today.weekday}');
+
     // For one-time schedules, return the scheduled date
     if (schedule.recurrenceType == ScheduleRecurrenceType.oneTime) {
       final result = schedule.deliveryDate ?? schedule.scheduledDate;
       print('DEBUG: One-time schedule, returning $result');
       return result;
     }
-    
+
     // For daily schedules, return today if within range, otherwise start date
     if (schedule.recurrenceType == ScheduleRecurrenceType.daily) {
       final scheduleDate = DateTime(
@@ -119,15 +130,16 @@ class _CustomerDashboardPageState extends ConsumerState<CustomerDashboardPage> {
         schedule.scheduledDate.month,
         schedule.scheduledDate.day,
       );
-      
+
       if (today.isBefore(scheduleDate)) {
-        print('DEBUG: Daily schedule, today before start, returning $scheduleDate');
+        print(
+            'DEBUG: Daily schedule, today before start, returning $scheduleDate');
         return scheduleDate;
       }
       print('DEBUG: Daily schedule, returning today $today');
       return today;
     }
-    
+
     // For weekly and custom days schedules, find the next matching day
     if (schedule.recurrenceType == ScheduleRecurrenceType.weekly ||
         schedule.recurrenceType == ScheduleRecurrenceType.customDays) {
@@ -136,33 +148,38 @@ class _CustomerDashboardPageState extends ConsumerState<CustomerDashboardPage> {
         schedule.scheduledDate.month,
         schedule.scheduledDate.day,
       );
-      
+
       // Use deliveryDaysOfWeek if available, otherwise fall back to recurrenceDaysOfWeek
-      final daysOfWeek = schedule.deliveryDaysOfWeek.isNotEmpty 
-          ? schedule.deliveryDaysOfWeek 
+      final daysOfWeek = schedule.deliveryDaysOfWeek.isNotEmpty
+          ? schedule.deliveryDaysOfWeek
           : schedule.recurrenceDaysOfWeek;
-      
+
       // Start from today or schedule start date, whichever is later
       var checkDate = today.isBefore(scheduleDate) ? scheduleDate : today;
-      print('DEBUG: Weekly/Custom schedule, starting check from $checkDate, deliveryDaysOfWeek=${schedule.deliveryDaysOfWeek}, using daysOfWeek=$daysOfWeek');
-      
+      print(
+          'DEBUG: Weekly/Custom schedule, starting check from $checkDate, deliveryDaysOfWeek=${schedule.deliveryDaysOfWeek}, using daysOfWeek=$daysOfWeek');
+
       // Look for the next occurrence within the next 14 days (2 weeks to ensure we find it)
       for (int i = 0; i < 14; i++) {
         // Convert weekday: DateTime uses 1-7 (Mon-Sun), but we store 0-6 (Sun-Sat) in deliveryDaysOfWeek
-        final checkWeekday = checkDate.weekday == 7 ? 0 : checkDate.weekday; // Convert Sunday from 7 to 0
-        print('DEBUG: Checking day $i: checkDate=$checkDate, weekday=${checkDate.weekday}, converted=$checkWeekday, contains=${daysOfWeek.contains(checkWeekday)}');
+        final checkWeekday = checkDate.weekday == 7
+            ? 0
+            : checkDate.weekday; // Convert Sunday from 7 to 0
+        print(
+            'DEBUG: Checking day $i: checkDate=$checkDate, weekday=${checkDate.weekday}, converted=$checkWeekday, contains=${daysOfWeek.contains(checkWeekday)}');
         if (daysOfWeek.contains(checkWeekday)) {
           print('DEBUG: Found matching day: $checkDate');
           return checkDate;
         }
         checkDate = checkDate.add(const Duration(days: 1));
       }
-      
+
       // Fallback to scheduled date
-      print('DEBUG: No matching day found, returning scheduleDate $scheduleDate');
+      print(
+          'DEBUG: No matching day found, returning scheduleDate $scheduleDate');
       return scheduleDate;
     }
-    
+
     final fallback = schedule.deliveryDate ?? schedule.scheduledDate;
     print('DEBUG: Fallback, returning $fallback');
     return fallback;
@@ -172,12 +189,12 @@ class _CustomerDashboardPageState extends ConsumerState<CustomerDashboardPage> {
   DateTime _getLastOrderingDate(OperationalScheduleModel schedule) {
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
-    
+
     // For one-time schedules, return the scheduled date
     if (schedule.recurrenceType == ScheduleRecurrenceType.oneTime) {
       return schedule.scheduledDate;
     }
-    
+
     // For daily schedules, ordering is available every day, so return today
     if (schedule.recurrenceType == ScheduleRecurrenceType.daily) {
       final scheduleDate = DateTime(
@@ -185,32 +202,33 @@ class _CustomerDashboardPageState extends ConsumerState<CustomerDashboardPage> {
         schedule.scheduledDate.month,
         schedule.scheduledDate.day,
       );
-      
+
       if (today.isBefore(scheduleDate)) {
         return scheduleDate;
       }
       return today;
     }
-    
+
     // For weekly and custom days schedules, find the next occurrence of the max day
     if (schedule.recurrenceType == ScheduleRecurrenceType.weekly ||
         schedule.recurrenceType == ScheduleRecurrenceType.customDays) {
       if (schedule.recurrenceDaysOfWeek.isEmpty) {
         return schedule.scheduledDate;
       }
-      
+
       // Find the maximum day in recurrenceDaysOfWeek
-      final maxDay = schedule.recurrenceDaysOfWeek.reduce((a, b) => a > b ? a : b);
-      
+      final maxDay =
+          schedule.recurrenceDaysOfWeek.reduce((a, b) => a > b ? a : b);
+
       final scheduleDate = DateTime(
         schedule.scheduledDate.year,
         schedule.scheduledDate.month,
         schedule.scheduledDate.day,
       );
-      
+
       // Start from today or schedule start date, whichever is later
       var checkDate = today.isBefore(scheduleDate) ? scheduleDate : today;
-      
+
       // Look for the next occurrence of maxDay within the next 14 days
       for (int i = 0; i < 14; i++) {
         if (checkDate.weekday == maxDay) {
@@ -218,11 +236,11 @@ class _CustomerDashboardPageState extends ConsumerState<CustomerDashboardPage> {
         }
         checkDate = checkDate.add(const Duration(days: 1));
       }
-      
+
       // Fallback to scheduled date
       return scheduleDate;
     }
-    
+
     return schedule.scheduledDate;
   }
 
@@ -230,7 +248,7 @@ class _CustomerDashboardPageState extends ConsumerState<CustomerDashboardPage> {
   bool _isPastCutoff(OperationalScheduleModel schedule) {
     final now = DateTime.now();
     final cutoffDate = _getLastOrderingDate(schedule);
-    
+
     // Parse end time
     try {
       final timeParts = schedule.endTime.split(':');
@@ -249,7 +267,7 @@ class _CustomerDashboardPageState extends ConsumerState<CustomerDashboardPage> {
     } catch (e) {
       print('Error parsing time: $e');
     }
-    
+
     return false;
   }
 
@@ -257,7 +275,7 @@ class _CustomerDashboardPageState extends ConsumerState<CustomerDashboardPage> {
   String _getTimeRemaining(OperationalScheduleModel schedule) {
     final now = DateTime.now();
     final cutoffDate = _getLastOrderingDate(schedule);
-    
+
     try {
       final timeParts = schedule.endTime.split(':');
       if (timeParts.length >= 2) {
@@ -270,15 +288,15 @@ class _CustomerDashboardPageState extends ConsumerState<CustomerDashboardPage> {
           hour,
           minute,
         );
-        
+
         if (now.isAfter(cutoffDateTime)) {
           return 'Cutoff passed';
         }
-        
+
         final duration = cutoffDateTime.difference(now);
         final hours = duration.inHours;
         final minutes = duration.inMinutes.remainder(60);
-        
+
         if (hours > 24) {
           final days = hours ~/ 24;
           return '$days day${days > 1 ? 's' : ''} left';
@@ -291,7 +309,7 @@ class _CustomerDashboardPageState extends ConsumerState<CustomerDashboardPage> {
     } catch (e) {
       print('Error calculating time: $e');
     }
-    
+
     return '';
   }
 
@@ -304,48 +322,71 @@ class _CustomerDashboardPageState extends ConsumerState<CustomerDashboardPage> {
 
   bool _isMobile(double width) => width < 600;
 
+  String _getGreeting() {
+    final hour = DateTime.now().hour;
+    if (hour < 12) {
+      return 'Good Morning,';
+    } else if (hour < 17) {
+      return 'Good Afternoon,';
+    } else {
+      return 'Good Evening,';
+    }
+  }
+
   bool _isDiscreteUnit(String unit) {
-    final discreteUnits = ['box', 'piece', 'bunch', 'packet', 'dozen', 'unit'];
+    final discreteUnits = [
+      'box',
+      'piece',
+      'bunch',
+      'packet',
+      'dozen',
+      'unit',
+      'pcs'
+    ];
     final unitLower = unit.toLowerCase();
-    
+
     // Check if it's a discrete unit
     if (discreteUnits.contains(unitLower)) return true;
-    
+
     // Check for gram-based units (e.g., 50g, 100g, 250g)
     // These should be treated as discrete (increment by whole units)
-    final gramMatch = RegExp(r'^(\d+(?:\.\d+)?)\s*g(?:ram)?s?$').firstMatch(unitLower);
+    final gramMatch =
+        RegExp(r'^(\d+(?:\.\d+)?)\s*g(?:ram)?s?$').firstMatch(unitLower);
     if (gramMatch != null) return true;
-    
+
     return false;
   }
 
   double _getQuantityIncrement(String unit) {
     final unitLower = unit.toLowerCase();
-    
+
     // Discrete units increment by 1
     if (_isDiscreteUnit(unit)) return 1.0;
-    
+
     // Kg and liter increment by 0.25
-    if (unitLower == 'kg' || unitLower.contains('kilogram') || 
-        unitLower == 'l' || unitLower.contains('liter')) {
+    if (unitLower == 'kg' ||
+        unitLower.contains('kilogram') ||
+        unitLower == 'l' ||
+        unitLower.contains('liter')) {
       return 0.25;
     }
-    
+
     // Default increment
     return 0.25;
   }
 
   String _formatQuantity(double quantity, String unit) {
     final unitLower = unit.toLowerCase();
-    
+
     // Check for gram-based units (e.g., 50g, 100g, 250g)
-    final gramMatch = RegExp(r'^(\d+(?:\.\d+)?)\s*g(?:ram)?s?$').firstMatch(unitLower);
+    final gramMatch =
+        RegExp(r'^(\d+(?:\.\d+)?)\s*g(?:ram)?s?$').firstMatch(unitLower);
     if (gramMatch != null) {
       final baseGrams = double.parse(gramMatch.group(1)!);
       final totalGrams = (quantity * baseGrams).toInt();
       return '${totalGrams}g';
     }
-    
+
     // For kg, show fractions or decimals
     if (unitLower == 'kg' || unitLower.contains('kilogram')) {
       if (quantity == 0.25) return '1/4 kg';
@@ -356,12 +397,12 @@ class _CustomerDashboardPageState extends ConsumerState<CustomerDashboardPage> {
       }
       return '${quantity.toStringAsFixed(2)} kg';
     }
-    
+
     // For discrete units, show whole numbers
     if (_isDiscreteUnit(unit)) {
       return quantity.toInt().toString();
     }
-    
+
     // Default: show with 2 decimals
     return quantity.toStringAsFixed(2);
   }
@@ -461,161 +502,171 @@ class _CustomerDashboardPageState extends ConsumerState<CustomerDashboardPage> {
       body: customerAsync.when(
         data: (customer) {
           if (customer == null) {
-            return const Center(child: Text('Customer profile not found. Please contact admin.'));
+            return const Center(
+                child:
+                    Text('Customer profile not found. Please contact admin.'));
           }
 
           return LayoutBuilder(
             builder: (context, constraints) {
               final isMobile = _isMobile(constraints.maxWidth);
-              
+
               return Stack(
                 children: [
                   CustomScrollView(
                     controller: _scrollController,
                     slivers: [
-                      // Modern App Bar
+                      // Modern App Bar with Hero Section
                       SliverAppBar(
-                        expandedHeight: isMobile ? 180 : 200,
+                        expandedHeight: isMobile ? 280 : 320,
                         floating: false,
                         pinned: true,
                         elevation: _showAppBarShadow ? 4 : 0,
-                        backgroundColor: const Color(0xFF00C853),
+                        backgroundColor: const Color(0xFFF5F5DC),
                         flexibleSpace: FlexibleSpaceBar(
-                          background: Container(
-                            decoration: const BoxDecoration(
-                              gradient: LinearGradient(
-                                begin: Alignment.topLeft,
-                                end: Alignment.bottomRight,
-                                colors: [
-                                  Color(0xFF00C853),
-                                  Color(0xFF00E676),
-                                ],
+                          background: Stack(
+                            children: [
+                              // Background image (responsive)
+                              Positioned.fill(
+                                child: Image.asset(
+                                  isMobile
+                                      ? 'assets/images/f2c_hero_mobile.png'
+                                      : constraints.maxWidth < 900
+                                          ? 'assets/images/f2c_hero_tablet.png'
+                                          : 'assets/images/f2c_hero_desktop.png',
+                                  fit: BoxFit.cover,
+                                  errorBuilder: (context, error, stackTrace) {
+                                    // Fallback to gradient if image fails to load
+                                    return Container(
+                                      decoration: const BoxDecoration(
+                                        gradient: LinearGradient(
+                                          begin: Alignment.topLeft,
+                                          end: Alignment.bottomRight,
+                                          colors: [
+                                            Color(0xFFF5F5DC),
+                                            Color(0xFFE8F5E9),
+                                          ],
+                                        ),
+                                      ),
+                                    );
+                                  },
+                                ),
                               ),
-                            ),
-                            child: SafeArea(
-                              child: Padding(
-                                padding: EdgeInsets.all(isMobile ? 16 : 24),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  mainAxisAlignment: MainAxisAlignment.end,
-                                  children: [
-                                    Row(
-                                      children: [
-                                        Container(
-                                          padding: const EdgeInsets.all(8),
-                                          decoration: BoxDecoration(
-                                            color: Colors.white,
-                                            borderRadius: BorderRadius.circular(12),
-                                          ),
-                                          child: const Icon(
-                                            Icons.location_on,
-                                            color: Color(0xFF00C853),
-                                            size: 20,
-                                          ),
-                                        ),
-                                        const SizedBox(width: 12),
-                                        Expanded(
-                                          child: Column(
-                                            crossAxisAlignment: CrossAxisAlignment.start,
-                                            children: [
-                                              const Text(
-                                                'Delivering to',
-                                                style: TextStyle(
-                                                  color: Colors.white70,
-                                                  fontSize: 12,
-                                                ),
-                                              ),
-                                              Text(
-                                                customer.apartmentName,
-                                                style: const TextStyle(
-                                                  color: Colors.white,
-                                                  fontSize: 16,
-                                                  fontWeight: FontWeight.bold,
-                                                ),
-                                                maxLines: 1,
-                                                overflow: TextOverflow.ellipsis,
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                    const SizedBox(height: 16),
-                                    schedulesAsync.when(
-                                      data: (schedules) {
-                                        if (schedules.isEmpty) {
-                                          return Container(
+                              // Content
+                              SafeArea(
+                                child: Padding(
+                                  padding: EdgeInsets.all(isMobile ? 16 : 24),
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    mainAxisAlignment: MainAxisAlignment.end,
+                                    children: [
+                                      // User greeting with avatar
+                                      Row(
+                                        children: [
+                                          Container(
                                             padding: const EdgeInsets.all(12),
                                             decoration: BoxDecoration(
-                                              color: Colors.white.withOpacity(0.2),
-                                              borderRadius: BorderRadius.circular(12),
-                                              border: Border.all(
-                                                color: Colors.white.withOpacity(0.3),
-                                              ),
+                                              color:
+                                                  Colors.black.withOpacity(0.1),
+                                              shape: BoxShape.circle,
                                             ),
-                                            child: const Row(
+                                            child: const Icon(
+                                              Icons.person,
+                                              color: Colors.black,
+                                              size: 24,
+                                            ),
+                                          ),
+                                          const SizedBox(width: 12),
+                                          Expanded(
+                                            child: Column(
+                                              crossAxisAlignment:
+                                                  CrossAxisAlignment.start,
                                               children: [
-                                                Icon(Icons.info_outline, color: Colors.white, size: 18),
-                                                SizedBox(width: 8),
-                                                Expanded(
-                                                  child: Text(
-                                                    'No deliveries scheduled for today',
-                                                    style: TextStyle(
-                                                      color: Colors.white,
-                                                      fontSize: 13,
-                                                    ),
+                                                Text(
+                                                  _getGreeting(),
+                                                  style: const TextStyle(
+                                                    color: Colors.black,
+                                                    fontSize: 14,
+                                                    fontWeight: FontWeight.bold,
                                                   ),
+                                                ),
+                                                Text(
+                                                  customer.name,
+                                                  style: const TextStyle(
+                                                    color: Colors.black,
+                                                    fontSize: 20,
+                                                    fontWeight: FontWeight.bold,
+                                                  ),
+                                                  maxLines: 1,
+                                                  overflow:
+                                                      TextOverflow.ellipsis,
                                                 ),
                                               ],
                                             ),
-                                          );
-                                        }
-                                        return Container(
-                                          padding: const EdgeInsets.all(12),
-                                          decoration: BoxDecoration(
-                                            color: Colors.white.withOpacity(0.2),
-                                            borderRadius: BorderRadius.circular(12),
                                           ),
-                                          child: Row(
-                                            children: [
-                                              const Icon(Icons.access_time, color: Colors.white, size: 18),
-                                              const SizedBox(width: 8),
-                                              const Expanded(
-                                                child: Text(
-                                                  'Next delivery in 5d 0h',
+                                        ],
+                                      ),
+                                      const SizedBox(height: 12),
+                                      // Tagline
+                                      const Text(
+                                        'Fresh organic food, directly from our farmers\nat lower prices.',
+                                        style: TextStyle(
+                                          color: Colors.black,
+                                          fontSize: 13,
+                                          height: 1.4,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 16),
+                                      // Delivery location
+                                      Row(
+                                        children: [
+                                          const Icon(
+                                            Icons.location_on,
+                                            color: Colors.black,
+                                            size: 18,
+                                          ),
+                                          const SizedBox(width: 8),
+                                          Expanded(
+                                            child: Column(
+                                              crossAxisAlignment:
+                                                  CrossAxisAlignment.start,
+                                              children: [
+                                                const Text(
+                                                  'Delivering to',
                                                   style: TextStyle(
-                                                    color: Colors.white,
-                                                    fontSize: 13,
-                                                    fontWeight: FontWeight.w500,
-                                                  ),
-                                                ),
-                                              ),
-                                              Container(
-                                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                                decoration: BoxDecoration(
-                                                  color: Colors.white,
-                                                  borderRadius: BorderRadius.circular(8),
-                                                ),
-                                                child: const Text(
-                                                  'Available',
-                                                  style: TextStyle(
-                                                    color: Color(0xFF00C853),
+                                                    color: Colors.black,
                                                     fontSize: 11,
                                                     fontWeight: FontWeight.bold,
                                                   ),
                                                 ),
-                                              ),
-                                            ],
+                                                Text(
+                                                  customer.apartmentName,
+                                                  style: const TextStyle(
+                                                    color: Colors.black,
+                                                    fontSize: 14,
+                                                    fontWeight: FontWeight.bold,
+                                                  ),
+                                                  maxLines: 1,
+                                                  overflow:
+                                                      TextOverflow.ellipsis,
+                                                ),
+                                              ],
+                                            ),
                                           ),
-                                        );
-                                      },
-                                      loading: () => const SizedBox.shrink(),
-                                      error: (_, __) => const SizedBox.shrink(),
-                                    ),
-                                  ],
+                                          const Icon(
+                                            Icons.keyboard_arrow_down,
+                                            color: Colors.black,
+                                            size: 20,
+                                          ),
+                                        ],
+                                      ),
+                                    ],
+                                  ),
                                 ),
                               ),
-                            ),
+                            ],
                           ),
                         ),
                         actions: [
@@ -625,10 +676,13 @@ class _CustomerDashboardPageState extends ConsumerState<CustomerDashboardPage> {
                               onPressed: () {
                                 Navigator.push(
                                   context,
-                                  MaterialPageRoute(builder: (context) => const OrderHistoryPageNew()),
+                                  MaterialPageRoute(
+                                      builder: (context) =>
+                                          const OrderHistoryPageNew()),
                                 );
                               },
-                              icon: const Icon(Icons.receipt_long, color: Colors.white, size: 20),
+                              icon: const Icon(Icons.receipt_long,
+                                  color: Colors.white, size: 20),
                               label: const Text(
                                 'Orders',
                                 style: TextStyle(color: Colors.white),
@@ -637,11 +691,14 @@ class _CustomerDashboardPageState extends ConsumerState<CustomerDashboardPage> {
                           // Orders button (mobile)
                           if (isMobile)
                             IconButton(
-                              icon: const Icon(Icons.receipt_long, color: Colors.white, size: 24),
+                              icon: const Icon(Icons.receipt_long,
+                                  color: Colors.white, size: 24),
                               onPressed: () {
                                 Navigator.push(
                                   context,
-                                  MaterialPageRoute(builder: (context) => const OrderHistoryPageNew()),
+                                  MaterialPageRoute(
+                                      builder: (context) =>
+                                          const OrderHistoryPageNew()),
                                 );
                               },
                             ),
@@ -650,7 +707,8 @@ class _CustomerDashboardPageState extends ConsumerState<CustomerDashboardPage> {
                             icon: Stack(
                               clipBehavior: Clip.none,
                               children: [
-                                const Icon(Icons.shopping_bag_outlined, color: Colors.white, size: 26),
+                                const Icon(Icons.shopping_bag_outlined,
+                                    color: Colors.white, size: 26),
                                 if (cartCount > 0)
                                   Positioned(
                                     right: -4,
@@ -681,20 +739,24 @@ class _CustomerDashboardPageState extends ConsumerState<CustomerDashboardPage> {
                             onPressed: () {
                               Navigator.push(
                                 context,
-                                MaterialPageRoute(builder: (context) => const CartPage()),
+                                MaterialPageRoute(
+                                    builder: (context) => const CartPage()),
                               );
                             },
                           ),
                           // Menu button (mobile) or Logout (desktop)
                           if (isMobile)
                             PopupMenuButton<String>(
-                              icon: const Icon(Icons.more_vert, color: Colors.white),
+                              icon: const Icon(Icons.more_vert,
+                                  color: Colors.white),
                               onSelected: (value) {
                                 switch (value) {
                                   case 'cart':
                                     Navigator.push(
                                       context,
-                                      MaterialPageRoute(builder: (context) => const CartPage()),
+                                      MaterialPageRoute(
+                                          builder: (context) =>
+                                              const CartPage()),
                                     );
                                     break;
                                   case 'logout':
@@ -719,7 +781,8 @@ class _CustomerDashboardPageState extends ConsumerState<CustomerDashboardPage> {
                                     children: [
                                       Icon(Icons.logout, color: Colors.red),
                                       SizedBox(width: 12),
-                                      Text('Logout', style: TextStyle(color: Colors.red)),
+                                      Text('Logout',
+                                          style: TextStyle(color: Colors.red)),
                                     ],
                                   ),
                                 ),
@@ -727,7 +790,8 @@ class _CustomerDashboardPageState extends ConsumerState<CustomerDashboardPage> {
                             )
                           else
                             IconButton(
-                              icon: const Icon(Icons.logout, color: Colors.white, size: 24),
+                              icon: const Icon(Icons.logout,
+                                  color: Colors.white, size: 24),
                               onPressed: _handleLogout,
                             ),
                           const SizedBox(width: 8),
@@ -737,7 +801,8 @@ class _CustomerDashboardPageState extends ConsumerState<CustomerDashboardPage> {
                       // Products Content
                       SliverToBoxAdapter(
                         child: productsAsync.when(
-                          data: (products) => _buildProductList(products, constraints.maxWidth),
+                          data: (products) =>
+                              _buildProductList(products, constraints.maxWidth),
                           loading: () => const Center(
                             child: Padding(
                               padding: EdgeInsets.all(48.0),
@@ -768,7 +833,8 @@ class _CustomerDashboardPageState extends ConsumerState<CustomerDashboardPage> {
                           onTap: _showMobileCart,
                           borderRadius: BorderRadius.circular(16),
                           child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 20, vertical: 16),
                             decoration: BoxDecoration(
                               gradient: const LinearGradient(
                                 colors: [Color(0xFF00C853), Color(0xFF00E676)],
@@ -812,7 +878,8 @@ class _CustomerDashboardPageState extends ConsumerState<CustomerDashboardPage> {
                                   ),
                                 ),
                                 const SizedBox(width: 8),
-                                const Icon(Icons.arrow_forward, color: Colors.white, size: 20),
+                                const Icon(Icons.arrow_forward,
+                                    color: Colors.white, size: 20),
                               ],
                             ),
                           ),
@@ -830,7 +897,8 @@ class _CustomerDashboardPageState extends ConsumerState<CustomerDashboardPage> {
     );
   }
 
-  Widget _buildProductList(List<ProductWithSchedule> products, double screenWidth) {
+  Widget _buildProductList(
+      List<ProductWithSchedule> products, double screenWidth) {
     final isMobile = _isMobile(screenWidth);
     final schedulesAsync = ref.watch(activeSchedulesProvider);
 
@@ -843,7 +911,8 @@ class _CustomerDashboardPageState extends ConsumerState<CustomerDashboardPage> {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(Icons.shopping_basket_outlined, size: 80, color: Colors.grey[300]),
+                  Icon(Icons.shopping_basket_outlined,
+                      size: 80, color: Colors.grey[300]),
                   const SizedBox(height: 24),
                   Text(
                     'No schedules available',
@@ -872,7 +941,8 @@ class _CustomerDashboardPageState extends ConsumerState<CustomerDashboardPage> {
           children: [
             // Section Header
             Padding(
-              padding: EdgeInsets.fromLTRB(isMobile ? 16 : 24, 24, isMobile ? 16 : 24, 16),
+              padding: EdgeInsets.fromLTRB(
+                  isMobile ? 16 : 24, 0, isMobile ? 16 : 24, 16),
               child: Row(
                 children: [
                   Container(
@@ -949,17 +1019,21 @@ class _CustomerDashboardPageState extends ConsumerState<CustomerDashboardPage> {
                     ),
                   ),
                   const SizedBox(height: 8),
-                  SingleChildScrollView(
-                    scrollDirection: Axis.horizontal,
-                    child: Row(
-                      children: [
-                        _buildCategoryChip('All'),
-                        ..._getCategories(products).map((category) => _buildCategoryChip(category)),
-                      ],
+                  SizedBox(
+                    height: 40,
+                    child: SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: Row(
+                        children: [
+                          _buildCategoryChip('All'),
+                          ..._getCategories(products)
+                              .map((category) => _buildCategoryChip(category)),
+                        ],
+                      ),
                     ),
                   ),
                   const SizedBox(height: 16),
-                  
+
                   // Farmer Filter
                   const Text(
                     'Farmer',
@@ -970,13 +1044,17 @@ class _CustomerDashboardPageState extends ConsumerState<CustomerDashboardPage> {
                     ),
                   ),
                   const SizedBox(height: 8),
-                  SingleChildScrollView(
-                    scrollDirection: Axis.horizontal,
-                    child: Row(
-                      children: [
-                        _buildFarmerChip(null, 'All Farmers'),
-                        ..._getFarmers(products).map((farmer) => _buildFarmerChip(farmer['id']!, farmer['name']!)),
-                      ],
+                  SizedBox(
+                    height: 40,
+                    child: SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: Row(
+                        children: [
+                          _buildFarmerChip(null, 'All Farmers'),
+                          ..._getFarmers(products).map((farmer) =>
+                              _buildFarmerChip(farmer['id']!, farmer['name']!)),
+                        ],
+                      ),
                     ),
                   ),
                 ],
@@ -992,9 +1070,11 @@ class _CustomerDashboardPageState extends ConsumerState<CustomerDashboardPage> {
                 shrinkWrap: true,
                 physics: const NeverScrollableScrollPhysics(),
                 itemCount: schedules.length,
-                separatorBuilder: (context, index) => const SizedBox(height: 12),
+                separatorBuilder: (context, index) =>
+                    const SizedBox(height: 12),
                 itemBuilder: (context, index) {
-                  return _buildScheduleAccordion(schedules[index], products, isMobile);
+                  return _buildScheduleAccordion(
+                      schedules[index], products, isMobile);
                 },
               ),
             ),
@@ -1018,7 +1098,8 @@ class _CustomerDashboardPageState extends ConsumerState<CustomerDashboardPage> {
     );
   }
 
-  Widget _buildScheduleAccordion(OperationalScheduleModel schedule, List<ProductWithSchedule> allProducts, bool isMobile) {
+  Widget _buildScheduleAccordion(OperationalScheduleModel schedule,
+      List<ProductWithSchedule> allProducts, bool isMobile) {
     // Check cutoff status
     final isPastCutoff = _isPastCutoff(schedule);
     final timeRemaining = _getTimeRemaining(schedule);
@@ -1046,7 +1127,8 @@ class _CustomerDashboardPageState extends ConsumerState<CustomerDashboardPage> {
       }
 
       // Category filter
-      if (_selectedCategory != 'All' && p.product.category != _selectedCategory) {
+      if (_selectedCategory != 'All' &&
+          p.product.category != _selectedCategory) {
         return false;
       }
 
@@ -1073,8 +1155,8 @@ class _CustomerDashboardPageState extends ConsumerState<CustomerDashboardPage> {
             Container(
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
-                color: isPastCutoff 
-                    ? Colors.red.shade50 
+                color: isPastCutoff
+                    ? Colors.red.shade50
                     : const Color(0xFF00C853).withOpacity(0.1),
                 borderRadius: BorderRadius.circular(8),
               ),
@@ -1102,7 +1184,8 @@ class _CustomerDashboardPageState extends ConsumerState<CustomerDashboardPage> {
                       ),
                       if (isPastCutoff)
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 8, vertical: 4),
                           decoration: BoxDecoration(
                             color: Colors.red.shade100,
                             borderRadius: BorderRadius.circular(12),
@@ -1111,7 +1194,8 @@ class _CustomerDashboardPageState extends ConsumerState<CustomerDashboardPage> {
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              Icon(Icons.lock, size: 12, color: Colors.red.shade700),
+                              Icon(Icons.lock,
+                                  size: 12, color: Colors.red.shade700),
                               const SizedBox(width: 4),
                               Text(
                                 'CUTOFF PASSED',
@@ -1135,7 +1219,8 @@ class _CustomerDashboardPageState extends ConsumerState<CustomerDashboardPage> {
                         Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Icon(Icons.timer, size: 14, color: Colors.green[700]),
+                            Icon(Icons.timer,
+                                size: 14, color: Colors.green[700]),
                             const SizedBox(width: 4),
                             Text(
                               timeRemaining,
@@ -1151,9 +1236,11 @@ class _CustomerDashboardPageState extends ConsumerState<CustomerDashboardPage> {
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           Icon(
-                            Icons.shopping_bag, 
-                            size: 14, 
-                            color: isPastCutoff ? Colors.red[700] : Colors.orange[700],
+                            Icons.shopping_bag,
+                            size: 14,
+                            color: isPastCutoff
+                                ? Colors.red[700]
+                                : Colors.orange[700],
                           ),
                           const SizedBox(width: 4),
                           Flexible(
@@ -1161,7 +1248,9 @@ class _CustomerDashboardPageState extends ConsumerState<CustomerDashboardPage> {
                               'Order by: ${DateFormat('EEE, dd MMM').format(_getLastOrderingDate(schedule))} at ${schedule.endTime}',
                               style: TextStyle(
                                 fontSize: 12,
-                                color: isPastCutoff ? Colors.red[700] : Colors.orange[700],
+                                color: isPastCutoff
+                                    ? Colors.red[700]
+                                    : Colors.orange[700],
                                 fontWeight: FontWeight.w600,
                               ),
                               overflow: TextOverflow.ellipsis,
@@ -1173,7 +1262,8 @@ class _CustomerDashboardPageState extends ConsumerState<CustomerDashboardPage> {
                       Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Icon(Icons.access_time, size: 14, color: Colors.grey[600]),
+                          Icon(Icons.access_time,
+                              size: 14, color: Colors.grey[600]),
                           const SizedBox(width: 4),
                           Text(
                             '${schedule.startTime} - ${schedule.endTime}',
@@ -1187,7 +1277,8 @@ class _CustomerDashboardPageState extends ConsumerState<CustomerDashboardPage> {
                       Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Icon(Icons.location_on, size: 14, color: Colors.grey[600]),
+                          Icon(Icons.location_on,
+                              size: 14, color: Colors.grey[600]),
                           const SizedBox(width: 4),
                           Flexible(
                             child: Text(
@@ -1239,7 +1330,8 @@ class _CustomerDashboardPageState extends ConsumerState<CustomerDashboardPage> {
               children: [
                 Row(
                   children: [
-                    Icon(Icons.local_shipping, size: 16, color: Colors.green[700]),
+                    Icon(Icons.local_shipping,
+                        size: 16, color: Colors.green[700]),
                     const SizedBox(width: 8),
                     Text(
                       'Delivery Information',
@@ -1254,7 +1346,8 @@ class _CustomerDashboardPageState extends ConsumerState<CustomerDashboardPage> {
                 const SizedBox(height: 8),
                 Row(
                   children: [
-                    Icon(Icons.calendar_today, size: 14, color: Colors.grey[600]),
+                    Icon(Icons.calendar_today,
+                        size: 14, color: Colors.grey[600]),
                     const SizedBox(width: 4),
                     Text(
                       _getDeliveryDateDisplay(schedule),
@@ -1265,12 +1358,14 @@ class _CustomerDashboardPageState extends ConsumerState<CustomerDashboardPage> {
                     ),
                   ],
                 ),
-                if (schedule.deliveryStartTime != null && schedule.deliveryEndTime != null)
+                if (schedule.deliveryStartTime != null &&
+                    schedule.deliveryEndTime != null)
                   Padding(
                     padding: const EdgeInsets.only(top: 4),
                     child: Row(
                       children: [
-                        Icon(Icons.access_time, size: 14, color: Colors.grey[600]),
+                        Icon(Icons.access_time,
+                            size: 14, color: Colors.grey[600]),
                         const SizedBox(width: 4),
                         Text(
                           '${schedule.deliveryStartTime} - ${schedule.deliveryEndTime}',
@@ -1287,7 +1382,8 @@ class _CustomerDashboardPageState extends ConsumerState<CustomerDashboardPage> {
                     padding: const EdgeInsets.only(top: 4),
                     child: Row(
                       children: [
-                        Icon(Icons.access_time, size: 14, color: Colors.grey[600]),
+                        Icon(Icons.access_time,
+                            size: 14, color: Colors.grey[600]),
                         const SizedBox(width: 4),
                         Text(
                           '${schedule.startTime} - ${schedule.endTime}',
@@ -1321,7 +1417,8 @@ class _CustomerDashboardPageState extends ConsumerState<CustomerDashboardPage> {
                 itemCount: filteredProducts.length,
                 separatorBuilder: (context, index) => const Divider(height: 16),
                 itemBuilder: (context, index) {
-                  return _buildScheduleProductItem(filteredProducts[index], schedule, isMobile);
+                  return _buildScheduleProductItem(
+                      filteredProducts[index], schedule, isMobile);
                 },
               ),
             ),
@@ -1330,16 +1427,20 @@ class _CustomerDashboardPageState extends ConsumerState<CustomerDashboardPage> {
     );
   }
 
-  Widget _buildScheduleProductItem(ProductWithSchedule productWithSchedule, OperationalScheduleModel schedule, bool isMobile) {
+  Widget _buildScheduleProductItem(ProductWithSchedule productWithSchedule,
+      OperationalScheduleModel schedule, bool isMobile) {
     final product = productWithSchedule.product;
-    final scheduleProduct = schedule.products.firstWhere((sp) => sp.productId == product.id);
+    final scheduleProduct =
+        schedule.products.firstWhere((sp) => sp.productId == product.id);
     final carts = ref.watch(scheduleCartsProvider);
     final scheduleCart = carts[schedule.id];
     final cartItem = scheduleCart?.items[product.id];
     final quantity = cartItem?.quantity ?? 0.0;
     final inCart = quantity > 0;
-    final isDiscreteUnit = cartItem?.isDiscreteUnit ?? _isDiscreteUnit(product.unit);
-    final quantityIncrement = cartItem?.quantityIncrement ?? _getQuantityIncrement(product.unit);
+    final isDiscreteUnit =
+        cartItem?.isDiscreteUnit ?? _isDiscreteUnit(product.unit);
+    final quantityIncrement =
+        cartItem?.quantityIncrement ?? _getQuantityIncrement(product.unit);
     final isPastCutoff = _isPastCutoff(schedule);
 
     return Row(
@@ -1397,7 +1498,8 @@ class _CustomerDashboardPageState extends ConsumerState<CustomerDashboardPage> {
                   if (productWithSchedule.farmerName != null) ...[
                     const SizedBox(width: 8),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 6, vertical: 2),
                       decoration: BoxDecoration(
                         color: Colors.blue[50],
                         borderRadius: BorderRadius.circular(4),
@@ -1447,23 +1549,23 @@ class _CustomerDashboardPageState extends ConsumerState<CustomerDashboardPage> {
             onPressed: () {
               try {
                 ref.read(scheduleCartsProvider.notifier).addItem(
-                  schedule,
-                  CartItemModel(
-                    productId: product.id,
-                    productName: product.displayName,
-                    productCategory: product.category,
-                    price: scheduleProduct.price,
-                    quantity: quantityIncrement,
-                    unit: product.unit,
-                    imageUrl: product.imageUrl,
-                    farmerId: scheduleProduct.farmerId,
-                    farmerName: productWithSchedule.farmerName,
-                    scheduleId: schedule.id,
-                    scheduleName: schedule.scheduleName,
-                    isDiscreteUnit: isDiscreteUnit,
-                    quantityIncrement: quantityIncrement,
-                  ),
-                );
+                      schedule,
+                      CartItemModel(
+                        productId: product.id,
+                        productName: product.displayName,
+                        productCategory: product.category,
+                        price: scheduleProduct.price,
+                        quantity: quantityIncrement,
+                        unit: product.unit,
+                        imageUrl: product.imageUrl,
+                        farmerId: scheduleProduct.farmerId,
+                        farmerName: productWithSchedule.farmerName,
+                        scheduleId: schedule.id,
+                        scheduleName: schedule.scheduleName,
+                        isDiscreteUnit: isDiscreteUnit,
+                        quantityIncrement: quantityIncrement,
+                      ),
+                    );
               } catch (e) {
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
@@ -1491,11 +1593,14 @@ class _CustomerDashboardPageState extends ConsumerState<CustomerDashboardPage> {
                 color: Colors.red,
                 onPressed: () {
                   try {
-                    ref.read(scheduleCartsProvider.notifier).decrementQuantity(schedule.id, product.id);
+                    ref
+                        .read(scheduleCartsProvider.notifier)
+                        .decrementQuantity(schedule.id, product.id);
                   } catch (e) {
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(
-                        content: Text(e.toString().replaceAll('Exception: ', '')),
+                        content:
+                            Text(e.toString().replaceAll('Exception: ', '')),
                         backgroundColor: Colors.red,
                       ),
                     );
@@ -1504,18 +1609,22 @@ class _CustomerDashboardPageState extends ConsumerState<CustomerDashboardPage> {
               ),
               Text(
                 _formatQuantity(quantity, product.unit),
-                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                style:
+                    const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
               ),
               IconButton(
                 icon: const Icon(Icons.add_circle_outline),
                 color: const Color(0xFF00C853),
                 onPressed: () {
                   try {
-                    ref.read(scheduleCartsProvider.notifier).incrementQuantity(schedule.id, product.id);
+                    ref
+                        .read(scheduleCartsProvider.notifier)
+                        .incrementQuantity(schedule.id, product.id);
                   } catch (e) {
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(
-                        content: Text(e.toString().replaceAll('Exception: ', '')),
+                        content:
+                            Text(e.toString().replaceAll('Exception: ', '')),
                         backgroundColor: Colors.red,
                       ),
                     );
@@ -1568,7 +1677,8 @@ class _CustomerDashboardPageState extends ConsumerState<CustomerDashboardPage> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.shopping_cart_outlined, size: 80, color: Colors.grey[300]),
+            Icon(Icons.shopping_cart_outlined,
+                size: 80, color: Colors.grey[300]),
             const SizedBox(height: 16),
             Text(
               'Your cart is empty',
@@ -1629,7 +1739,8 @@ class _CustomerDashboardPageState extends ConsumerState<CustomerDashboardPage> {
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFF4CAF50),
                 foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
               ),
             ),
           ],
@@ -1653,11 +1764,60 @@ class _CustomerDashboardPageState extends ConsumerState<CustomerDashboardPage> {
         farmersMap[p.farmerId!] = p.farmerName!;
       }
     }
-    final farmers = farmersMap.entries
-        .map((e) => {'id': e.key, 'name': e.value})
-        .toList();
+    final farmers =
+        farmersMap.entries.map((e) => {'id': e.key, 'name': e.value}).toList();
     farmers.sort((a, b) => a['name']!.compareTo(b['name']!));
     return farmers;
+  }
+
+  // Build feature card
+  Widget _buildFeatureCard({
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    required Color color,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: color.withOpacity(0.3),
+          width: 1,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            icon,
+            color: color,
+            size: 24,
+          ),
+          const SizedBox(height: 8),
+          Text(
+            title,
+            style: TextStyle(
+              color: Colors.black87,
+              fontSize: 12,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            subtitle,
+            style: TextStyle(
+              color: Colors.grey[600],
+              fontSize: 10,
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ],
+      ),
+    );
   }
 
   // Build category filter chip
@@ -1707,5 +1867,4 @@ class _CustomerDashboardPageState extends ConsumerState<CustomerDashboardPage> {
       ),
     );
   }
-
 }
