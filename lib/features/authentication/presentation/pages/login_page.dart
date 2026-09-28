@@ -198,26 +198,34 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
                         if (!isDesktop) ...[
-                          Container(
-                            width: 100,
-                            height: 100,
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              color: Colors.white,
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.black.withOpacity(0.1),
-                                  blurRadius: 10,
-                                  spreadRadius: 2,
-                                ),
-                              ],
-                            ),
-                            child: ClipOval(
-                              child: Padding(
-                                padding: const EdgeInsets.all(15),
-                                child: F2CLogo(
-                                  size: 70,
-                                  color: Colors.green[700],
+                          Center(
+                            child: Container(
+                              width: size.width * 0.25,
+                              height: size.width * 0.25,
+                              constraints: const BoxConstraints(
+                                minWidth: 80,
+                                minHeight: 80,
+                                maxWidth: 120,
+                                maxHeight: 120,
+                              ),
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                color: Colors.white,
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black.withOpacity(0.1),
+                                    blurRadius: 10,
+                                    spreadRadius: 2,
+                                  ),
+                                ],
+                              ),
+                              child: ClipOval(
+                                child: Padding(
+                                  padding: EdgeInsets.all(size.width * 0.04),
+                                  child: F2CLogo(
+                                    size: size.width * 0.17,
+                                    color: Colors.green[700],
+                                  ),
                                 ),
                               ),
                             ),
@@ -227,12 +235,12 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                             'F2C',
                             textAlign: TextAlign.center,
                             style: TextStyle(
-                              fontSize: 32,
+                              fontSize: size.width < 400 ? 28 : 32,
                               fontWeight: FontWeight.bold,
                               color: Colors.green[700],
                             ),
                           ),
-                          const SizedBox(height: 32),
+                          const SizedBox(height: 24),
                         ],
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -261,8 +269,10 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                             if (isDesktop)
                               TextButton.icon(
                                 onPressed: () {},
-                                icon: Icon(Icons.language, size: 16, color: Colors.grey[600]),
-                                label: Text('English', style: TextStyle(color: Colors.grey[600])),
+                                icon: Icon(Icons.language,
+                                    size: 16, color: Colors.grey[600]),
+                                label: Text('English',
+                                    style: TextStyle(color: Colors.grey[600])),
                               ),
                           ],
                         ),
@@ -313,20 +323,24 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                                 controller: _usernameController,
                                 decoration: InputDecoration(
                                   hintText: 'Enter username',
-                                  prefixIcon: Icon(Icons.person_outline, color: Colors.grey[600]),
+                                  prefixIcon: Icon(Icons.person_outline,
+                                      color: Colors.grey[600]),
                                   filled: true,
                                   fillColor: Colors.grey[50],
                                   border: OutlineInputBorder(
                                     borderRadius: BorderRadius.circular(8),
-                                    borderSide: BorderSide(color: Colors.grey[300]!),
+                                    borderSide:
+                                        BorderSide(color: Colors.grey[300]!),
                                   ),
                                   enabledBorder: OutlineInputBorder(
                                     borderRadius: BorderRadius.circular(8),
-                                    borderSide: BorderSide(color: Colors.grey[300]!),
+                                    borderSide:
+                                        BorderSide(color: Colors.grey[300]!),
                                   ),
                                   focusedBorder: OutlineInputBorder(
                                     borderRadius: BorderRadius.circular(8),
-                                    borderSide: BorderSide(color: Colors.green[700]!, width: 2),
+                                    borderSide: BorderSide(
+                                        color: Colors.green[700]!, width: 2),
                                   ),
                                 ),
                                 keyboardType: TextInputType.text,
@@ -353,10 +367,13 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                                 controller: _passwordController,
                                 decoration: InputDecoration(
                                   hintText: 'Enter password',
-                                  prefixIcon: Icon(Icons.lock_outline, color: Colors.grey[600]),
+                                  prefixIcon: Icon(Icons.lock_outline,
+                                      color: Colors.grey[600]),
                                   suffixIcon: IconButton(
                                     icon: Icon(
-                                      _obscurePassword ? Icons.visibility_outlined : Icons.visibility_off_outlined,
+                                      _obscurePassword
+                                          ? Icons.visibility_outlined
+                                          : Icons.visibility_off_outlined,
                                       color: Colors.grey[600],
                                     ),
                                     onPressed: () {
@@ -369,15 +386,18 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                                   fillColor: Colors.grey[50],
                                   border: OutlineInputBorder(
                                     borderRadius: BorderRadius.circular(8),
-                                    borderSide: BorderSide(color: Colors.grey[300]!),
+                                    borderSide:
+                                        BorderSide(color: Colors.grey[300]!),
                                   ),
                                   enabledBorder: OutlineInputBorder(
                                     borderRadius: BorderRadius.circular(8),
-                                    borderSide: BorderSide(color: Colors.grey[300]!),
+                                    borderSide:
+                                        BorderSide(color: Colors.grey[300]!),
                                   ),
                                   focusedBorder: OutlineInputBorder(
                                     borderRadius: BorderRadius.circular(8),
-                                    borderSide: BorderSide(color: Colors.green[700]!, width: 2),
+                                    borderSide: BorderSide(
+                                        color: Colors.green[700]!, width: 2),
                                   ),
                                 ),
                                 obscureText: _obscurePassword,
@@ -412,17 +432,21 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                                   const SizedBox(width: 8),
                                   Text(
                                     'Remember me',
-                                    style: TextStyle(fontSize: 14, color: Colors.grey[700]),
+                                    style: TextStyle(
+                                        fontSize: 14, color: Colors.grey[700]),
                                   ),
                                   const Spacer(),
                                   TextButton(
                                     onPressed: loginState is LoginLoading
                                         ? null
                                         : () {
-                                            ScaffoldMessenger.of(context).showSnackBar(
+                                            ScaffoldMessenger.of(context)
+                                                .showSnackBar(
                                               const SnackBar(
-                                                content: Text('Contact administrator to reset password'),
-                                                behavior: SnackBarBehavior.floating,
+                                                content: Text(
+                                                    'Contact administrator to reset password'),
+                                                behavior:
+                                                    SnackBarBehavior.floating,
                                               ),
                                             );
                                           },
@@ -439,9 +463,12 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                               ),
                               const SizedBox(height: 24),
                               ElevatedButton(
-                                onPressed: loginState is LoginLoading ? null : _handleLogin,
+                                onPressed: loginState is LoginLoading
+                                    ? null
+                                    : _handleLogin,
                                 style: ElevatedButton.styleFrom(
-                                  padding: const EdgeInsets.symmetric(vertical: 16),
+                                  padding:
+                                      const EdgeInsets.symmetric(vertical: 16),
                                   backgroundColor: Colors.green[700],
                                   foregroundColor: Colors.white,
                                   shape: RoundedRectangleBorder(
@@ -460,7 +487,9 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                                       )
                                     : const Text(
                                         'Login',
-                                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                                        style: TextStyle(
+                                            fontSize: 16,
+                                            fontWeight: FontWeight.w600),
                                       ),
                               ),
                               const SizedBox(height: 24),
@@ -489,7 +518,8 @@ class _LoginPageState extends ConsumerState<LoginPage> {
     );
   }
 
-  Widget _buildRoleTab(String label, IconData icon, bool isSelected, VoidCallback onTap) {
+  Widget _buildRoleTab(
+      String label, IconData icon, bool isSelected, VoidCallback onTap) {
     return GestureDetector(
       onTap: onTap,
       child: Container(
@@ -498,7 +528,12 @@ class _LoginPageState extends ConsumerState<LoginPage> {
           color: isSelected ? Colors.white : Colors.transparent,
           borderRadius: BorderRadius.circular(6),
           boxShadow: isSelected
-              ? [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 4, offset: const Offset(0, 2))]
+              ? [
+                  BoxShadow(
+                      color: Colors.black.withOpacity(0.05),
+                      blurRadius: 4,
+                      offset: const Offset(0, 2))
+                ]
               : null,
         ),
         child: Row(
@@ -523,7 +558,6 @@ class _LoginPageState extends ConsumerState<LoginPage> {
       ),
     );
   }
-
 
   Widget _buildFeature(IconData icon, String label) {
     return Column(
