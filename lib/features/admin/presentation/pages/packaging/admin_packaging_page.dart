@@ -3,11 +3,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
 import 'package:f2c/features/customer/models/order_model.dart';
+import 'package:f2c/features/customer/models/bill_model.dart';
+import 'package:f2c/features/customer/services/bill_service.dart';
 import 'package:f2c/features/admin/presentation/widgets/order_details_dialog.dart';
 import 'package:f2c/features/admin/providers/hub_providers.dart';
 
 // Provider for packaging orders (confirmed and preparing status)
-final packagingOrdersProvider = StreamProvider.autoDispose<List<OrderModel>>((ref) {
+final packagingOrdersProvider =
+    StreamProvider.autoDispose<List<OrderModel>>((ref) {
   return FirebaseFirestore.instance
       .collection('orders')
       .where('status', whereIn: ['confirmed', 'preparing'])
@@ -15,12 +18,15 @@ final packagingOrdersProvider = StreamProvider.autoDispose<List<OrderModel>>((re
       .orderBy('createdAt', descending: false)
       .snapshots()
       .map((snapshot) {
-    return snapshot.docs.map((doc) => OrderModel.fromFirestore(doc)).toList();
-  });
+        return snapshot.docs
+            .map((doc) => OrderModel.fromFirestore(doc))
+            .toList();
+      });
 });
 
 // Provider for ready/packed orders (ready for delivery)
-final inProgressPackagingProvider = StreamProvider.autoDispose<List<OrderModel>>((ref) {
+final inProgressPackagingProvider =
+    StreamProvider.autoDispose<List<OrderModel>>((ref) {
   return FirebaseFirestore.instance
       .collection('orders')
       .where('status', isEqualTo: 'ready')
@@ -60,7 +66,7 @@ class _AdminPackagingPageState extends ConsumerState<AdminPackagingPage> {
     final now = DateTime.now();
     setState(() {
       _selectedDateFilter = filter;
-      
+
       switch (filter) {
         case 'This Week':
           _startDate = now.subtract(Duration(days: now.weekday - 1));
@@ -160,10 +166,19 @@ class _AdminPackagingPageState extends ConsumerState<AdminPackagingPage> {
     AsyncValue<List<OrderModel>> newOrders,
     AsyncValue<List<OrderModel>> inProgress,
   ) {
-    final totalOrders = (newOrders.value?.length ?? 0) + (inProgress.value?.length ?? 0);
-    final packedCount = inProgress.value?.where((o) => o.status == OrderStatus.ready).length ?? 0;
-    final inProgressCount = inProgress.value?.where((o) => o.status == OrderStatus.preparing).length ?? 0;
-    final pendingCount = newOrders.value?.where((o) => o.status == OrderStatus.confirmed).length ?? 0;
+    final totalOrders =
+        (newOrders.value?.length ?? 0) + (inProgress.value?.length ?? 0);
+    final packedCount =
+        inProgress.value?.where((o) => o.status == OrderStatus.ready).length ??
+            0;
+    final inProgressCount = inProgress.value
+            ?.where((o) => o.status == OrderStatus.preparing)
+            .length ??
+        0;
+    final pendingCount = newOrders.value
+            ?.where((o) => o.status == OrderStatus.confirmed)
+            .length ??
+        0;
     final notifiedCount = 1; // Placeholder
 
     return Container(
@@ -220,7 +235,8 @@ class _AdminPackagingPageState extends ConsumerState<AdminPackagingPage> {
     );
   }
 
-  Widget _buildStatCard(String title, String value, IconData icon, Color color) {
+  Widget _buildStatCard(
+      String title, String value, IconData icon, Color color) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
@@ -260,9 +276,11 @@ class _AdminPackagingPageState extends ConsumerState<AdminPackagingPage> {
       color: Colors.white,
       child: Row(
         children: [
-          _buildTab('Order Picking', _showOrderPicking, Icons.inventory_2_outlined),
+          _buildTab(
+              'Order Picking', _showOrderPicking, Icons.inventory_2_outlined),
           const SizedBox(width: 16),
-          _buildTab('Farmer Picking Lists', !_showOrderPicking, Icons.agriculture_outlined),
+          _buildTab('Farmer Picking Lists', !_showOrderPicking,
+              Icons.agriculture_outlined),
         ],
       ),
     );
@@ -327,7 +345,8 @@ class _AdminPackagingPageState extends ConsumerState<AdminPackagingPage> {
                   borderRadius: BorderRadius.circular(6),
                   borderSide: BorderSide(color: Colors.grey[300]!),
                 ),
-                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                contentPadding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                 filled: true,
                 fillColor: Colors.grey[50],
                 isDense: true,
@@ -347,17 +366,26 @@ class _AdminPackagingPageState extends ConsumerState<AdminPackagingPage> {
                 final hubsAsync = ref.watch(hubsStreamProvider);
                 return hubsAsync.when(
                   data: (hubs) {
-                    final hubNames = ['All Hubs', ...hubs.map((h) => h.name).toList()];
-                    final validValue = hubNames.contains(_selectedHub) ? _selectedHub : 'All Hubs';
+                    final hubNames = [
+                      'All Hubs',
+                      ...hubs.map((h) => h.name).toList()
+                    ];
+                    final validValue = hubNames.contains(_selectedHub)
+                        ? _selectedHub
+                        : 'All Hubs';
                     return DropdownButton<String>(
                       value: validValue,
                       underline: const SizedBox(),
                       isDense: true,
                       style: const TextStyle(fontSize: 13),
                       items: hubNames.map((hub) {
-                        return DropdownMenuItem(value: hub, child: Text(hub, style: const TextStyle(fontSize: 13)));
+                        return DropdownMenuItem(
+                            value: hub,
+                            child: Text(hub,
+                                style: const TextStyle(fontSize: 13)));
                       }).toList(),
-                      onChanged: (value) => setState(() => _selectedHub = value!),
+                      onChanged: (value) =>
+                          setState(() => _selectedHub = value!),
                     );
                   },
                   loading: () => DropdownButton<String>(
@@ -366,7 +394,10 @@ class _AdminPackagingPageState extends ConsumerState<AdminPackagingPage> {
                     isDense: true,
                     style: const TextStyle(fontSize: 13),
                     items: const [
-                      DropdownMenuItem(value: 'All Hubs', child: Text('Loading...', style: TextStyle(fontSize: 13))),
+                      DropdownMenuItem(
+                          value: 'All Hubs',
+                          child: Text('Loading...',
+                              style: TextStyle(fontSize: 13))),
                     ],
                     onChanged: null,
                   ),
@@ -376,7 +407,9 @@ class _AdminPackagingPageState extends ConsumerState<AdminPackagingPage> {
                     isDense: true,
                     style: const TextStyle(fontSize: 13),
                     items: const [
-                      DropdownMenuItem(value: 'All Hubs', child: Text('Error', style: TextStyle(fontSize: 13))),
+                      DropdownMenuItem(
+                          value: 'All Hubs',
+                          child: Text('Error', style: TextStyle(fontSize: 13))),
                     ],
                     onChanged: null,
                   ),
@@ -397,8 +430,11 @@ class _AdminPackagingPageState extends ConsumerState<AdminPackagingPage> {
               underline: const SizedBox(),
               isDense: true,
               style: const TextStyle(fontSize: 13),
-              items: ['All Statuses', 'Packed', 'Pending', 'Notified'].map((status) {
-                return DropdownMenuItem(value: status, child: Text(status, style: const TextStyle(fontSize: 13)));
+              items: ['All Statuses', 'Packed', 'Pending', 'Notified']
+                  .map((status) {
+                return DropdownMenuItem(
+                    value: status,
+                    child: Text(status, style: const TextStyle(fontSize: 13)));
               }).toList(),
               onChanged: (value) => setState(() => _selectedStatus = value!),
             ),
@@ -416,8 +452,16 @@ class _AdminPackagingPageState extends ConsumerState<AdminPackagingPage> {
               underline: const SizedBox(),
               isDense: true,
               style: const TextStyle(fontSize: 13),
-              items: ['This Week', 'This Month', 'This Quarter', 'This Year', 'Custom'].map((filter) {
-                return DropdownMenuItem(value: filter, child: Text(filter, style: const TextStyle(fontSize: 13)));
+              items: [
+                'This Week',
+                'This Month',
+                'This Quarter',
+                'This Year',
+                'Custom'
+              ].map((filter) {
+                return DropdownMenuItem(
+                    value: filter,
+                    child: Text(filter, style: const TextStyle(fontSize: 13)));
               }).toList(),
               onChanged: (value) {
                 if (value == 'Custom') {
@@ -429,7 +473,9 @@ class _AdminPackagingPageState extends ConsumerState<AdminPackagingPage> {
             ),
           ),
           const SizedBox(width: 12),
-          if (_selectedDateFilter == 'Custom' && _startDate != null && _endDate != null)
+          if (_selectedDateFilter == 'Custom' &&
+              _startDate != null &&
+              _endDate != null)
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               decoration: BoxDecoration(
@@ -439,16 +485,19 @@ class _AdminPackagingPageState extends ConsumerState<AdminPackagingPage> {
               ),
               child: Row(
                 children: [
-                  const Icon(Icons.date_range, size: 16, color: Color(0xFF4CAF50)),
+                  const Icon(Icons.date_range,
+                      size: 16, color: Color(0xFF4CAF50)),
                   const SizedBox(width: 6),
                   Text(
                     '${DateFormat('dd MMM').format(_startDate!)} - ${DateFormat('dd MMM yyyy').format(_endDate!)}',
-                    style: const TextStyle(fontSize: 12, color: Color(0xFF4CAF50)),
+                    style:
+                        const TextStyle(fontSize: 12, color: Color(0xFF4CAF50)),
                   ),
                   const SizedBox(width: 6),
                   InkWell(
                     onTap: () => _showDateRangePicker(),
-                    child: const Icon(Icons.edit, size: 14, color: Color(0xFF4CAF50)),
+                    child: const Icon(Icons.edit,
+                        size: 14, color: Color(0xFF4CAF50)),
                   ),
                 ],
               ),
@@ -480,7 +529,8 @@ class _AdminPackagingPageState extends ConsumerState<AdminPackagingPage> {
 
         final totalPages = (filteredOrders.length / _itemsPerPage).ceil();
         final startIndex = (_currentPage - 1) * _itemsPerPage;
-        final endIndex = (startIndex + _itemsPerPage).clamp(0, filteredOrders.length);
+        final endIndex =
+            (startIndex + _itemsPerPage).clamp(0, filteredOrders.length);
         final paginatedOrders = filteredOrders.sublist(startIndex, endIndex);
 
         return Container(
@@ -560,7 +610,8 @@ class _AdminPackagingPageState extends ConsumerState<AdminPackagingPage> {
 
   Widget _buildTableRow(OrderModel order, int index) {
     // Use stored packagingId if available, otherwise generate on-the-fly
-    final pkgId = order.packagingId ?? 'PKG${order.id.substring(0, 8).toUpperCase()}';
+    final pkgId =
+        order.packagingId ?? 'PKG${order.id.substring(0, 8).toUpperCase()}';
     final orderId = 'ORD${order.id.substring(0, 8).toUpperCase()}';
     final status = _getOrderStatus(order);
     final scheduleInfo = order.scheduleName ?? order.scheduleId ?? 'N/A';
@@ -611,7 +662,7 @@ class _AdminPackagingPageState extends ConsumerState<AdminPackagingPage> {
   Widget _buildStatusCell(String status, {int flex = 1}) {
     Color color;
     Color bgColor;
-    
+
     switch (status.toLowerCase()) {
       case 'pending':
         color = const Color(0xFF2196F3);
@@ -657,7 +708,7 @@ class _AdminPackagingPageState extends ConsumerState<AdminPackagingPage> {
 
   Widget _buildActionsCell(OrderModel order, {int flex = 1}) {
     final status = _getOrderStatus(order);
-    
+
     return Expanded(
       flex: flex,
       child: Row(
@@ -668,7 +719,8 @@ class _AdminPackagingPageState extends ConsumerState<AdminPackagingPage> {
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFF2196F3),
                 foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                 minimumSize: const Size(60, 32),
               ),
               child: const Text('Start', style: TextStyle(fontSize: 12)),
@@ -679,7 +731,8 @@ class _AdminPackagingPageState extends ConsumerState<AdminPackagingPage> {
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFFFFC107),
                 foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                 minimumSize: const Size(60, 32),
               ),
               child: const Text('Continue', style: TextStyle(fontSize: 12)),
@@ -690,7 +743,8 @@ class _AdminPackagingPageState extends ConsumerState<AdminPackagingPage> {
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFF4CAF50),
                 foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                 minimumSize: const Size(60, 32),
               ),
               child: const Text('Notify', style: TextStyle(fontSize: 12)),
@@ -763,7 +817,8 @@ class _AdminPackagingPageState extends ConsumerState<AdminPackagingPage> {
                 ),
                 Text(
                   'Page $_currentPage of $totalPages',
-                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
+                  style: const TextStyle(
+                      fontSize: 12, fontWeight: FontWeight.w500),
                 ),
                 IconButton(
                   icon: const Icon(Icons.chevron_right, size: 20),
@@ -815,10 +870,12 @@ class _AdminPackagingPageState extends ConsumerState<AdminPackagingPage> {
           orderDate.month,
           orderDate.day,
         );
-        final start = DateTime(_startDate!.year, _startDate!.month, _startDate!.day);
-        final end = DateTime(_endDate!.year, _endDate!.month, _endDate!.day, 23, 59, 59);
-        return dateOnly.isAfter(start.subtract(const Duration(days: 1))) && 
-               dateOnly.isBefore(end.add(const Duration(days: 1)));
+        final start =
+            DateTime(_startDate!.year, _startDate!.month, _startDate!.day);
+        final end = DateTime(
+            _endDate!.year, _endDate!.month, _endDate!.day, 23, 59, 59);
+        return dateOnly.isAfter(start.subtract(const Duration(days: 1))) &&
+            dateOnly.isBefore(end.add(const Duration(days: 1)));
       }).toList();
     }
 
@@ -952,9 +1009,15 @@ class _PackingDialogState extends State<PackingDialog> {
                 const SizedBox(width: 12),
                 Text(
                   'Pack Order #${widget.order.id.substring(0, 8)}',
-                  style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                  style: const TextStyle(
+                      fontSize: 20, fontWeight: FontWeight.bold),
                 ),
                 const Spacer(),
+                IconButton(
+                  icon: const Icon(Icons.sync, color: Color(0xFF2196F3)),
+                  tooltip: 'Sync Order & Bill',
+                  onPressed: _isProcessing ? null : _syncOrderAndBill,
+                ),
                 IconButton(
                   icon: const Icon(Icons.close),
                   onPressed: () => Navigator.pop(context),
@@ -969,7 +1032,8 @@ class _PackingDialogState extends State<PackingDialog> {
             const SizedBox(height: 16),
             Row(
               children: [
-                const Text('Customer', style: TextStyle(fontWeight: FontWeight.w600)),
+                const Text('Customer',
+                    style: TextStyle(fontWeight: FontWeight.w600)),
                 const Spacer(),
                 Text(widget.order.customerName),
               ],
@@ -977,7 +1041,8 @@ class _PackingDialogState extends State<PackingDialog> {
             const SizedBox(height: 8),
             Row(
               children: [
-                const Text('Order Date', style: TextStyle(fontWeight: FontWeight.w600)),
+                const Text('Order Date',
+                    style: TextStyle(fontWeight: FontWeight.w600)),
                 const Spacer(),
                 Text(DateFormat('dd/MM/yyyy').format(widget.order.createdAt)),
               ],
@@ -1060,11 +1125,15 @@ class _PackingDialogState extends State<PackingDialog> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text('ORDERED', style: TextStyle(fontSize: 11, color: Colors.blue)),
+                    const Text('ORDERED',
+                        style: TextStyle(fontSize: 11, color: Colors.blue)),
                     const SizedBox(height: 4),
                     Text(
                       '${orderedQty.toStringAsFixed(2)} ${item.unit}',
-                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.blue),
+                      style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.blue),
                     ),
                     Text(
                       '₹${(orderedQty * item.price).toStringAsFixed(2)}',
@@ -1077,19 +1146,23 @@ class _PackingDialogState extends State<PackingDialog> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text('PACKED', style: TextStyle(fontSize: 11, color: Colors.orange)),
+                    const Text('PACKED',
+                        style: TextStyle(fontSize: 11, color: Colors.orange)),
                     const SizedBox(height: 4),
                     Row(
                       children: [
                         IconButton(
                           icon: const Icon(Icons.remove_circle_outline),
                           onPressed: () {
-                            final current = _packedQuantities[item.productId] ?? orderedQty;
+                            final current =
+                                _packedQuantities[item.productId] ?? orderedQty;
                             final increment = _getIncrementStep(item.unit);
-                            final newValue = (current - increment).clamp(0.0, orderedQty * 2);
+                            final newValue = (current - increment)
+                                .clamp(0.0, orderedQty * 2);
                             setState(() {
                               _packedQuantities[item.productId] = newValue;
-                              _controllers[item.productId]?.text = newValue.toStringAsFixed(2);
+                              _controllers[item.productId]?.text =
+                                  newValue.toStringAsFixed(2);
                             });
                           },
                           padding: EdgeInsets.zero,
@@ -1099,18 +1172,24 @@ class _PackingDialogState extends State<PackingDialog> {
                           width: 60,
                           child: TextField(
                             controller: _controllers[item.productId],
-                            keyboardType: TextInputType.numberWithOptions(decimal: true),
+                            keyboardType:
+                                TextInputType.numberWithOptions(decimal: true),
                             textAlign: TextAlign.center,
-                            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.orange),
+                            style: const TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.orange),
                             decoration: const InputDecoration(
                               isDense: true,
-                              contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                              contentPadding: EdgeInsets.symmetric(
+                                  horizontal: 8, vertical: 4),
                               border: OutlineInputBorder(),
                             ),
                             onChanged: (value) {
                               final parsed = double.tryParse(value);
                               if (parsed != null) {
-                                setState(() => _packedQuantities[item.productId] = parsed);
+                                setState(() =>
+                                    _packedQuantities[item.productId] = parsed);
                               }
                             },
                           ),
@@ -1118,12 +1197,14 @@ class _PackingDialogState extends State<PackingDialog> {
                         IconButton(
                           icon: const Icon(Icons.add_circle_outline),
                           onPressed: () {
-                            final current = _packedQuantities[item.productId] ?? orderedQty;
+                            final current =
+                                _packedQuantities[item.productId] ?? orderedQty;
                             final increment = _getIncrementStep(item.unit);
                             final newValue = current + increment;
                             setState(() {
                               _packedQuantities[item.productId] = newValue;
-                              _controllers[item.productId]?.text = newValue.toStringAsFixed(2);
+                              _controllers[item.productId]?.text =
+                                  newValue.toStringAsFixed(2);
                             });
                           },
                           padding: EdgeInsets.zero,
@@ -1142,14 +1223,17 @@ class _PackingDialogState extends State<PackingDialog> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text('DIFFERENCE', style: TextStyle(fontSize: 11, color: Colors.grey)),
+                    const Text('DIFFERENCE',
+                        style: TextStyle(fontSize: 11, color: Colors.grey)),
                     const SizedBox(height: 4),
                     Text(
                       '${difference > 0 ? '+' : ''}${difference.toStringAsFixed(2)} ${item.unit}',
                       style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.bold,
-                        color: difference == 0 ? Colors.grey : (difference > 0 ? Colors.green : Colors.red),
+                        color: difference == 0
+                            ? Colors.grey
+                            : (difference > 0 ? Colors.green : Colors.red),
                       ),
                     ),
                     Text(
@@ -1186,8 +1270,10 @@ class _PackingDialogState extends State<PackingDialog> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text('Original Total', style: TextStyle(color: Colors.grey)),
-              Text('₹${originalTotal.toStringAsFixed(2)}', style: const TextStyle(fontWeight: FontWeight.w600)),
+              const Text('Original Total',
+                  style: TextStyle(color: Colors.grey)),
+              Text('₹${originalTotal.toStringAsFixed(2)}',
+                  style: const TextStyle(fontWeight: FontWeight.w600)),
             ],
           ),
           const SizedBox(height: 8),
@@ -1195,19 +1281,23 @@ class _PackingDialogState extends State<PackingDialog> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               const Text('New Total', style: TextStyle(color: Colors.grey)),
-              Text('₹${newTotal.toStringAsFixed(2)}', style: const TextStyle(fontWeight: FontWeight.w600)),
+              Text('₹${newTotal.toStringAsFixed(2)}',
+                  style: const TextStyle(fontWeight: FontWeight.w600)),
             ],
           ),
           const Divider(height: 16),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text('Difference', style: TextStyle(fontWeight: FontWeight.w600)),
+              const Text('Difference',
+                  style: TextStyle(fontWeight: FontWeight.w600)),
               Text(
                 '${difference > 0 ? '+' : ''}₹${difference.toStringAsFixed(2)}',
                 style: TextStyle(
                   fontWeight: FontWeight.bold,
-                  color: difference == 0 ? Colors.grey : (difference > 0 ? Colors.green : Colors.red),
+                  color: difference == 0
+                      ? Colors.grey
+                      : (difference > 0 ? Colors.green : Colors.red),
                 ),
               ),
             ],
@@ -1228,18 +1318,253 @@ class _PackingDialogState extends State<PackingDialog> {
     if (lowerUnit.contains('l') || lowerUnit.contains('liter')) {
       return 0.25;
     }
-    if (lowerUnit.contains('piece') || lowerUnit.contains('pc') || lowerUnit.contains('nos')) {
+    if (lowerUnit.contains('piece') ||
+        lowerUnit.contains('pc') ||
+        lowerUnit.contains('nos')) {
       return 1.0;
     }
     return 0.25; // Default increment
   }
 
+  Future<void> _syncOrderAndBill() async {
+    setState(() => _isProcessing = true);
+
+    try {
+      final billService = BillService();
+
+      // Get bill for this order
+      final bill = await billService.getBillByOrderId(widget.order.id);
+
+      if (bill == null) {
+        // No bill exists - show message
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                  '⚠️ No bill found for this order. Bill will be created when order is packed.'),
+              backgroundColor: Colors.orange,
+              duration: Duration(seconds: 3),
+            ),
+          );
+        }
+        return;
+      }
+
+      // Compare order items with bill items
+      final mismatches = <String>[];
+      bool hasDiscrepancy = false;
+
+      // Check each order item
+      for (var orderItem in widget.order.items) {
+        final billItem = bill.items.cast<BillItemModel?>().firstWhere(
+              (bi) => bi?.productId == orderItem.productId,
+              orElse: () => null,
+            );
+
+        if (billItem == null) {
+          mismatches.add('${orderItem.productName}: Missing in bill');
+          hasDiscrepancy = true;
+        } else {
+          // Check if quantities match
+          final billQty = billItem.actualQuantity ?? billItem.orderedQuantity;
+          if ((billQty - orderItem.quantity).abs() > 0.01) {
+            mismatches.add(
+                '${orderItem.productName}: Bill shows $billQty ${orderItem.unit}, Order has ${orderItem.quantity} ${orderItem.unit}');
+            hasDiscrepancy = true;
+          }
+        }
+      }
+
+      // Check for extra items in bill
+      for (var billItem in bill.items) {
+        final orderItem = widget.order.items.cast<OrderItem?>().firstWhere(
+              (oi) => oi?.productId == billItem.productId,
+              orElse: () => null,
+            );
+
+        if (orderItem == null) {
+          mismatches.add('${billItem.productName}: In bill but not in order');
+          hasDiscrepancy = true;
+        }
+      }
+
+      if (!hasDiscrepancy) {
+        // Everything is in sync
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Row(
+                children: [
+                  Icon(Icons.check_circle, color: Colors.white),
+                  SizedBox(width: 12),
+                  Text('✓ Order and bill are in sync'),
+                ],
+              ),
+              backgroundColor: Colors.green,
+              duration: Duration(seconds: 2),
+            ),
+          );
+        }
+      } else {
+        // Show mismatches and offer to fix
+        if (mounted) {
+          final shouldFix = await showDialog<bool>(
+            context: context,
+            builder: (context) => AlertDialog(
+              title: const Row(
+                children: [
+                  Icon(Icons.warning, color: Colors.orange),
+                  SizedBox(width: 12),
+                  Text('Sync Issues Found'),
+                ],
+              ),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Found ${mismatches.length} mismatch(es) between order and bill:',
+                      style: const TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                    const SizedBox(height: 12),
+                    ...mismatches.map((m) => Padding(
+                          padding: const EdgeInsets.only(bottom: 8),
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text('• ',
+                                  style: TextStyle(color: Colors.orange)),
+                              Expanded(child: Text(m)),
+                            ],
+                          ),
+                        )),
+                    const SizedBox(height: 16),
+                    const Text(
+                      'Would you like to update the bill to match the current order?',
+                      style: TextStyle(fontWeight: FontWeight.w600),
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context, false),
+                  child: const Text('Cancel'),
+                ),
+                ElevatedButton(
+                  onPressed: () => Navigator.pop(context, true),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.orange,
+                  ),
+                  child: const Text('Fix & Sync'),
+                ),
+              ],
+            ),
+          );
+
+          if (shouldFix == true) {
+            // Update bill to match order
+            await _autoFixBill(bill);
+          }
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Sync failed: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isProcessing = false);
+      }
+    }
+  }
+
+  Future<void> _autoFixBill(BillModel bill) async {
+    try {
+      final billService = BillService();
+
+      // Create updated bill items from current order
+      final updatedBillItems = widget.order.items.map((orderItem) {
+        // Find existing bill item
+        final existingBillItem = bill.items.cast<BillItemModel?>().firstWhere(
+              (bi) => bi?.productId == orderItem.productId,
+              orElse: () => null,
+            );
+
+        return BillItemModel(
+          productId: orderItem.productId,
+          productName: orderItem.productName,
+          farmerId: orderItem.farmerId ?? '',
+          farmerName: orderItem.farmerName ?? 'Unknown',
+          orderedQuantity:
+              existingBillItem?.orderedQuantity ?? orderItem.quantity,
+          orderedUnit: orderItem.unit,
+          orderedPrice: orderItem.price,
+          orderedAmount:
+              (existingBillItem?.orderedQuantity ?? orderItem.quantity) *
+                  orderItem.price,
+          actualQuantity: orderItem.quantity,
+          actualUnit: orderItem.unit,
+          actualPrice: orderItem.price,
+          actualAmount: orderItem.quantity * orderItem.price,
+          weightVariation: orderItem.quantity -
+              (existingBillItem?.orderedQuantity ?? orderItem.quantity),
+          priceVariation: (orderItem.quantity -
+                  (existingBillItem?.orderedQuantity ?? orderItem.quantity)) *
+              orderItem.price,
+          variationReason: 'Synced from order',
+        );
+      }).toList();
+
+      // Update bill
+      await billService.updateBillWithPackagingVariations(
+        billId: bill.billId,
+        updatedItems: updatedBillItems,
+        updatedBy: 'admin',
+        packagingNotes:
+            'Bill synced with order on ${DateFormat('dd/MM/yyyy HH:mm').format(DateTime.now())}',
+      );
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Row(
+              children: [
+                Icon(Icons.check_circle, color: Colors.white),
+                SizedBox(width: 12),
+                Text('✓ Bill updated successfully'),
+              ],
+            ),
+            backgroundColor: Colors.green,
+            duration: Duration(seconds: 2),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to update bill: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
   Future<void> _saveAndMarkPacked() async {
     setState(() => _isProcessing = true);
-    
+
     try {
-      final orderRef = FirebaseFirestore.instance.collection('orders').doc(widget.order.id);
-      
+      final orderRef =
+          FirebaseFirestore.instance.collection('orders').doc(widget.order.id);
+
       double newTotal = 0;
       final updatedItems = widget.order.items.map((item) {
         final packedQty = _packedQuantities[item.productId] ?? item.quantity;
@@ -1255,8 +1580,10 @@ class _PackingDialogState extends State<PackingDialog> {
       };
 
       // Generate packagingId if not already present
-      if (widget.order.packagingId == null || widget.order.packagingId!.isEmpty) {
-        final packagingId = 'PKG${DateTime.now().millisecondsSinceEpoch.toString().substring(0, 8).toUpperCase()}';
+      if (widget.order.packagingId == null ||
+          widget.order.packagingId!.isEmpty) {
+        final packagingId =
+            'PKG${DateTime.now().millisecondsSinceEpoch.toString().substring(0, 8).toUpperCase()}';
         updateData['packagingId'] = packagingId;
         updateData['preparingAt'] = Timestamp.fromDate(DateTime.now());
         print('Generated packagingId: $packagingId');
@@ -1269,7 +1596,8 @@ class _PackingDialogState extends State<PackingDialog> {
 
       // Generate and save deliveryId if not already present
       if (widget.order.deliveryId == null) {
-        final deliveryId = 'DLV${DateTime.now().millisecondsSinceEpoch.toString().substring(0, 8).toUpperCase()}';
+        final deliveryId =
+            'DLV${DateTime.now().millisecondsSinceEpoch.toString().substring(0, 8).toUpperCase()}';
         updateData['deliveryId'] = deliveryId;
         print('Generated deliveryId: $deliveryId');
       }
@@ -1278,10 +1606,76 @@ class _PackingDialogState extends State<PackingDialog> {
       await orderRef.update(updateData);
       print('Order updated successfully');
 
+      // NEW: Automatically update bill with packed quantities
+      try {
+        final billService = BillService();
+        var bill = await billService.getBillByOrderId(widget.order.id);
+
+        if (bill == null) {
+          // Create bill if it doesn't exist
+          print(
+              'No bill found, creating new bill for order ${widget.order.id}');
+          // Bill will be created by admin when needed
+        } else {
+          // Update existing bill with packed quantities
+          print('Updating bill ${bill.billId} with packed quantities');
+
+          final updatedBillItems = updatedItems.map((orderItem) {
+            final originalItem = widget.order.items.firstWhere(
+              (oi) => oi.productId == orderItem.productId,
+            );
+            final packedQty =
+                _packedQuantities[orderItem.productId] ?? orderItem.quantity;
+            final variation = packedQty - originalItem.quantity;
+
+            return BillItemModel(
+              productId: orderItem.productId,
+              productName: orderItem.productName,
+              farmerId: orderItem.farmerId ?? '',
+              farmerName: orderItem.farmerName ?? 'Unknown',
+              orderedQuantity: originalItem.quantity,
+              orderedUnit: orderItem.unit,
+              orderedPrice: orderItem.price,
+              orderedAmount: originalItem.quantity * orderItem.price,
+              actualQuantity: packedQty,
+              actualUnit: orderItem.unit,
+              actualPrice: orderItem.price,
+              actualAmount: packedQty * orderItem.price,
+              weightVariation: variation,
+              priceVariation: variation * orderItem.price,
+              variationReason:
+                  variation != 0 ? 'Weight variation during packaging' : null,
+            );
+          }).toList();
+
+          await billService.updateBillWithPackagingVariations(
+            billId: bill.billId,
+            updatedItems: updatedBillItems,
+            updatedBy: 'admin',
+            packagingNotes:
+                'Updated from packaging on ${DateFormat('dd/MM/yyyy HH:mm').format(DateTime.now())}',
+          );
+
+          print('Bill updated successfully');
+        }
+      } catch (billError) {
+        print('Warning: Failed to update bill: $billError');
+        // Don't fail the whole operation if bill update fails
+      }
+
       if (mounted) {
         Navigator.pop(context);
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Order marked as packed successfully')),
+          const SnackBar(
+            content: Row(
+              children: [
+                Icon(Icons.check_circle, color: Colors.white),
+                SizedBox(width: 12),
+                Text('Order packed and bill updated successfully'),
+              ],
+            ),
+            backgroundColor: Colors.green,
+          ),
         );
       }
     } catch (e) {
@@ -1320,7 +1714,8 @@ class PackingSlipDialog extends StatelessWidget {
                 const SizedBox(width: 12),
                 Text(
                   'Packing Slip #${order.id.substring(0, 8)}',
-                  style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                  style: const TextStyle(
+                      fontSize: 20, fontWeight: FontWeight.bold),
                 ),
                 const Spacer(),
                 IconButton(
