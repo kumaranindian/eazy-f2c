@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
 import 'package:f2c/features/customer/models/order_model.dart';
+import 'package:f2c/features/customer/models/bill_model.dart';
+import 'package:f2c/features/customer/services/bill_service.dart';
 import 'package:f2c/features/admin/presentation/widgets/order_details_dialog.dart';
 import 'package:f2c/features/admin/presentation/widgets/edit_order_dialog.dart';
 import 'package:f2c/features/admin/providers/hub_providers.dart';
@@ -46,7 +48,7 @@ class _AdminOrdersPageState extends ConsumerState<AdminOrdersPage> {
     final now = DateTime.now();
     setState(() {
       _selectedDateFilter = filter;
-      
+
       switch (filter) {
         case 'This Week':
           _startDate = now.subtract(Duration(days: now.weekday - 1));
@@ -135,10 +137,16 @@ class _AdminOrdersPageState extends ConsumerState<AdminOrdersPage> {
   Widget _buildStatsCards(AsyncValue<List<OrderModel>> ordersAsync) {
     final orders = ordersAsync.value ?? [];
     final totalOrders = orders.length;
-    final pendingOrders = orders.where((o) => o.status == OrderStatus.pending).length;
-    final onTheWay = orders.where((o) => o.status == OrderStatus.preparing || o.status == OrderStatus.ready).length;
-    final delivered = orders.where((o) => o.status == OrderStatus.delivered).length;
-    final cancelled = orders.where((o) => o.status == OrderStatus.cancelled).length;
+    final pendingOrders =
+        orders.where((o) => o.status == OrderStatus.pending).length;
+    final onTheWay = orders
+        .where((o) =>
+            o.status == OrderStatus.preparing || o.status == OrderStatus.ready)
+        .length;
+    final delivered =
+        orders.where((o) => o.status == OrderStatus.delivered).length;
+    final cancelled =
+        orders.where((o) => o.status == OrderStatus.cancelled).length;
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
@@ -194,7 +202,8 @@ class _AdminOrdersPageState extends ConsumerState<AdminOrdersPage> {
     );
   }
 
-  Widget _buildStatCard(String title, String value, IconData icon, Color color) {
+  Widget _buildStatCard(
+      String title, String value, IconData icon, Color color) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
@@ -249,7 +258,8 @@ class _AdminOrdersPageState extends ConsumerState<AdminOrdersPage> {
                   borderRadius: BorderRadius.circular(6),
                   borderSide: BorderSide(color: Colors.grey[300]!),
                 ),
-                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                contentPadding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                 filled: true,
                 fillColor: Colors.grey[50],
                 isDense: true,
@@ -269,17 +279,26 @@ class _AdminOrdersPageState extends ConsumerState<AdminOrdersPage> {
                 final hubsAsync = ref.watch(hubsStreamProvider);
                 return hubsAsync.when(
                   data: (hubs) {
-                    final hubNames = ['All HUBs', ...hubs.map((h) => h.name).toList()];
-                    final validValue = hubNames.contains(_selectedHub) ? _selectedHub : 'All HUBs';
+                    final hubNames = [
+                      'All HUBs',
+                      ...hubs.map((h) => h.name).toList()
+                    ];
+                    final validValue = hubNames.contains(_selectedHub)
+                        ? _selectedHub
+                        : 'All HUBs';
                     return DropdownButton<String>(
                       value: validValue,
                       underline: const SizedBox(),
                       isDense: true,
                       style: const TextStyle(fontSize: 13),
                       items: hubNames.map((hub) {
-                        return DropdownMenuItem(value: hub, child: Text(hub, style: const TextStyle(fontSize: 13)));
+                        return DropdownMenuItem(
+                            value: hub,
+                            child: Text(hub,
+                                style: const TextStyle(fontSize: 13)));
                       }).toList(),
-                      onChanged: (value) => setState(() => _selectedHub = value!),
+                      onChanged: (value) =>
+                          setState(() => _selectedHub = value!),
                     );
                   },
                   loading: () => DropdownButton<String>(
@@ -288,7 +307,10 @@ class _AdminOrdersPageState extends ConsumerState<AdminOrdersPage> {
                     isDense: true,
                     style: const TextStyle(fontSize: 13),
                     items: const [
-                      DropdownMenuItem(value: 'All HUBs', child: Text('Loading...', style: TextStyle(fontSize: 13))),
+                      DropdownMenuItem(
+                          value: 'All HUBs',
+                          child: Text('Loading...',
+                              style: TextStyle(fontSize: 13))),
                     ],
                     onChanged: null,
                   ),
@@ -298,7 +320,9 @@ class _AdminOrdersPageState extends ConsumerState<AdminOrdersPage> {
                     isDense: true,
                     style: const TextStyle(fontSize: 13),
                     items: const [
-                      DropdownMenuItem(value: 'All HUBs', child: Text('Error', style: TextStyle(fontSize: 13))),
+                      DropdownMenuItem(
+                          value: 'All HUBs',
+                          child: Text('Error', style: TextStyle(fontSize: 13))),
                     ],
                     onChanged: null,
                   ),
@@ -315,14 +339,28 @@ class _AdminOrdersPageState extends ConsumerState<AdminOrdersPage> {
               color: Colors.grey[50],
             ),
             child: DropdownButton<String>(
-              value: _selectedStatus == 'all' ? 'All Statuses' : _selectedStatus.substring(0, 1).toUpperCase() + _selectedStatus.substring(1),
+              value: _selectedStatus == 'all'
+                  ? 'All Statuses'
+                  : _selectedStatus.substring(0, 1).toUpperCase() +
+                      _selectedStatus.substring(1),
               underline: const SizedBox(),
               isDense: true,
               style: const TextStyle(fontSize: 13),
-              items: ['All Statuses', 'Pending', 'Confirmed', 'Preparing', 'Ready', 'Delivered', 'Cancelled'].map((status) {
-                return DropdownMenuItem(value: status, child: Text(status, style: const TextStyle(fontSize: 13)));
+              items: [
+                'All Statuses',
+                'Pending',
+                'Confirmed',
+                'Preparing',
+                'Ready',
+                'Delivered',
+                'Cancelled'
+              ].map((status) {
+                return DropdownMenuItem(
+                    value: status,
+                    child: Text(status, style: const TextStyle(fontSize: 13)));
               }).toList(),
-              onChanged: (value) => setState(() => _selectedStatus = value == 'All Statuses' ? 'all' : value!.toLowerCase()),
+              onChanged: (value) => setState(() => _selectedStatus =
+                  value == 'All Statuses' ? 'all' : value!.toLowerCase()),
             ),
           ),
           const SizedBox(width: 12),
@@ -338,8 +376,16 @@ class _AdminOrdersPageState extends ConsumerState<AdminOrdersPage> {
               underline: const SizedBox(),
               isDense: true,
               style: const TextStyle(fontSize: 13),
-              items: ['This Week', 'This Month', 'This Quarter', 'This Year', 'Custom'].map((filter) {
-                return DropdownMenuItem(value: filter, child: Text(filter, style: const TextStyle(fontSize: 13)));
+              items: [
+                'This Week',
+                'This Month',
+                'This Quarter',
+                'This Year',
+                'Custom'
+              ].map((filter) {
+                return DropdownMenuItem(
+                    value: filter,
+                    child: Text(filter, style: const TextStyle(fontSize: 13)));
               }).toList(),
               onChanged: (value) {
                 if (value == 'Custom') {
@@ -351,7 +397,9 @@ class _AdminOrdersPageState extends ConsumerState<AdminOrdersPage> {
             ),
           ),
           const SizedBox(width: 12),
-          if (_selectedDateFilter == 'Custom' && _startDate != null && _endDate != null)
+          if (_selectedDateFilter == 'Custom' &&
+              _startDate != null &&
+              _endDate != null)
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               decoration: BoxDecoration(
@@ -361,16 +409,19 @@ class _AdminOrdersPageState extends ConsumerState<AdminOrdersPage> {
               ),
               child: Row(
                 children: [
-                  const Icon(Icons.date_range, size: 16, color: Color(0xFF2196F3)),
+                  const Icon(Icons.date_range,
+                      size: 16, color: Color(0xFF2196F3)),
                   const SizedBox(width: 6),
                   Text(
                     '${DateFormat('dd MMM').format(_startDate!)} - ${DateFormat('dd MMM yyyy').format(_endDate!)}',
-                    style: const TextStyle(fontSize: 12, color: Color(0xFF2196F3)),
+                    style:
+                        const TextStyle(fontSize: 12, color: Color(0xFF2196F3)),
                   ),
                   const SizedBox(width: 6),
                   InkWell(
                     onTap: () => _showDateRangePicker(),
-                    child: const Icon(Icons.edit, size: 14, color: Color(0xFF2196F3)),
+                    child: const Icon(Icons.edit,
+                        size: 14, color: Color(0xFF2196F3)),
                   ),
                 ],
               ),
@@ -402,7 +453,8 @@ class _AdminOrdersPageState extends ConsumerState<AdminOrdersPage> {
 
         final totalPages = (filteredOrders.length / _itemsPerPage).ceil();
         final startIndex = (_currentPage - 1) * _itemsPerPage;
-        final endIndex = (startIndex + _itemsPerPage).clamp(0, filteredOrders.length);
+        final endIndex =
+            (startIndex + _itemsPerPage).clamp(0, filteredOrders.length);
         final paginatedOrders = filteredOrders.sublist(startIndex, endIndex);
 
         return Container(
@@ -527,10 +579,11 @@ class _AdminOrdersPageState extends ConsumerState<AdminOrdersPage> {
     );
   }
 
-  Widget _buildStatusCell(String status, OrderStatus orderStatus, {int flex = 1}) {
+  Widget _buildStatusCell(String status, OrderStatus orderStatus,
+      {int flex = 1}) {
     Color color;
     Color bgColor;
-    
+
     switch (orderStatus) {
       case OrderStatus.pending:
         color = const Color(0xFFFFC107);
@@ -589,7 +642,16 @@ class _AdminOrdersPageState extends ConsumerState<AdminOrdersPage> {
       child: Row(
         children: [
           IconButton(
-            icon: const Icon(Icons.visibility_outlined, size: 18, color: Color(0xFF2196F3)),
+            icon: const Icon(Icons.sync, size: 18, color: Color(0xFF9C27B0)),
+            onPressed: () => _syncOrderAndBill(order),
+            tooltip: 'Sync Order & Bill',
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(),
+          ),
+          const SizedBox(width: 8),
+          IconButton(
+            icon: const Icon(Icons.visibility_outlined,
+                size: 18, color: Color(0xFF2196F3)),
             onPressed: () => _showOrderDetails(order),
             tooltip: 'View',
             padding: EdgeInsets.zero,
@@ -597,9 +659,11 @@ class _AdminOrdersPageState extends ConsumerState<AdminOrdersPage> {
           ),
           const SizedBox(width: 8),
           // Edit button - available for pending and confirmed orders
-          if (order.status == OrderStatus.pending || order.status == OrderStatus.confirmed) ...[
+          if (order.status == OrderStatus.pending ||
+              order.status == OrderStatus.confirmed) ...[
             IconButton(
-              icon: const Icon(Icons.edit_outlined, size: 18, color: Color(0xFFFF9800)),
+              icon: const Icon(Icons.edit_outlined,
+                  size: 18, color: Color(0xFFFF9800)),
               onPressed: () => _showEditOrderDialog(order),
               tooltip: 'Edit Order',
               padding: EdgeInsets.zero,
@@ -609,7 +673,8 @@ class _AdminOrdersPageState extends ConsumerState<AdminOrdersPage> {
           ],
           if (order.status == OrderStatus.pending) ...[
             IconButton(
-              icon: const Icon(Icons.check_circle_outline, size: 18, color: Color(0xFF4CAF50)),
+              icon: const Icon(Icons.check_circle_outline,
+                  size: 18, color: Color(0xFF4CAF50)),
               onPressed: () => _acceptOrder(order),
               tooltip: 'Accept',
               padding: EdgeInsets.zero,
@@ -617,7 +682,8 @@ class _AdminOrdersPageState extends ConsumerState<AdminOrdersPage> {
             ),
             const SizedBox(width: 8),
             IconButton(
-              icon: const Icon(Icons.cancel_outlined, size: 18, color: Color(0xFFF44336)),
+              icon: const Icon(Icons.cancel_outlined,
+                  size: 18, color: Color(0xFFF44336)),
               onPressed: () => _rejectOrder(order),
               tooltip: 'Reject',
               padding: EdgeInsets.zero,
@@ -625,7 +691,8 @@ class _AdminOrdersPageState extends ConsumerState<AdminOrdersPage> {
             ),
           ] else if (order.status == OrderStatus.confirmed) ...[
             IconButton(
-              icon: const Icon(Icons.check_circle, size: 18, color: Colors.grey),
+              icon:
+                  const Icon(Icons.check_circle, size: 18, color: Colors.grey),
               onPressed: null,
               tooltip: 'Already Accepted',
               padding: EdgeInsets.zero,
@@ -633,7 +700,8 @@ class _AdminOrdersPageState extends ConsumerState<AdminOrdersPage> {
             ),
             const SizedBox(width: 8),
             IconButton(
-              icon: const Icon(Icons.cancel_outlined, size: 18, color: Colors.grey),
+              icon: const Icon(Icons.cancel_outlined,
+                  size: 18, color: Colors.grey),
               onPressed: null,
               tooltip: 'Cannot Reject',
               padding: EdgeInsets.zero,
@@ -681,7 +749,8 @@ class _AdminOrdersPageState extends ConsumerState<AdminOrdersPage> {
                 ),
                 Text(
                   'Page $_currentPage of $totalPages',
-                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
+                  style: const TextStyle(
+                      fontSize: 12, fontWeight: FontWeight.w500),
                 ),
                 IconButton(
                   icon: const Icon(Icons.chevron_right, size: 20),
@@ -710,7 +779,9 @@ class _AdminOrdersPageState extends ConsumerState<AdminOrdersPage> {
 
     // Apply status filter
     if (_selectedStatus != 'all') {
-      filtered = filtered.where((order) => order.status.name == _selectedStatus).toList();
+      filtered = filtered
+          .where((order) => order.status.name == _selectedStatus)
+          .toList();
     }
 
     // Apply search filter
@@ -731,10 +802,12 @@ class _AdminOrdersPageState extends ConsumerState<AdminOrdersPage> {
           orderDate.month,
           orderDate.day,
         );
-        final start = DateTime(_startDate!.year, _startDate!.month, _startDate!.day);
-        final end = DateTime(_endDate!.year, _endDate!.month, _endDate!.day, 23, 59, 59);
-        return dateOnly.isAfter(start.subtract(const Duration(days: 1))) && 
-               dateOnly.isBefore(end.add(const Duration(days: 1)));
+        final start =
+            DateTime(_startDate!.year, _startDate!.month, _startDate!.day);
+        final end = DateTime(
+            _endDate!.year, _endDate!.month, _endDate!.day, 23, 59, 59);
+        return dateOnly.isAfter(start.subtract(const Duration(days: 1))) &&
+            dateOnly.isBefore(end.add(const Duration(days: 1)));
       }).toList();
     }
 
@@ -780,6 +853,231 @@ class _AdminOrdersPageState extends ConsumerState<AdminOrdersPage> {
     }
   }
 
+  Future<void> _syncOrderAndBill(OrderModel order) async {
+    try {
+      final billService = BillService();
+
+      // Show loading
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => const Center(
+          child: Card(
+            child: Padding(
+              padding: EdgeInsets.all(24.0),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  CircularProgressIndicator(),
+                  SizedBox(height: 16),
+                  Text('Syncing order and bill...'),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+
+      // Get bill for this order
+      final bill = await billService.getBillByOrderId(order.id);
+
+      // Close loading
+      if (mounted) Navigator.pop(context);
+
+      if (bill == null) {
+        // No bill exists
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Row(
+                children: [
+                  Icon(Icons.warning, color: Colors.white),
+                  SizedBox(width: 12),
+                  Expanded(
+                      child: Text(
+                          '⚠️ No bill found for this order. Bill will be created when order is packed.')),
+                ],
+              ),
+              backgroundColor: Colors.orange,
+              duration: Duration(seconds: 3),
+            ),
+          );
+        }
+        return;
+      }
+
+      // Compare order items with bill items
+      final mismatches = <String>[];
+      bool hasDiscrepancy = false;
+
+      // Check each order item
+      for (var orderItem in order.items) {
+        final billItem = bill.items.cast<BillItemModel?>().firstWhere(
+              (bi) => bi?.productId == orderItem.productId,
+              orElse: () => null,
+            );
+
+        if (billItem == null) {
+          mismatches.add('${orderItem.productName}: Missing in bill');
+          hasDiscrepancy = true;
+        } else {
+          final billQty = billItem.actualQuantity ?? billItem.orderedQuantity;
+          if ((billQty - orderItem.quantity).abs() > 0.01) {
+            mismatches.add(
+                '${orderItem.productName}: Bill shows $billQty ${orderItem.unit}, Order has ${orderItem.quantity} ${orderItem.unit}');
+            hasDiscrepancy = true;
+          }
+        }
+      }
+
+      if (!hasDiscrepancy) {
+        // Everything is in sync
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Row(
+                children: [
+                  Icon(Icons.check_circle, color: Colors.white),
+                  SizedBox(width: 12),
+                  Text('✓ Order and bill are in sync'),
+                ],
+              ),
+              backgroundColor: Colors.green,
+              duration: Duration(seconds: 2),
+            ),
+          );
+        }
+      } else {
+        // Show mismatches
+        if (mounted) {
+          final shouldFix = await showDialog<bool>(
+            context: context,
+            builder: (context) => AlertDialog(
+              title: const Row(
+                children: [
+                  Icon(Icons.warning, color: Colors.orange),
+                  SizedBox(width: 12),
+                  Text('Sync Issues Found'),
+                ],
+              ),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Found ${mismatches.length} mismatch(es):',
+                      style: const TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                    const SizedBox(height: 12),
+                    ...mismatches.map((m) => Padding(
+                          padding: const EdgeInsets.only(bottom: 8),
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text('• ',
+                                  style: TextStyle(color: Colors.orange)),
+                              Expanded(child: Text(m)),
+                            ],
+                          ),
+                        )),
+                    const SizedBox(height: 16),
+                    const Text(
+                      'Update bill to match order?',
+                      style: TextStyle(fontWeight: FontWeight.w600),
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context, false),
+                  child: const Text('Cancel'),
+                ),
+                ElevatedButton(
+                  onPressed: () => Navigator.pop(context, true),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.orange,
+                  ),
+                  child: const Text('Fix & Sync'),
+                ),
+              ],
+            ),
+          );
+
+          if (shouldFix == true) {
+            // Update bill
+            final updatedBillItems = order.items.map((orderItem) {
+              final existingBillItem =
+                  bill.items.cast<BillItemModel?>().firstWhere(
+                        (bi) => bi?.productId == orderItem.productId,
+                        orElse: () => null,
+                      );
+
+              return BillItemModel(
+                productId: orderItem.productId,
+                productName: orderItem.productName,
+                farmerId: orderItem.farmerId ?? '',
+                farmerName: orderItem.farmerName ?? 'Unknown',
+                orderedQuantity:
+                    existingBillItem?.orderedQuantity ?? orderItem.quantity,
+                orderedUnit: orderItem.unit,
+                orderedPrice: orderItem.price,
+                orderedAmount:
+                    (existingBillItem?.orderedQuantity ?? orderItem.quantity) *
+                        orderItem.price,
+                actualQuantity: orderItem.quantity,
+                actualUnit: orderItem.unit,
+                actualPrice: orderItem.price,
+                actualAmount: orderItem.quantity * orderItem.price,
+                weightVariation: orderItem.quantity -
+                    (existingBillItem?.orderedQuantity ?? orderItem.quantity),
+                priceVariation: (orderItem.quantity -
+                        (existingBillItem?.orderedQuantity ??
+                            orderItem.quantity)) *
+                    orderItem.price,
+                variationReason: 'Synced from order',
+              );
+            }).toList();
+
+            await billService.updateBillWithPackagingVariations(
+              billId: bill.billId,
+              updatedItems: updatedBillItems,
+              updatedBy: 'admin',
+              packagingNotes:
+                  'Synced from orders page on ${DateFormat('dd/MM/yyyy HH:mm').format(DateTime.now())}',
+            );
+
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Row(
+                    children: [
+                      Icon(Icons.check_circle, color: Colors.white),
+                      SizedBox(width: 12),
+                      Text('✓ Bill updated successfully'),
+                    ],
+                  ),
+                  backgroundColor: Colors.green,
+                ),
+              );
+            }
+          }
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        Navigator.pop(context); // Close loading if still open
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Sync failed: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
   void _showOrderDetails(OrderModel order) {
     showDialog(
       context: context,
@@ -792,7 +1090,7 @@ class _AdminOrdersPageState extends ConsumerState<AdminOrdersPage> {
       context: context,
       builder: (context) => EditOrderDialog(order: order),
     );
-    
+
     if (result == true && mounted) {
       // Refresh orders after successful edit
       ref.invalidate(adminOrdersProvider);
@@ -855,7 +1153,8 @@ class _AdminOrdersPageState extends ConsumerState<AdminOrdersPage> {
         'color': const Color(0xFF9C27B0),
         'completed': true,
       });
-    } else if (order.status == OrderStatus.confirmed || order.status == OrderStatus.pending) {
+    } else if (order.status == OrderStatus.confirmed ||
+        order.status == OrderStatus.pending) {
       timelineItems.add({
         'label': 'Packing Started',
         'time': null,
@@ -882,7 +1181,9 @@ class _AdminOrdersPageState extends ConsumerState<AdminOrdersPage> {
         'color': const Color(0xFF4CAF50),
         'completed': true,
       });
-    } else if (order.status == OrderStatus.preparing || order.status == OrderStatus.confirmed || order.status == OrderStatus.pending) {
+    } else if (order.status == OrderStatus.preparing ||
+        order.status == OrderStatus.confirmed ||
+        order.status == OrderStatus.pending) {
       timelineItems.add({
         'label': 'Packed',
         'time': null,
@@ -909,7 +1210,10 @@ class _AdminOrdersPageState extends ConsumerState<AdminOrdersPage> {
         'color': const Color(0xFF4CAF50),
         'completed': true,
       });
-    } else if (order.status == OrderStatus.ready || order.status == OrderStatus.preparing || order.status == OrderStatus.confirmed || order.status == OrderStatus.pending) {
+    } else if (order.status == OrderStatus.ready ||
+        order.status == OrderStatus.preparing ||
+        order.status == OrderStatus.confirmed ||
+        order.status == OrderStatus.pending) {
       timelineItems.add({
         'label': 'Delivered',
         'time': null,
@@ -1029,7 +1333,8 @@ class _AdminOrdersPageState extends ConsumerState<AdminOrdersPage> {
 
   Future<void> _acceptOrder(OrderModel order) async {
     try {
-      final orderRef = FirebaseFirestore.instance.collection('orders').doc(order.id);
+      final orderRef =
+          FirebaseFirestore.instance.collection('orders').doc(order.id);
       await orderRef.update({
         'status': 'confirmed',
         'confirmedAt': Timestamp.fromDate(DateTime.now()),
@@ -1050,7 +1355,8 @@ class _AdminOrdersPageState extends ConsumerState<AdminOrdersPage> {
 
   Future<void> _rejectOrder(OrderModel order) async {
     try {
-      final orderRef = FirebaseFirestore.instance.collection('orders').doc(order.id);
+      final orderRef =
+          FirebaseFirestore.instance.collection('orders').doc(order.id);
       await orderRef.update({
         'status': 'cancelled',
         'cancelledAt': Timestamp.fromDate(DateTime.now()),
