@@ -445,8 +445,7 @@ class _OrderHistoryPageState extends ConsumerState<OrderHistoryPage> {
 
               // Footer with View Bill button
               if (order.status == OrderStatus.ready ||
-                  order.status == OrderStatus.delivered ||
-                  order.status == OrderStatus.completed)
+                  order.status == OrderStatus.delivered)
                 Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
