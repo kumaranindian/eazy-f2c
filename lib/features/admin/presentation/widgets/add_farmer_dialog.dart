@@ -14,6 +14,7 @@ class AddFarmerDialog extends ConsumerStatefulWidget {
 class _AddFarmerDialogState extends ConsumerState<AddFarmerDialog> {
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
+  final _displayNameController = TextEditingController();
   final _phoneController = TextEditingController();
   final _alternativePhoneController = TextEditingController();
   final _emailController = TextEditingController();
@@ -50,23 +51,25 @@ class _AddFarmerDialogState extends ConsumerState<AddFarmerDialog> {
   void _generateDefaultPassword() {
     final email = _emailController.text.trim();
     final phone = _phoneController.text.trim();
-    
+
     if (email.isNotEmpty && phone.isNotEmpty) {
       // Get first 4 characters from email (before @)
       final emailPart = email.split('@')[0];
-      final first4Chars = emailPart.length >= 4 
-          ? emailPart.substring(0, 4) 
+      final first4Chars = emailPart.length >= 4
+          ? emailPart.substring(0, 4)
           : emailPart.padRight(4, '0');
-      
+
       // Capitalize first letter
-      final capitalizedPart = first4Chars[0].toUpperCase() + first4Chars.substring(1).toLowerCase();
-      
+      final capitalizedPart =
+          first4Chars[0].toUpperCase() + first4Chars.substring(1).toLowerCase();
+
       // Get last 5 digits of phone
-      final phoneDigits = phone.replaceAll(RegExp(r'\D'), ''); // Remove non-digits
-      final last5Digits = phoneDigits.length >= 5 
-          ? phoneDigits.substring(phoneDigits.length - 5) 
+      final phoneDigits =
+          phone.replaceAll(RegExp(r'\D'), ''); // Remove non-digits
+      final last5Digits = phoneDigits.length >= 5
+          ? phoneDigits.substring(phoneDigits.length - 5)
           : phoneDigits.padLeft(5, '0');
-      
+
       // Format: First4Char@Last5Digits
       final defaultPassword = '$capitalizedPart@$last5Digits';
       _passwordController.text = defaultPassword;
@@ -78,6 +81,7 @@ class _AddFarmerDialogState extends ConsumerState<AddFarmerDialog> {
     _emailController.removeListener(_onEmailChanged);
     _phoneController.removeListener(_onPhoneChanged);
     _nameController.dispose();
+    _displayNameController.dispose();
     _phoneController.dispose();
     _alternativePhoneController.dispose();
     _emailController.dispose();
@@ -102,6 +106,9 @@ class _AddFarmerDialogState extends ConsumerState<AddFarmerDialog> {
       final farmer = FarmerModel(
         id: '',
         name: _nameController.text.trim(),
+        displayName: _displayNameController.text.trim().isEmpty
+            ? null
+            : _displayNameController.text.trim(),
         phone: _phoneController.text.trim(),
         alternativePhone: _alternativePhoneController.text.trim().isEmpty
             ? null
@@ -190,6 +197,7 @@ class _AddFarmerDialogState extends ConsumerState<AddFarmerDialog> {
                 decoration: const InputDecoration(
                   labelText: 'Farmer Name *',
                   hintText: 'Enter farmer name',
+                  helperText: 'Internal name for records',
                   border: OutlineInputBorder(),
                   prefixIcon: Icon(Icons.person),
                 ),
@@ -199,6 +207,18 @@ class _AddFarmerDialogState extends ConsumerState<AddFarmerDialog> {
                   }
                   return null;
                 },
+              ),
+              const SizedBox(height: 16),
+              TextFormField(
+                controller: _displayNameController,
+                decoration: InputDecoration(
+                  labelText: 'Display Name (Optional)',
+                  hintText: 'Name shown to customers',
+                  helperText: 'Leave empty to use farmer name',
+                  helperStyle: TextStyle(color: Colors.grey[600], fontSize: 11),
+                  border: const OutlineInputBorder(),
+                  prefixIcon: const Icon(Icons.badge, color: Colors.blue),
+                ),
               ),
               const SizedBox(height: 16),
               TextFormField(
@@ -280,7 +300,9 @@ class _AddFarmerDialogState extends ConsumerState<AddFarmerDialog> {
                   prefixIcon: const Icon(Icons.lock_outline),
                   suffixIcon: IconButton(
                     icon: Icon(
-                      _obscurePassword ? Icons.visibility_off : Icons.visibility,
+                      _obscurePassword
+                          ? Icons.visibility_off
+                          : Icons.visibility,
                     ),
                     onPressed: () {
                       setState(() {
@@ -364,7 +386,8 @@ class _AddFarmerDialogState extends ConsumerState<AddFarmerDialog> {
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
                   TextButton(
-                    onPressed: _isLoading ? null : () => Navigator.of(context).pop(),
+                    onPressed:
+                        _isLoading ? null : () => Navigator.of(context).pop(),
                     child: const Text('Cancel'),
                   ),
                   const SizedBox(width: 16),
@@ -376,7 +399,8 @@ class _AddFarmerDialogState extends ConsumerState<AddFarmerDialog> {
                             height: 16,
                             child: CircularProgressIndicator(
                               strokeWidth: 2,
-                              valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                              valueColor:
+                                  AlwaysStoppedAnimation<Color>(Colors.white),
                             ),
                           )
                         : const Icon(Icons.check),

@@ -19,6 +19,7 @@ class EditFarmerDialog extends ConsumerStatefulWidget {
 class _EditFarmerDialogState extends ConsumerState<EditFarmerDialog> {
   final _formKey = GlobalKey<FormState>();
   late TextEditingController _nameController;
+  late TextEditingController _displayNameController;
   late TextEditingController _phoneController;
   late TextEditingController _alternativePhoneController;
   late TextEditingController _emailController;
@@ -31,6 +32,8 @@ class _EditFarmerDialogState extends ConsumerState<EditFarmerDialog> {
   void initState() {
     super.initState();
     _nameController = TextEditingController(text: widget.farmer.name);
+    _displayNameController =
+        TextEditingController(text: widget.farmer.displayName ?? '');
     _phoneController = TextEditingController(text: widget.farmer.phone);
     _alternativePhoneController = TextEditingController(
       text: widget.farmer.alternativePhone ?? '',
@@ -44,6 +47,7 @@ class _EditFarmerDialogState extends ConsumerState<EditFarmerDialog> {
   @override
   void dispose() {
     _nameController.dispose();
+    _displayNameController.dispose();
     _phoneController.dispose();
     _alternativePhoneController.dispose();
     _emailController.dispose();
@@ -65,6 +69,9 @@ class _EditFarmerDialogState extends ConsumerState<EditFarmerDialog> {
 
       final updatedFarmer = widget.farmer.copyWith(
         name: _nameController.text.trim(),
+        displayName: _displayNameController.text.trim().isEmpty
+            ? null
+            : _displayNameController.text.trim(),
         phone: _phoneController.text.trim(),
         alternativePhone: _alternativePhoneController.text.trim().isEmpty
             ? null
@@ -150,6 +157,7 @@ class _EditFarmerDialogState extends ConsumerState<EditFarmerDialog> {
                 decoration: const InputDecoration(
                   labelText: 'Farmer Name *',
                   hintText: 'Enter farmer name',
+                  helperText: 'Internal name for records',
                   border: OutlineInputBorder(),
                   prefixIcon: Icon(Icons.person),
                 ),
@@ -159,6 +167,18 @@ class _EditFarmerDialogState extends ConsumerState<EditFarmerDialog> {
                   }
                   return null;
                 },
+              ),
+              const SizedBox(height: 16),
+              TextFormField(
+                controller: _displayNameController,
+                decoration: InputDecoration(
+                  labelText: 'Display Name (Optional)',
+                  hintText: 'Name shown to customers',
+                  helperText: 'Leave empty to use farmer name',
+                  helperStyle: TextStyle(color: Colors.grey[600], fontSize: 11),
+                  border: const OutlineInputBorder(),
+                  prefixIcon: const Icon(Icons.badge, color: Colors.blue),
+                ),
               ),
               const SizedBox(height: 16),
               TextFormField(
@@ -270,7 +290,8 @@ class _EditFarmerDialogState extends ConsumerState<EditFarmerDialog> {
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
                   TextButton(
-                    onPressed: _isLoading ? null : () => Navigator.of(context).pop(),
+                    onPressed:
+                        _isLoading ? null : () => Navigator.of(context).pop(),
                     child: const Text('Cancel'),
                   ),
                   const SizedBox(width: 16),
@@ -282,7 +303,8 @@ class _EditFarmerDialogState extends ConsumerState<EditFarmerDialog> {
                             height: 16,
                             child: CircularProgressIndicator(
                               strokeWidth: 2,
-                              valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                              valueColor:
+                                  AlwaysStoppedAnimation<Color>(Colors.white),
                             ),
                           )
                         : const Icon(Icons.check),
