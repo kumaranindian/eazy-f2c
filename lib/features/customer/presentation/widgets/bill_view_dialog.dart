@@ -680,16 +680,24 @@ class BillViewDialog extends StatelessWidget {
           bottomRight: Radius.circular(12),
         ),
       ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Text(
-            'Generated: ${DateFormat('dd MMM yyyy, hh:mm a').format(bill.generatedAt)}',
-            style: TextStyle(
-              fontSize: 12,
-              color: Colors.grey[600],
-            ),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Expanded(
+                child: Text(
+                  'Generated: ${DateFormat('dd MMM yyyy, hh:mm a').format(bill.generatedAt)}',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Colors.grey[600],
+                  ),
+                ),
+              ),
+            ],
           ),
+          const SizedBox(height: 12),
           ElevatedButton.icon(
             onPressed: () async {
               try {
@@ -698,8 +706,10 @@ class BillViewDialog extends StatelessWidget {
                 if (context.mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(
-                      content: Text('PDF downloaded successfully'),
+                      content: Text(
+                          'Bill opened in new tab. Use browser print (Ctrl+P) to print or save as PDF.'),
                       backgroundColor: Colors.green,
+                      duration: Duration(seconds: 4),
                     ),
                   );
                 }
@@ -707,18 +717,21 @@ class BillViewDialog extends StatelessWidget {
                 if (context.mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
-                      content: Text('Error downloading PDF: $e'),
+                      content: Text('Error opening bill: $e'),
                       backgroundColor: Colors.red,
                     ),
                   );
                 }
               }
             },
-            icon: const Icon(Icons.download),
-            label: const Text('Download PDF'),
+            icon: const Icon(Icons.print, size: 20),
+            label: const Text('Print / Download Bill',
+                style: TextStyle(fontSize: 16)),
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.green[700],
               foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 20),
+              elevation: 2,
             ),
           ),
         ],
