@@ -406,7 +406,8 @@ class BillViewDialog extends StatelessWidget {
                 if (item.hasVariation && item.variationReason != null) ...[
                   const SizedBox(height: 4),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                     decoration: BoxDecoration(
                       color: Colors.orange[50],
                       borderRadius: BorderRadius.circular(4),
@@ -430,7 +431,8 @@ class BillViewDialog extends StatelessWidget {
               style: TextStyle(
                 fontSize: 12,
                 color: item.hasVariation ? Colors.grey[500] : Colors.black87,
-                decoration: item.hasVariation ? TextDecoration.lineThrough : null,
+                decoration:
+                    item.hasVariation ? TextDecoration.lineThrough : null,
               ),
               textAlign: TextAlign.center,
             ),
@@ -442,8 +444,10 @@ class BillViewDialog extends StatelessWidget {
                 item.formattedActualQuantity,
                 style: TextStyle(
                   fontSize: 12,
-                  fontWeight: item.hasVariation ? FontWeight.bold : FontWeight.normal,
-                  color: item.hasVariation ? Colors.orange[800] : Colors.black87,
+                  fontWeight:
+                      item.hasVariation ? FontWeight.bold : FontWeight.normal,
+                  color:
+                      item.hasVariation ? Colors.orange[800] : Colors.black87,
                 ),
                 textAlign: TextAlign.center,
               ),
@@ -482,32 +486,41 @@ class BillViewDialog extends StatelessWidget {
       ),
       child: Column(
         children: [
-          _buildTotalRow('Subtotal', bill.finalSubtotal, isOriginal: !bill.hasVariations),
-          if (bill.hasVariations && bill.orderedSubtotal != bill.actualSubtotal) ...[
+          // Show ordered subtotal if there are variations
+          if (bill.hasVariations &&
+              bill.actualSubtotal != null &&
+              bill.orderedSubtotal != bill.actualSubtotal) ...[
             _buildTotalRow(
-              'Original Subtotal',
+              'Ordered Subtotal',
               bill.orderedSubtotal,
               isStrikethrough: true,
+              isGrey: true,
             ),
+            _buildTotalRow(
+              'Packed Subtotal',
+              bill.actualSubtotal ?? bill.finalSubtotal,
+              isBold: true,
+            ),
+            const SizedBox(height: 4),
+            _buildTotalRow(
+              'Items Variation',
+              bill.totalVariation ?? 0,
+              isVariation: true,
+            ),
+            const SizedBox(height: 8),
+          ] else ...[
+            _buildTotalRow('Subtotal', bill.finalSubtotal),
+            const SizedBox(height: 8),
           ],
-          const SizedBox(height: 8),
           _buildTotalRow('Delivery Charges', bill.deliveryCharges),
           _buildTotalRow('Cleaning Charges', bill.cleaningCharges),
           const Divider(height: 24),
           _buildTotalRow(
-            'Total',
+            'Total Amount',
             bill.finalTotal,
             isBold: true,
             isLarge: true,
           ),
-          if (bill.hasVariations && bill.totalVariation != 0) ...[
-            const SizedBox(height: 8),
-            _buildTotalRow(
-              'Variation',
-              bill.totalVariation!,
-              isVariation: true,
-            ),
-          ],
           const SizedBox(height: 16),
           _buildPaymentStatus(),
         ],
@@ -521,7 +534,7 @@ class BillViewDialog extends StatelessWidget {
     bool isBold = false,
     bool isLarge = false,
     bool isStrikethrough = false,
-    bool isOriginal = false,
+    bool isGrey = false,
     bool isVariation = false,
   }) {
     return Padding(
@@ -534,17 +547,20 @@ class BillViewDialog extends StatelessWidget {
             style: TextStyle(
               fontSize: isLarge ? 18 : 14,
               fontWeight: isBold ? FontWeight.bold : FontWeight.normal,
-              color: isStrikethrough ? Colors.grey[500] : Colors.black87,
+              color:
+                  isGrey || isStrikethrough ? Colors.grey[600] : Colors.black87,
             ),
           ),
           Text(
-            '${isVariation && amount > 0 ? '+' : ''}₹${amount.toStringAsFixed(2)}',
+            '${isVariation && amount > 0 ? '+' : ''}₹${amount.abs().toStringAsFixed(2)}',
             style: TextStyle(
               fontSize: isLarge ? 18 : 14,
               fontWeight: isBold ? FontWeight.bold : FontWeight.w500,
               color: isVariation
-                  ? (amount > 0 ? Colors.red : Colors.green)
-                  : (isStrikethrough ? Colors.grey[500] : Colors.black87),
+                  ? (amount > 0 ? Colors.red[700] : Colors.green[700])
+                  : (isGrey || isStrikethrough
+                      ? Colors.grey[600]
+                      : Colors.black87),
               decoration: isStrikethrough ? TextDecoration.lineThrough : null,
             ),
           ),
@@ -586,7 +602,9 @@ class BillViewDialog extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           Icon(
-            bill.paymentStatus == 'paid' ? Icons.check_circle : Icons.access_time,
+            bill.paymentStatus == 'paid'
+                ? Icons.check_circle
+                : Icons.access_time,
             size: 16,
             color: statusColor,
           ),
