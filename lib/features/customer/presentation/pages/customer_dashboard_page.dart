@@ -682,17 +682,17 @@ class _CustomerDashboardPageState extends ConsumerState<CustomerDashboardPage> {
                                 );
                               },
                               icon: const Icon(Icons.receipt_long,
-                                  color: Colors.white, size: 20),
+                                  color: Colors.black87, size: 20),
                               label: const Text(
                                 'Orders',
-                                style: TextStyle(color: Colors.white),
+                                style: TextStyle(color: Colors.black87),
                               ),
                             ),
                           // Orders button (mobile)
                           if (isMobile)
                             IconButton(
                               icon: const Icon(Icons.receipt_long,
-                                  color: Colors.white, size: 24),
+                                  color: Colors.black87, size: 24),
                               onPressed: () {
                                 Navigator.push(
                                   context,
@@ -708,7 +708,7 @@ class _CustomerDashboardPageState extends ConsumerState<CustomerDashboardPage> {
                               clipBehavior: Clip.none,
                               children: [
                                 const Icon(Icons.shopping_bag_outlined,
-                                    color: Colors.white, size: 26),
+                                    color: Colors.black87, size: 26),
                                 if (cartCount > 0)
                                   Positioned(
                                     right: -4,
@@ -748,7 +748,7 @@ class _CustomerDashboardPageState extends ConsumerState<CustomerDashboardPage> {
                           if (isMobile)
                             PopupMenuButton<String>(
                               icon: const Icon(Icons.more_vert,
-                                  color: Colors.white),
+                                  color: Colors.black87),
                               onSelected: (value) {
                                 switch (value) {
                                   case 'cart':
@@ -791,7 +791,7 @@ class _CustomerDashboardPageState extends ConsumerState<CustomerDashboardPage> {
                           else
                             IconButton(
                               icon: const Icon(Icons.logout,
-                                  color: Colors.white, size: 24),
+                                  color: Colors.black87, size: 24),
                               onPressed: _handleLogout,
                             ),
                           const SizedBox(width: 8),
@@ -1076,6 +1076,44 @@ class _CustomerDashboardPageState extends ConsumerState<CustomerDashboardPage> {
                   return _buildScheduleAccordion(
                       schedules[index], products, isMobile);
                 },
+              ),
+            ),
+
+            // Footer with version
+            const SizedBox(height: 32),
+            Center(
+              child: Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Column(
+                  children: [
+                    const Divider(),
+                    const SizedBox(height: 16),
+                    Text(
+                      'F2C - Farm2Community',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.grey[700],
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Version 1.0.0',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.grey[500],
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      '© 2024 F2C. All rights reserved.',
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: Colors.grey[400],
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
 
