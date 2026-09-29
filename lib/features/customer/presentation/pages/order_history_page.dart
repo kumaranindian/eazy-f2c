@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:f2c/features/customer/models/order_model.dart';
+import 'package:f2c/features/customer/models/bill_model.dart';
 import 'package:f2c/features/customer/providers/customer_providers.dart';
+import 'package:f2c/features/customer/presentation/widgets/bill_view_dialog.dart';
 import 'package:f2c/features/authentication/providers/auth_providers.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
@@ -61,7 +63,8 @@ class _OrderHistoryPageState extends ConsumerState<OrderHistoryPage> {
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Icon(Icons.receipt_long_outlined, size: 80, color: Colors.grey[300]),
+                      Icon(Icons.receipt_long_outlined,
+                          size: 80, color: Colors.grey[300]),
                       const SizedBox(height: 16),
                       Text(
                         'No orders yet',
@@ -73,7 +76,8 @@ class _OrderHistoryPageState extends ConsumerState<OrderHistoryPage> {
               }
 
               // Filter orders from past 2 months
-              final twoMonthsAgo = DateTime.now().subtract(const Duration(days: 60));
+              final twoMonthsAgo =
+                  DateTime.now().subtract(const Duration(days: 60));
               final orders = snapshot.data!.docs
                   .map((doc) => OrderModel.fromFirestore(doc))
                   .where((order) => order.createdAt.isAfter(twoMonthsAgo))
@@ -81,7 +85,9 @@ class _OrderHistoryPageState extends ConsumerState<OrderHistoryPage> {
 
               // Apply status filter if selected
               final filteredOrders = _selectedStatusFilter != null
-                  ? orders.where((order) => order.status == _selectedStatusFilter).toList()
+                  ? orders
+                      .where((order) => order.status == _selectedStatusFilter)
+                      .toList()
                   : orders;
 
               if (filteredOrders.isEmpty) {
@@ -89,7 +95,8 @@ class _OrderHistoryPageState extends ConsumerState<OrderHistoryPage> {
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Icon(Icons.filter_list_off, size: 80, color: Colors.grey[300]),
+                      Icon(Icons.filter_list_off,
+                          size: 80, color: Colors.grey[300]),
                       const SizedBox(height: 16),
                       Text(
                         'No orders match the filter',
@@ -139,7 +146,8 @@ class _OrderHistoryPageState extends ConsumerState<OrderHistoryPage> {
             padding: EdgeInsets.all(isMobile ? 12 : 16),
             decoration: BoxDecoration(
               color: Colors.grey[50],
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+              borderRadius:
+                  const BorderRadius.vertical(top: Radius.circular(16)),
             ),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -170,7 +178,7 @@ class _OrderHistoryPageState extends ConsumerState<OrderHistoryPage> {
               ],
             ),
           ),
-          
+
           // Order Items Preview
           Padding(
             padding: EdgeInsets.all(isMobile ? 12 : 16),
@@ -185,7 +193,9 @@ class _OrderHistoryPageState extends ConsumerState<OrderHistoryPage> {
                   ),
                 ),
                 const SizedBox(height: 12),
-                ...order.items.take(3).map((item) => _buildOrderItemPreview(item, isMobile)),
+                ...order.items
+                    .take(3)
+                    .map((item) => _buildOrderItemPreview(item, isMobile)),
                 if (order.items.length > 3)
                   Padding(
                     padding: const EdgeInsets.only(top: 8),
@@ -200,7 +210,7 @@ class _OrderHistoryPageState extends ConsumerState<OrderHistoryPage> {
               ],
             ),
           ),
-          
+
           // Order Footer
           Container(
             padding: EdgeInsets.all(isMobile ? 12 : 16),
@@ -228,7 +238,7 @@ class _OrderHistoryPageState extends ConsumerState<OrderHistoryPage> {
               ],
             ),
           ),
-          
+
           // View Details Button
           Padding(
             padding: EdgeInsets.all(isMobile ? 12 : 16),
@@ -349,7 +359,8 @@ class _OrderHistoryPageState extends ConsumerState<OrderHistoryPage> {
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
                   color: const Color(0xFF00C853),
-                  borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+                  borderRadius:
+                      const BorderRadius.vertical(top: Radius.circular(16)),
                 ),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -369,7 +380,7 @@ class _OrderHistoryPageState extends ConsumerState<OrderHistoryPage> {
                   ],
                 ),
               ),
-              
+
               // Content
               Expanded(
                 child: SingleChildScrollView(
@@ -379,16 +390,20 @@ class _OrderHistoryPageState extends ConsumerState<OrderHistoryPage> {
                     children: [
                       // Order Info
                       _buildDetailRow('Order ID', order.id.substring(0, 8)),
-                      _buildDetailRow('Order Date', _formatDate(order.createdAt)),
+                      _buildDetailRow(
+                          'Order Date', _formatDate(order.createdAt)),
                       _buildDetailRow('Status', order.status.displayName),
-                      _buildDetailRow('Payment Method', order.paymentMethod ?? 'N/A'),
-                      _buildDetailRow('Payment Status', order.paymentStatus ?? 'N/A'),
-                      
+                      _buildDetailRow(
+                          'Payment Method', order.paymentMethod ?? 'N/A'),
+                      _buildDetailRow(
+                          'Payment Status', order.paymentStatus ?? 'N/A'),
+
                       if (order.deliveryInstructions != null)
-                        _buildDetailRow('Delivery Instructions', order.deliveryInstructions!),
-                      
+                        _buildDetailRow('Delivery Instructions',
+                            order.deliveryInstructions!),
+
                       const Divider(height: 32),
-                      
+
                       // Items
                       const Text(
                         'Order Items',
@@ -399,9 +414,9 @@ class _OrderHistoryPageState extends ConsumerState<OrderHistoryPage> {
                       ),
                       const SizedBox(height: 16),
                       ...order.items.map((item) => _buildDetailItem(item)),
-                      
+
                       const Divider(height: 32),
-                      
+
                       // Total
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -427,11 +442,78 @@ class _OrderHistoryPageState extends ConsumerState<OrderHistoryPage> {
                   ),
                 ),
               ),
+
+              // Footer with View Bill button
+              if (order.status == OrderStatus.ready ||
+                  order.status == OrderStatus.delivered ||
+                  order.status == OrderStatus.completed)
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.grey[100],
+                    borderRadius: const BorderRadius.vertical(
+                        bottom: Radius.circular(16)),
+                  ),
+                  child: SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton.icon(
+                      onPressed: () => _viewBill(order),
+                      icon: const Icon(Icons.receipt_long),
+                      label: const Text('View Bill'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF00C853),
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                      ),
+                    ),
+                  ),
+                ),
             ],
           ),
         ),
       ),
     );
+  }
+
+  Future<void> _viewBill(OrderModel order) async {
+    try {
+      // Fetch bill from Firestore
+      final billDoc = await FirebaseFirestore.instance
+          .collection('bills')
+          .where('orderId', isEqualTo: order.id)
+          .limit(1)
+          .get();
+
+      if (billDoc.docs.isEmpty) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Bill not yet generated for this order'),
+              backgroundColor: Colors.orange,
+            ),
+          );
+        }
+        return;
+      }
+
+      final bill = BillModel.fromFirestore(billDoc.docs.first);
+
+      if (mounted) {
+        showDialog(
+          context: context,
+          builder: (context) => BillViewDialog(bill: bill),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error loading bill: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
   }
 
   Widget _buildDetailRow(String label, String value) {
@@ -562,16 +644,16 @@ class _OrderHistoryPageState extends ConsumerState<OrderHistoryPage> {
               },
             ),
             ...OrderStatus.values.map((status) => RadioListTile<OrderStatus>(
-              title: Text(status.displayName),
-              value: status,
-              groupValue: _selectedStatusFilter,
-              onChanged: (value) {
-                setState(() {
-                  _selectedStatusFilter = value;
-                });
-                Navigator.pop(context);
-              },
-            )),
+                  title: Text(status.displayName),
+                  value: status,
+                  groupValue: _selectedStatusFilter,
+                  onChanged: (value) {
+                    setState(() {
+                      _selectedStatusFilter = value;
+                    });
+                    Navigator.pop(context);
+                  },
+                )),
           ],
         ),
       ),
