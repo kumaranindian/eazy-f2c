@@ -7,9 +7,10 @@ import 'package:f2c/features/authentication/providers/auth_providers.dart';
 import 'package:f2c/features/customer/models/cart_item_model.dart';
 
 // Provider for current customer data
-final currentCustomerProvider = StreamProvider.autoDispose<CustomerModel?>((ref) {
+final currentCustomerProvider =
+    StreamProvider.autoDispose<CustomerModel?>((ref) {
   final userAsync = ref.watch(currentUserProvider);
-  
+
   return userAsync.when(
     data: (user) {
       if (user == null) {
@@ -23,11 +24,11 @@ final currentCustomerProvider = StreamProvider.autoDispose<CustomerModel?>((ref)
           .limit(1)
           .snapshots()
           .map((snapshot) {
-            if (snapshot.docs.isEmpty) {
-              return null;
-            }
-            return CustomerModel.fromFirestore(snapshot.docs.first);
-          });
+        if (snapshot.docs.isEmpty) {
+          return null;
+        }
+        return CustomerModel.fromFirestore(snapshot.docs.first);
+      });
     },
     loading: () => Stream.value(null),
     error: (_, __) => Stream.value(null),
@@ -35,9 +36,10 @@ final currentCustomerProvider = StreamProvider.autoDispose<CustomerModel?>((ref)
 });
 
 // Provider for active operational schedules for the customer's apartment
-final activeSchedulesProvider = StreamProvider.autoDispose<List<OperationalScheduleModel>>((ref) {
+final activeSchedulesProvider =
+    StreamProvider.autoDispose<List<OperationalScheduleModel>>((ref) {
   final customerAsync = ref.watch(currentCustomerProvider);
-  
+
   return customerAsync.when(
     data: (customer) {
       if (customer == null) {
@@ -52,169 +54,185 @@ final activeSchedulesProvider = StreamProvider.autoDispose<List<OperationalSched
           .where('isDeleted', isEqualTo: false)
           .snapshots()
           .map((snapshot) {
-            print('DEBUG: Total schedules from Firestore: ${snapshot.docs.length}');
-            
-            final schedules = snapshot.docs
-                .map((doc) => OperationalScheduleModel.fromFirestore(doc))
-                .where((schedule) {
-                  // First check: must not be deleted and must be active status
-                  if (schedule.isDeleted) {
-                    print('DEBUG: Skipping deleted schedule: ${schedule.id}');
-                    return false;
-                  }
-                  
-                  if (schedule.status != ScheduleStatus.pending && 
-                      schedule.status != ScheduleStatus.inProgress) {
-                    print('DEBUG: Skipping schedule with status: ${schedule.status}');
-                    return false;
-                  }
-                  
-                  // Check if schedule is for today based on recurrence type
-                  final scheduleDate = DateTime(
-                    schedule.scheduledDate.year,
-                    schedule.scheduledDate.month,
-                    schedule.scheduledDate.day,
-                  );
+        print('DEBUG: Total schedules from Firestore: ${snapshot.docs.length}');
 
-                  // For one-time schedules, check exact date
-                  if (schedule.recurrenceType == ScheduleRecurrenceType.oneTime) {
-                    if (!scheduleDate.isAtSameMomentAs(today)) {
-                      print('DEBUG: Skipping one-time schedule not for today: ${schedule.id}');
-                      return false;
-                    }
-                  } 
-                  // For daily schedules, check if today is within start and end date range
-                  else if (schedule.recurrenceType == ScheduleRecurrenceType.daily) {
-                    final recurrenceEndDate = schedule.recurrenceEndDate != null
-                        ? DateTime(
-                            schedule.recurrenceEndDate!.year,
-                            schedule.recurrenceEndDate!.month,
-                            schedule.recurrenceEndDate!.day,
-                          )
-                        : null;
+        final schedules = snapshot.docs
+            .map((doc) => OperationalScheduleModel.fromFirestore(doc))
+            .where((schedule) {
+          // First check: must not be deleted and must be active status
+          if (schedule.isDeleted) {
+            print('DEBUG: Skipping deleted schedule: ${schedule.id}');
+            return false;
+          }
 
-                    // Check if today is before start date
-                    if (today.isBefore(scheduleDate)) {
-                      print('DEBUG: Skipping daily schedule - today is before start date: ${schedule.id}');
-                      return false;
-                    }
+          if (schedule.status != ScheduleStatus.pending &&
+              schedule.status != ScheduleStatus.inProgress) {
+            print('DEBUG: Skipping schedule with status: ${schedule.status}');
+            return false;
+          }
 
-                    // Check if today is after end date
-                    if (recurrenceEndDate != null && today.isAfter(recurrenceEndDate)) {
-                      print('DEBUG: Skipping daily schedule - today is after end date: ${schedule.id}');
-                      return false;
-                    }
-                    
-                    print('DEBUG: Including daily schedule for today: ${schedule.id}');
-                  }
-                  // For weekly schedules, check if today's day of week matches selected days
-                  else if (schedule.recurrenceType == ScheduleRecurrenceType.weekly) {
-                    final recurrenceEndDate = schedule.recurrenceEndDate != null
-                        ? DateTime(
-                            schedule.recurrenceEndDate!.year,
-                            schedule.recurrenceEndDate!.month,
-                            schedule.recurrenceEndDate!.day,
-                          )
-                        : null;
+          // Check if schedule is for today based on recurrence type
+          final scheduleDate = DateTime(
+            schedule.scheduledDate.year,
+            schedule.scheduledDate.month,
+            schedule.scheduledDate.day,
+          );
 
-                    print('DEBUG: Weekly schedule check - scheduleDate: $scheduleDate, today: $today, recurrenceEndDate: $recurrenceEndDate');
-                    print('DEBUG: Weekly schedule - recurrenceDaysOfWeek: ${schedule.recurrenceDaysOfWeek}, today.weekday: ${today.weekday}');
+          // For one-time schedules, check exact date
+          if (schedule.recurrenceType == ScheduleRecurrenceType.oneTime) {
+            if (!scheduleDate.isAtSameMomentAs(today)) {
+              print(
+                  'DEBUG: Skipping one-time schedule not for today: ${schedule.id}');
+              return false;
+            }
+          }
+          // For daily schedules, check if today is within start and end date range
+          else if (schedule.recurrenceType == ScheduleRecurrenceType.daily) {
+            final recurrenceEndDate = schedule.recurrenceEndDate != null
+                ? DateTime(
+                    schedule.recurrenceEndDate!.year,
+                    schedule.recurrenceEndDate!.month,
+                    schedule.recurrenceEndDate!.day,
+                  )
+                : null;
 
-                    // Check if today is before start date
-                    if (today.isBefore(scheduleDate)) {
-                      print('DEBUG: Skipping weekly schedule - today is before start date: ${schedule.id}');
-                      return false;
-                    }
+            // Check if today is before start date
+            if (today.isBefore(scheduleDate)) {
+              print(
+                  'DEBUG: Skipping daily schedule - today is before start date: ${schedule.id}');
+              return false;
+            }
 
-                    // Check if today is after end date
-                    if (recurrenceEndDate != null && today.isAfter(recurrenceEndDate)) {
-                      print('DEBUG: Skipping weekly schedule - today is after end date: ${schedule.id}');
-                      return false;
-                    }
+            // Check if today is after end date
+            if (recurrenceEndDate != null && today.isAfter(recurrenceEndDate)) {
+              print(
+                  'DEBUG: Skipping daily schedule - today is after end date: ${schedule.id}');
+              return false;
+            }
 
-                    // Check if today's day of week is in the selected days (1=Monday, 7=Sunday)
-                    final todayDayOfWeek = today.weekday; // 1=Monday, 7=Sunday
-                    if (!schedule.recurrenceDaysOfWeek.contains(todayDayOfWeek)) {
-                      print('DEBUG: Skipping weekly schedule - today ($todayDayOfWeek) not in selected days: ${schedule.id}');
-                      return false;
-                    }
-                    
-                    print('DEBUG: Including weekly schedule for today: ${schedule.id}');
-                  }
-                  // For custom days schedules
-                  else if (schedule.recurrenceType == ScheduleRecurrenceType.customDays) {
-                    final recurrenceEndDate = schedule.recurrenceEndDate != null
-                        ? DateTime(
-                            schedule.recurrenceEndDate!.year,
-                            schedule.recurrenceEndDate!.month,
-                            schedule.recurrenceEndDate!.day,
-                          )
-                        : null;
+            print('DEBUG: Including daily schedule for today: ${schedule.id}');
+          }
+          // For weekly schedules, check if today's day of week matches selected days
+          else if (schedule.recurrenceType == ScheduleRecurrenceType.weekly) {
+            final recurrenceEndDate = schedule.recurrenceEndDate != null
+                ? DateTime(
+                    schedule.recurrenceEndDate!.year,
+                    schedule.recurrenceEndDate!.month,
+                    schedule.recurrenceEndDate!.day,
+                  )
+                : null;
 
-                    // Check if today is before start date
-                    if (today.isBefore(scheduleDate)) {
-                      print('DEBUG: Skipping custom days schedule - today is before start date: ${schedule.id}');
-                      return false;
-                    }
+            print(
+                'DEBUG: Weekly schedule check - scheduleDate: $scheduleDate, today: $today, recurrenceEndDate: $recurrenceEndDate');
+            print(
+                'DEBUG: Weekly schedule - recurrenceDaysOfWeek: ${schedule.recurrenceDaysOfWeek}, today.weekday: ${today.weekday}');
 
-                    // Check if today is after end date
-                    if (recurrenceEndDate != null && today.isAfter(recurrenceEndDate)) {
-                      print('DEBUG: Skipping custom days schedule - today is after end date: ${schedule.id}');
-                      return false;
-                    }
+            // Check if today is before start date
+            if (today.isBefore(scheduleDate)) {
+              print(
+                  'DEBUG: Skipping weekly schedule - today is before start date: ${schedule.id}');
+              return false;
+            }
 
-                    // Check if today's day of week is in the selected custom days
-                    final todayDayOfWeek = today.weekday;
-                    if (!schedule.recurrenceDaysOfWeek.contains(todayDayOfWeek)) {
-                      print('DEBUG: Skipping custom days schedule - today not in custom days: ${schedule.id}');
-                      return false;
-                    }
-                    
-                    print('DEBUG: Including custom days schedule for today: ${schedule.id}');
-                  }
+            // Check if today is after end date
+            if (recurrenceEndDate != null && today.isAfter(recurrenceEndDate)) {
+              print(
+                  'DEBUG: Skipping weekly schedule - today is after end date: ${schedule.id}');
+              return false;
+            }
 
-                  // Check if current time is within schedule's time range
-                  try {
-                    final startTimeParts = schedule.startTime.split(':');
-                    if (startTimeParts.length >= 2) {
-                      final startHour = int.parse(startTimeParts[0]);
-                      final startMinute = int.parse(startTimeParts[1]);
-                      
-                      final scheduleStartTime = DateTime(
-                        now.year,
-                        now.month,
-                        now.day,
-                        startHour,
-                        startMinute,
-                      );
-                      
-                      // If current time is before schedule start time, don't show products yet
-                      if (now.isBefore(scheduleStartTime)) {
-                        print('DEBUG: Skipping schedule - current time ${now.hour}:${now.minute} is before start time ${schedule.startTime}: ${schedule.id}');
-                        return false;
-                      }
-                    }
-                  } catch (e) {
-                    print('DEBUG: Error parsing schedule start time: $e');
-                  }
+            // Check if today's day of week is in the selected days (1=Monday, 7=Sunday)
+            final todayDayOfWeek = today.weekday; // 1=Monday, 7=Sunday
+            if (!schedule.recurrenceDaysOfWeek.contains(todayDayOfWeek)) {
+              print(
+                  'DEBUG: Skipping weekly schedule - today ($todayDayOfWeek) not in selected days: ${schedule.id}');
+              return false;
+            }
 
-                  // Check if schedule applies to customer's apartment
-                  final appliesToCustomer = schedule.visibilityScope == ScheduleVisibilityScope.entireHub ||
-                      schedule.selectedApartmentIds.contains(customer.apartmentId);
-                  
-                  if (!appliesToCustomer) {
-                    print('DEBUG: Skipping schedule not for customer apartment: ${schedule.id}');
-                    return false;
-                  }
-                  
-                  print('DEBUG: Including schedule: ${schedule.id}, status: ${schedule.status}');
-                  return true;
-                })
-                .toList();
+            print('DEBUG: Including weekly schedule for today: ${schedule.id}');
+          }
+          // For custom days schedules
+          else if (schedule.recurrenceType ==
+              ScheduleRecurrenceType.customDays) {
+            final recurrenceEndDate = schedule.recurrenceEndDate != null
+                ? DateTime(
+                    schedule.recurrenceEndDate!.year,
+                    schedule.recurrenceEndDate!.month,
+                    schedule.recurrenceEndDate!.day,
+                  )
+                : null;
 
-            print('DEBUG: Filtered schedules count: ${schedules.length}');
-            return schedules;
-          });
+            // Check if today is before start date
+            if (today.isBefore(scheduleDate)) {
+              print(
+                  'DEBUG: Skipping custom days schedule - today is before start date: ${schedule.id}');
+              return false;
+            }
+
+            // Check if today is after end date
+            if (recurrenceEndDate != null && today.isAfter(recurrenceEndDate)) {
+              print(
+                  'DEBUG: Skipping custom days schedule - today is after end date: ${schedule.id}');
+              return false;
+            }
+
+            // Check if today's day of week is in the selected custom days
+            final todayDayOfWeek = today.weekday;
+            if (!schedule.recurrenceDaysOfWeek.contains(todayDayOfWeek)) {
+              print(
+                  'DEBUG: Skipping custom days schedule - today not in custom days: ${schedule.id}');
+              return false;
+            }
+
+            print(
+                'DEBUG: Including custom days schedule for today: ${schedule.id}');
+          }
+
+          // Check if current time is within schedule's time range
+          try {
+            final startTimeParts = schedule.startTime.split(':');
+            if (startTimeParts.length >= 2) {
+              final startHour = int.parse(startTimeParts[0]);
+              final startMinute = int.parse(startTimeParts[1]);
+
+              final scheduleStartTime = DateTime(
+                now.year,
+                now.month,
+                now.day,
+                startHour,
+                startMinute,
+              );
+
+              // If current time is before schedule start time, don't show products yet
+              if (now.isBefore(scheduleStartTime)) {
+                print(
+                    'DEBUG: Skipping schedule - current time ${now.hour}:${now.minute} is before start time ${schedule.startTime}: ${schedule.id}');
+                return false;
+              }
+            }
+          } catch (e) {
+            print('DEBUG: Error parsing schedule start time: $e');
+          }
+
+          // Check if schedule applies to customer's apartment
+          final appliesToCustomer =
+              schedule.visibilityScope == ScheduleVisibilityScope.entireHub ||
+                  schedule.selectedApartmentIds.contains(customer.apartmentId);
+
+          if (!appliesToCustomer) {
+            print(
+                'DEBUG: Skipping schedule not for customer apartment: ${schedule.id}');
+            return false;
+          }
+
+          print(
+              'DEBUG: Including schedule: ${schedule.id}, status: ${schedule.status}');
+          return true;
+        }).toList();
+
+        print('DEBUG: Filtered schedules count: ${schedules.length}');
+        return schedules;
+      });
     },
     loading: () => Stream.value([]),
     error: (_, __) => Stream.value([]),
@@ -222,7 +240,8 @@ final activeSchedulesProvider = StreamProvider.autoDispose<List<OperationalSched
 });
 
 // Provider for products available in active schedules
-final availableProductsProvider = StreamProvider.autoDispose<List<ProductWithSchedule>>((ref) {
+final availableProductsProvider =
+    StreamProvider.autoDispose<List<ProductWithSchedule>>((ref) {
   final schedulesAsync = ref.watch(activeSchedulesProvider);
 
   return schedulesAsync.when(
@@ -257,14 +276,18 @@ final availableProductsProvider = StreamProvider.autoDispose<List<ProductWithSch
       final Map<String, String> farmerNames = {};
       for (final doc in farmersSnapshot.docs) {
         final data = doc.data();
-        farmerNames[doc.id] = data['name'] as String? ?? 'Farmer';
+        // Use displayName if available, otherwise fall back to name
+        final displayName = data['displayName'] as String?;
+        final name = data['name'] as String? ?? 'Farmer';
+        farmerNames[doc.id] =
+            (displayName?.isNotEmpty == true) ? displayName! : name;
       }
 
       final List<ProductWithSchedule> allProducts = [];
-      
+
       for (final doc in snapshot.docs) {
         final product = ProductModel.fromFirestore(doc);
-        
+
         // Find which schedules contain this product
         final relatedSchedules = schedules.where((schedule) {
           return schedule.products.any((p) => p.productId == product.id);
@@ -274,7 +297,8 @@ final availableProductsProvider = StreamProvider.autoDispose<List<ProductWithSch
         String? farmerName;
         if (relatedSchedules.isNotEmpty) {
           farmerName = relatedSchedules.first.products
-              .firstWhere((p) => p.productId == product.id, orElse: () => relatedSchedules.first.products.first)
+              .firstWhere((p) => p.productId == product.id,
+                  orElse: () => relatedSchedules.first.products.first)
               .farmerName;
         } else if (product.farmerId != null) {
           farmerName = farmerNames[product.farmerId];
@@ -297,7 +321,8 @@ final availableProductsProvider = StreamProvider.autoDispose<List<ProductWithSch
 });
 
 // Cart state provider
-final cartProvider = StateNotifierProvider<CartNotifier, Map<String, CartItemModel>>((ref) {
+final cartProvider =
+    StateNotifierProvider<CartNotifier, Map<String, CartItemModel>>((ref) {
   return CartNotifier();
 });
 
@@ -385,7 +410,8 @@ class ProductWithSchedule {
   String? get farmerId {
     if (schedules.isNotEmpty) {
       return schedules.first.products
-          .firstWhere((p) => p.productId == product.id, orElse: () => schedules.first.products.first)
+          .firstWhere((p) => p.productId == product.id,
+              orElse: () => schedules.first.products.first)
           .farmerId;
     }
     return product.farmerId;

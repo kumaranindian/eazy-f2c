@@ -11,6 +11,7 @@ class FarmerModel with _$FarmerModel {
   const factory FarmerModel({
     required String id,
     required String name,
+    String? displayName,
     required String phone,
     String? alternativePhone,
     required String email,
@@ -25,6 +26,9 @@ class FarmerModel with _$FarmerModel {
     @Default(0) int totalDeliveries,
   }) = _FarmerModel;
 
+  String get effectiveName =>
+      displayName?.isNotEmpty == true ? displayName! : name;
+
   factory FarmerModel.fromJson(Map<String, dynamic> json) =>
       _$FarmerModelFromJson(json);
 
@@ -33,8 +37,10 @@ class FarmerModel with _$FarmerModel {
     return FarmerModel.fromJson({
       'id': doc.id,
       ...data,
-      'createdAt': (data['createdAt'] as Timestamp?)?.toDate().toIso8601String(),
-      'updatedAt': (data['updatedAt'] as Timestamp?)?.toDate().toIso8601String(),
+      'createdAt':
+          (data['createdAt'] as Timestamp?)?.toDate().toIso8601String(),
+      'updatedAt':
+          (data['updatedAt'] as Timestamp?)?.toDate().toIso8601String(),
     });
   }
 
