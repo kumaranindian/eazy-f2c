@@ -56,7 +56,7 @@ class PdfService {
     
     body {
       font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-      padding: 12px;
+      padding: 8px;
       color: #333;
       font-size: 11px;
       line-height: 1.3;
@@ -65,9 +65,9 @@ class PdfService {
     .header {
       background: linear-gradient(135deg, #2e7d32 0%, #388e3c 100%);
       color: white;
-      padding: 10px 12px;
+      padding: 8px 12px;
       border-radius: 4px;
-      margin-bottom: 8px;
+      margin-bottom: 6px;
       display: flex;
       justify-content: space-between;
       align-items: center;
@@ -95,7 +95,7 @@ class PdfService {
       display: flex;
       justify-content: space-between;
       gap: 12px;
-      margin-bottom: 8px;
+      margin-bottom: 6px;
     }
     
     .company-info {
@@ -272,24 +272,17 @@ class PdfService {
       margin: 2px 0;
     }
     
-    .print-button {
-      background: #2e7d32;
-      color: white;
-      padding: 10px 20px;
-      border: none;
-      border-radius: 4px;
-      cursor: pointer;
-      font-size: 12px;
-      margin-bottom: 12px;
-    }
-    
-    .print-button:hover {
-      background: #1b5e20;
-    }
   </style>
+  <script>
+    // Auto-trigger print dialog when page loads
+    window.addEventListener('load', function() {
+      setTimeout(function() {
+        window.print();
+      }, 500);
+    });
+  </script>
 </head>
 <body>
-  <button class="print-button no-print" onclick="window.print()">🖨️ Print Invoice</button>
   
   <div class="header">
     <div>
