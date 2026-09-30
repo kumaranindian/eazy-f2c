@@ -518,11 +518,15 @@ class _CustomerDashboardPageState extends ConsumerState<CustomerDashboardPage> {
                     slivers: [
                       // Modern App Bar with Hero Section
                       SliverAppBar(
-                        expandedHeight: isMobile ? 280 : 320,
+                        expandedHeight: isMobile
+                            ? 220
+                            : constraints.maxWidth < 900
+                                ? 260
+                                : 280,
                         floating: false,
                         pinned: true,
                         elevation: _showAppBarShadow ? 4 : 0,
-                        backgroundColor: const Color(0xFFF5F5DC),
+                        backgroundColor: Colors.white,
                         flexibleSpace: FlexibleSpaceBar(
                           background: Stack(
                             children: [
@@ -535,6 +539,7 @@ class _CustomerDashboardPageState extends ConsumerState<CustomerDashboardPage> {
                                           ? 'assets/images/f2c_hero_tablet.png'
                                           : 'assets/images/f2c_hero_desktop.png',
                                   fit: BoxFit.cover,
+                                  alignment: Alignment.center,
                                   errorBuilder: (context, error, stackTrace) {
                                     // Fallback to gradient if image fails to load
                                     return Container(
@@ -550,6 +555,44 @@ class _CustomerDashboardPageState extends ConsumerState<CustomerDashboardPage> {
                                       ),
                                     );
                                   },
+                                ),
+                              ),
+                              // Top gradient overlay for better icon contrast
+                              Positioned(
+                                top: 0,
+                                left: 0,
+                                right: 0,
+                                height: 100,
+                                child: Container(
+                                  decoration: BoxDecoration(
+                                    gradient: LinearGradient(
+                                      begin: Alignment.topCenter,
+                                      end: Alignment.bottomCenter,
+                                      colors: [
+                                        Colors.black.withOpacity(0.3),
+                                        Colors.transparent,
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              // Bottom gradient overlay for text readability
+                              Positioned(
+                                bottom: 0,
+                                left: 0,
+                                right: 0,
+                                height: 180,
+                                child: Container(
+                                  decoration: BoxDecoration(
+                                    gradient: LinearGradient(
+                                      begin: Alignment.topCenter,
+                                      end: Alignment.bottomCenter,
+                                      colors: [
+                                        Colors.transparent,
+                                        Colors.black.withOpacity(0.5),
+                                      ],
+                                    ),
+                                  ),
                                 ),
                               ),
                               // Content
@@ -568,12 +611,12 @@ class _CustomerDashboardPageState extends ConsumerState<CustomerDashboardPage> {
                                             padding: const EdgeInsets.all(12),
                                             decoration: BoxDecoration(
                                               color:
-                                                  Colors.black.withOpacity(0.1),
+                                                  Colors.white.withOpacity(0.2),
                                               shape: BoxShape.circle,
                                             ),
                                             child: const Icon(
                                               Icons.person,
-                                              color: Colors.black,
+                                              color: Colors.white,
                                               size: 24,
                                             ),
                                           ),
@@ -586,17 +629,31 @@ class _CustomerDashboardPageState extends ConsumerState<CustomerDashboardPage> {
                                                 Text(
                                                   _getGreeting(),
                                                   style: const TextStyle(
-                                                    color: Colors.black,
+                                                    color: Colors.white,
                                                     fontSize: 14,
-                                                    fontWeight: FontWeight.bold,
+                                                    fontWeight: FontWeight.w600,
+                                                    shadows: [
+                                                      Shadow(
+                                                        offset: Offset(0, 1),
+                                                        blurRadius: 3,
+                                                        color: Colors.black45,
+                                                      ),
+                                                    ],
                                                   ),
                                                 ),
                                                 Text(
                                                   customer.name,
                                                   style: const TextStyle(
-                                                    color: Colors.black,
+                                                    color: Colors.white,
                                                     fontSize: 20,
                                                     fontWeight: FontWeight.bold,
+                                                    shadows: [
+                                                      Shadow(
+                                                        offset: Offset(0, 1),
+                                                        blurRadius: 3,
+                                                        color: Colors.black45,
+                                                      ),
+                                                    ],
                                                   ),
                                                   maxLines: 1,
                                                   overflow:
@@ -612,10 +669,17 @@ class _CustomerDashboardPageState extends ConsumerState<CustomerDashboardPage> {
                                       const Text(
                                         'Fresh organic food, directly from our farmers\nat lower prices.',
                                         style: TextStyle(
-                                          color: Colors.black,
+                                          color: Colors.white,
                                           fontSize: 13,
                                           height: 1.4,
-                                          fontWeight: FontWeight.bold,
+                                          fontWeight: FontWeight.w500,
+                                          shadows: [
+                                            Shadow(
+                                              offset: Offset(0, 1),
+                                              blurRadius: 3,
+                                              color: Colors.black45,
+                                            ),
+                                          ],
                                         ),
                                       ),
                                       const SizedBox(height: 16),
@@ -624,7 +688,7 @@ class _CustomerDashboardPageState extends ConsumerState<CustomerDashboardPage> {
                                         children: [
                                           const Icon(
                                             Icons.location_on,
-                                            color: Colors.black,
+                                            color: Colors.white,
                                             size: 18,
                                           ),
                                           const SizedBox(width: 8),
@@ -636,17 +700,31 @@ class _CustomerDashboardPageState extends ConsumerState<CustomerDashboardPage> {
                                                 const Text(
                                                   'Delivering to',
                                                   style: TextStyle(
-                                                    color: Colors.black,
+                                                    color: Colors.white,
                                                     fontSize: 11,
-                                                    fontWeight: FontWeight.bold,
+                                                    fontWeight: FontWeight.w600,
+                                                    shadows: [
+                                                      Shadow(
+                                                        offset: Offset(0, 1),
+                                                        blurRadius: 3,
+                                                        color: Colors.black45,
+                                                      ),
+                                                    ],
                                                   ),
                                                 ),
                                                 Text(
                                                   customer.apartmentName,
                                                   style: const TextStyle(
-                                                    color: Colors.black,
+                                                    color: Colors.white,
                                                     fontSize: 14,
                                                     fontWeight: FontWeight.bold,
+                                                    shadows: [
+                                                      Shadow(
+                                                        offset: Offset(0, 1),
+                                                        blurRadius: 3,
+                                                        color: Colors.black45,
+                                                      ),
+                                                    ],
                                                   ),
                                                   maxLines: 1,
                                                   overflow:
@@ -657,7 +735,7 @@ class _CustomerDashboardPageState extends ConsumerState<CustomerDashboardPage> {
                                           ),
                                           const Icon(
                                             Icons.keyboard_arrow_down,
-                                            color: Colors.black,
+                                            color: Colors.white,
                                             size: 20,
                                           ),
                                         ],
@@ -682,17 +760,19 @@ class _CustomerDashboardPageState extends ConsumerState<CustomerDashboardPage> {
                                 );
                               },
                               icon: const Icon(Icons.receipt_long,
-                                  color: Colors.black87, size: 20),
+                                  color: Colors.white, size: 20),
                               label: const Text(
                                 'Orders',
-                                style: TextStyle(color: Colors.black87),
+                                style: TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.w600),
                               ),
                             ),
                           // Orders button (mobile)
                           if (isMobile)
                             IconButton(
                               icon: const Icon(Icons.receipt_long,
-                                  color: Colors.black87, size: 24),
+                                  color: Colors.white, size: 24),
                               onPressed: () {
                                 Navigator.push(
                                   context,
@@ -708,7 +788,7 @@ class _CustomerDashboardPageState extends ConsumerState<CustomerDashboardPage> {
                               clipBehavior: Clip.none,
                               children: [
                                 const Icon(Icons.shopping_bag_outlined,
-                                    color: Colors.black87, size: 26),
+                                    color: Colors.white, size: 26),
                                 if (cartCount > 0)
                                   Positioned(
                                     right: -4,
@@ -748,7 +828,7 @@ class _CustomerDashboardPageState extends ConsumerState<CustomerDashboardPage> {
                           if (isMobile)
                             PopupMenuButton<String>(
                               icon: const Icon(Icons.more_vert,
-                                  color: Colors.black87),
+                                  color: Colors.white),
                               onSelected: (value) {
                                 switch (value) {
                                   case 'cart':
@@ -791,7 +871,7 @@ class _CustomerDashboardPageState extends ConsumerState<CustomerDashboardPage> {
                           else
                             IconButton(
                               icon: const Icon(Icons.logout,
-                                  color: Colors.black87, size: 24),
+                                  color: Colors.white, size: 24),
                               onPressed: _handleLogout,
                             ),
                           const SizedBox(width: 8),
