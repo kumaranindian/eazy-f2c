@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -1067,234 +1069,279 @@ class _PaymentCollectionDialogState extends State<PaymentCollectionDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final screenSize = MediaQuery.of(context).size;
+    final isMobile = screenSize.width < 600;
+    final horizontalInset = isMobile ? 16.0 : 40.0;
+    // Desktop keeps the existing 500px-wide dialog; mobile uses almost the
+    // full viewport width with safe margins instead of the old fixed width.
+    final maxDialogWidth = isMobile
+        ? screenSize.width - horizontalInset * 2
+        : math.min(500.0, screenSize.width - horizontalInset * 2);
+    final maxDialogHeight = screenSize.height * 0.9;
+
+    final cancelButton = OutlinedButton(
+      onPressed: () => Navigator.pop(context),
+      style: OutlinedButton.styleFrom(
+        padding: const EdgeInsets.symmetric(vertical: 12),
+      ),
+      child: const Text('Cancel'),
+    );
+
+    final confirmButton = ElevatedButton(
+      onPressed: _isProcessing ? null : _confirmDelivery,
+      style: ElevatedButton.styleFrom(
+        backgroundColor: const Color(0xFF4CAF50),
+        foregroundColor: Colors.white,
+        padding: const EdgeInsets.symmetric(vertical: 12),
+      ),
+      child: _isProcessing
+          ? const SizedBox(
+              height: 20,
+              width: 20,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+              ),
+            )
+          : const Text('Confirm Delivery'),
+    );
+
     return Dialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      child: Container(
-        width: 500,
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                const Icon(Icons.payments_outlined, color: Color(0xFF4CAF50)),
-                const SizedBox(width: 12),
-                const Text(
-                  'Collect Payment',
-                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-                ),
-                const Spacer(),
-                IconButton(
-                  icon: const Icon(Icons.close),
-                  onPressed: () => Navigator.pop(context),
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: Colors.grey[50],
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+      insetPadding: EdgeInsets.symmetric(
+        horizontal: horizontalInset,
+        vertical: 24,
+      ),
+      child: ConstrainedBox(
+        constraints: BoxConstraints(
+          maxWidth: maxDialogWidth,
+          maxHeight: maxDialogHeight,
+        ),
+        child: Padding(
+          padding: EdgeInsets.all(isMobile ? 16 : 24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
                 children: [
-                  Row(
-                    children: [
-                      const Text('Order ID', style: TextStyle(fontWeight: FontWeight.w600)),
-                      const Spacer(),
-                      Text('ORD${widget.order.id.substring(0, 8).toUpperCase()}'),
-                    ],
+                  const Icon(Icons.payments_outlined, color: Color(0xFF4CAF50)),
+                  const SizedBox(width: 12),
+                  const Expanded(
+                    child: Text(
+                      'Collect Payment',
+                      style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
                   ),
-                  const SizedBox(height: 8),
-                  Row(
-                    children: [
-                      const Text('Customer', style: TextStyle(fontWeight: FontWeight.w600)),
-                      const Spacer(),
-                      Text(widget.order.customerName),
-                    ],
+                  IconButton(
+                    icon: const Icon(Icons.close),
+                    onPressed: () => Navigator.pop(context),
                   ),
-                  const SizedBox(height: 8),
-                  Row(
+                ],
+              ),
+              const SizedBox(height: 16),
+              Flexible(
+                child: SingleChildScrollView(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text('Total Amount', style: TextStyle(fontWeight: FontWeight.w600)),
-                      const Spacer(),
-                      Text(
-                        '₹${widget.order.totalAmount.toStringAsFixed(2)}',
-                        style: const TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                          color: Color(0xFF4CAF50),
+                      Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: Colors.grey[50],
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            _buildDetailRow(
+                              'Order ID',
+                              'ORD${widget.order.id.substring(0, 8).toUpperCase()}',
+                            ),
+                            const SizedBox(height: 8),
+                            _buildDetailRow('Customer', widget.order.customerName),
+                            const SizedBox(height: 8),
+                            _buildDetailRow(
+                              'Total Amount',
+                              '₹${widget.order.totalAmount.toStringAsFixed(2)}',
+                              valueStyle: const TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                                color: Color(0xFF4CAF50),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      const Text(
+                        'Payment Method:',
+                        style: TextStyle(fontWeight: FontWeight.w600),
+                      ),
+                      const SizedBox(height: 8),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: RadioListTile<String>(
+                              title: const Text('Cash', style: TextStyle(fontSize: 14)),
+                              value: 'cash',
+                              groupValue: _selectedPaymentMethod,
+                              onChanged: (value) => setState(() => _selectedPaymentMethod = value!),
+                              contentPadding: EdgeInsets.zero,
+                              visualDensity: VisualDensity.compact,
+                            ),
+                          ),
+                          Expanded(
+                            child: RadioListTile<String>(
+                              title: const Text('GPay', style: TextStyle(fontSize: 14)),
+                              value: 'gpay',
+                              groupValue: _selectedPaymentMethod,
+                              onChanged: (value) => setState(() => _selectedPaymentMethod = value!),
+                              contentPadding: EdgeInsets.zero,
+                              visualDensity: VisualDensity.compact,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+                      if (_selectedPaymentMethod == 'gpay') ...[
+                        Container(
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            color: Colors.grey[50],
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: Colors.grey[300]!),
+                          ),
+                          child: Column(
+                            children: [
+                              const Icon(Icons.qr_code_scanner, size: 80, color: Colors.grey),
+                              const SizedBox(height: 8),
+                              const Text(
+                                'GPay Payment',
+                                style: TextStyle(fontWeight: FontWeight.w600),
+                              ),
+                              const SizedBox(height: 4),
+                              if (_gpayId != null) ...[
+                                Text(
+                                  'Pay to: $_gpayId',
+                                  style: const TextStyle(fontSize: 14, color: Color(0xFF4CAF50)),
+                                ),
+                                const SizedBox(height: 4),
+                              ],
+                              Text(
+                                'Amount: ₹${widget.order.totalAmount.toStringAsFixed(2)}',
+                                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF4CAF50)),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        const Text(
+                          'Transaction Details',
+                          style: TextStyle(fontWeight: FontWeight.w600),
+                        ),
+                        const SizedBox(height: 8),
+                        TextField(
+                          controller: _transactionIdController,
+                          decoration: InputDecoration(
+                            labelText: 'Transaction ID (Optional)',
+                            hintText: 'e.g., TXN123456789',
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        TextField(
+                          controller: _transactionReferenceController,
+                          decoration: InputDecoration(
+                            labelText: 'Reference Number (Optional)',
+                            hintText: 'e.g., UPI Ref No',
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        OutlinedButton.icon(
+                          onPressed: () {
+                            // TODO: Implement screenshot upload
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('Screenshot upload coming soon')),
+                            );
+                          },
+                          icon: const Icon(Icons.upload, size: 18),
+                          label: const Text('Upload Payment Screenshot'),
+                          style: OutlinedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                          ),
+                        ),
+                      ],
+                      const SizedBox(height: 16),
+                      const Text(
+                        'Enter collected amount:',
+                        style: TextStyle(fontWeight: FontWeight.w600),
+                      ),
+                      const SizedBox(height: 8),
+                      TextField(
+                        controller: _amountController,
+                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                        decoration: InputDecoration(
+                          prefixText: '₹',
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                         ),
                       ),
                     ],
                   ),
-                ],
+                ),
               ),
-            ),
-            const SizedBox(height: 16),
-            const Text(
-              'Payment Method:',
-              style: TextStyle(fontWeight: FontWeight.w600),
-            ),
-            const SizedBox(height: 8),
-            Row(
-              children: [
-                Expanded(
-                  child: RadioListTile<String>(
-                    title: const Text('Cash', style: TextStyle(fontSize: 14)),
-                    value: 'cash',
-                    groupValue: _selectedPaymentMethod,
-                    onChanged: (value) => setState(() => _selectedPaymentMethod = value!),
-                    contentPadding: EdgeInsets.zero,
-                    visualDensity: VisualDensity.compact,
-                  ),
-                ),
-                Expanded(
-                  child: RadioListTile<String>(
-                    title: const Text('GPay', style: TextStyle(fontSize: 14)),
-                    value: 'gpay',
-                    groupValue: _selectedPaymentMethod,
-                    onChanged: (value) => setState(() => _selectedPaymentMethod = value!),
-                    contentPadding: EdgeInsets.zero,
-                    visualDensity: VisualDensity.compact,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-            if (_selectedPaymentMethod == 'gpay') ...[
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: Colors.grey[50],
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: Colors.grey[300]!),
-                ),
-                child: Column(
+              const SizedBox(height: 24),
+              if (isMobile)
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    const Icon(Icons.qr_code_scanner, size: 80, color: Colors.grey),
-                    const SizedBox(height: 8),
-                    const Text(
-                      'GPay Payment',
-                      style: TextStyle(fontWeight: FontWeight.w600),
-                    ),
-                    const SizedBox(height: 4),
-                    if (_gpayId != null) ...[
-                      Text(
-                        'Pay to: $_gpayId',
-                        style: const TextStyle(fontSize: 14, color: Color(0xFF4CAF50)),
-                      ),
-                      const SizedBox(height: 4),
-                    ],
-                    Text(
-                      'Amount: ₹${widget.order.totalAmount.toStringAsFixed(2)}',
-                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF4CAF50)),
-                    ),
+                    cancelButton,
+                    const SizedBox(height: 12),
+                    confirmButton,
+                  ],
+                )
+              else
+                Row(
+                  children: [
+                    Expanded(child: cancelButton),
+                    const SizedBox(width: 12),
+                    Expanded(child: confirmButton),
                   ],
                 ),
-              ),
-              const SizedBox(height: 16),
-              const Text(
-                'Transaction Details',
-                style: TextStyle(fontWeight: FontWeight.w600),
-              ),
-              const SizedBox(height: 8),
-              TextField(
-                controller: _transactionIdController,
-                decoration: InputDecoration(
-                  labelText: 'Transaction ID (Optional)',
-                  hintText: 'e.g., TXN123456789',
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                ),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: _transactionReferenceController,
-                decoration: InputDecoration(
-                  labelText: 'Reference Number (Optional)',
-                  hintText: 'e.g., UPI Ref No',
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                ),
-              ),
-              const SizedBox(height: 12),
-              OutlinedButton.icon(
-                onPressed: () {
-                  // TODO: Implement screenshot upload
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Screenshot upload coming soon')),
-                  );
-                },
-                icon: const Icon(Icons.upload, size: 18),
-                label: const Text('Upload Payment Screenshot'),
-                style: OutlinedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 12),
-                ),
-              ),
             ],
-            const SizedBox(height: 16),
-            const Text(
-              'Enter collected amount:',
-              style: TextStyle(fontWeight: FontWeight.w600),
-            ),
-            const SizedBox(height: 8),
-            TextField(
-              controller: _amountController,
-              keyboardType: const TextInputType.numberWithOptions(decimal: true),
-              decoration: InputDecoration(
-                prefixText: '₹',
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              ),
-            ),
-            const SizedBox(height: 24),
-            Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton(
-                    onPressed: () => Navigator.pop(context),
-                    style: OutlinedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                    ),
-                    child: const Text('Cancel'),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: ElevatedButton(
-                    onPressed: _isProcessing ? null : _confirmDelivery,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF4CAF50),
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                    ),
-                    child: _isProcessing
-                        ? const SizedBox(
-                            height: 20,
-                            width: 20,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                            ),
-                          )
-                        : const Text('Confirm Delivery'),
-                  ),
-                ),
-              ],
-            ),
-          ],
+          ),
         ),
       ),
+    );
+  }
+
+  Widget _buildDetailRow(String label, String value, {TextStyle? valueStyle}) {
+    return Row(
+      children: [
+        Text(label, style: const TextStyle(fontWeight: FontWeight.w600)),
+        const Spacer(),
+        Flexible(
+          child: Text(
+            value,
+            textAlign: TextAlign.right,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: valueStyle,
+          ),
+        ),
+      ],
     );
   }
 }

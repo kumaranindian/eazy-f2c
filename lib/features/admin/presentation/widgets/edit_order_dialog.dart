@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:f2c/core/utils/image_url_helper.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -30,155 +32,333 @@ class _EditOrderDialogState extends ConsumerState<EditOrderDialog> {
   @override
   Widget build(BuildContext context) {
     final productsAsync = ref.watch(productsStreamProvider);
+    final screenSize = MediaQuery.of(context).size;
+    final isMobile = screenSize.width < 600;
+    final horizontalInset = isMobile ? 16.0 : 40.0;
+    // Desktop keeps the existing 900px-wide, 700px-tall dialog; mobile uses
+    // almost the full viewport with safe margins instead of the old fixed
+    // size, which was wider and taller than most phone viewports.
+    final maxDialogWidth = isMobile
+        ? screenSize.width - horizontalInset * 2
+        : math.min(900.0, screenSize.width - horizontalInset * 2);
+    final maxDialogHeight = math.min(700.0, screenSize.height * 0.9);
+
+    final saveButton = ElevatedButton(
+      onPressed: _isSaving ? null : _saveChanges,
+      style: ElevatedButton.styleFrom(
+        backgroundColor: const Color(0xFF2196F3),
+        foregroundColor: Colors.white,
+        padding: EdgeInsets.symmetric(
+          horizontal: isMobile ? 16 : 32,
+          vertical: isMobile ? 12 : 16,
+        ),
+      ),
+      child: _isSaving
+          ? const SizedBox(
+              width: 20,
+              height: 20,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+              ),
+            )
+          : const Text('Save Changes'),
+    );
+
+    final totalsColumn = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Subtotal: ₹${_calculateSubtotal().toStringAsFixed(2)}',
+          style: const TextStyle(fontSize: 14),
+        ),
+        if (widget.order.deliveryCharges > 0)
+          Text(
+            'Delivery Charges: ₹${widget.order.deliveryCharges.toStringAsFixed(2)}',
+            style: const TextStyle(fontSize: 14),
+          ),
+        if (widget.order.cleaningCharges > 0)
+          Text(
+            'Cleaning Charges: ₹${widget.order.cleaningCharges.toStringAsFixed(2)}',
+            style: const TextStyle(fontSize: 14),
+          ),
+        const SizedBox(height: 8),
+        Text(
+          'Grand Total: ₹${_calculateGrandTotal().toStringAsFixed(2)}',
+          style: const TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+            color: Color(0xFF4CAF50),
+          ),
+        ),
+      ],
+    );
 
     return Dialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      child: Container(
-        width: 900,
-        height: 700,
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                const Icon(Icons.edit, color: Color(0xFF2196F3)),
-                const SizedBox(width: 12),
-                Text(
-                  'Edit Order #${widget.order.id.substring(0, 8).toUpperCase()}',
-                  style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-                ),
-                const Spacer(),
-                IconButton(
-                  icon: const Icon(Icons.close),
-                  onPressed: () => Navigator.pop(context),
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Customer: ${widget.order.customerName}',
-              style: TextStyle(fontSize: 14, color: Colors.grey[600]),
-            ),
-            const SizedBox(height: 16),
-            const Divider(),
-            const SizedBox(height: 16),
-            
-            // Order Items Section
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+      insetPadding: EdgeInsets.symmetric(
+        horizontal: horizontalInset,
+        vertical: 24,
+      ),
+      child: ConstrainedBox(
+        constraints: BoxConstraints(
+          maxWidth: maxDialogWidth,
+          maxHeight: maxDialogHeight,
+        ),
+        child: Padding(
+          padding: EdgeInsets.all(isMobile ? 16 : 24),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
                 children: [
-                  Row(
-                    children: [
-                      const Text(
-                        'Order Items',
-                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                      ),
-                      const Spacer(),
-                      ElevatedButton.icon(
-                        onPressed: () => _showAddProductDialog(productsAsync),
-                        icon: const Icon(Icons.add, size: 18),
-                        label: const Text('Add Product'),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF4CAF50),
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
+                  const Icon(Icons.edit, color: Color(0xFF2196F3)),
+                  const SizedBox(width: 12),
                   Expanded(
-                    child: _items.isEmpty
-                        ? Center(
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Icon(Icons.shopping_cart_outlined, size: 64, color: Colors.grey[300]),
-                                const SizedBox(height: 16),
-                                Text(
-                                  'No items in order',
-                                  style: TextStyle(color: Colors.grey[600]),
-                                ),
-                              ],
-                            ),
-                          )
-                        : ListView.builder(
-                            itemCount: _items.length,
-                            itemBuilder: (context, index) {
-                              return _buildItemCard(_items[index], index);
-                            },
-                          ),
+                    child: Text(
+                      'Edit Order #${widget.order.id.substring(0, 8).toUpperCase()}',
+                      style: const TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.close),
+                    onPressed: () => Navigator.pop(context),
                   ),
                 ],
               ),
-            ),
-            
-            const Divider(),
-            const SizedBox(height: 16),
-            
-            // Summary and Actions
-            Row(
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Subtotal: ₹${_calculateSubtotal().toStringAsFixed(2)}',
-                        style: const TextStyle(fontSize: 14),
-                      ),
-                      if (widget.order.deliveryCharges > 0)
-                        Text(
-                          'Delivery Charges: ₹${widget.order.deliveryCharges.toStringAsFixed(2)}',
-                          style: const TextStyle(fontSize: 14),
-                        ),
-                      if (widget.order.cleaningCharges > 0)
-                        Text(
-                          'Cleaning Charges: ₹${widget.order.cleaningCharges.toStringAsFixed(2)}',
-                          style: const TextStyle(fontSize: 14),
-                        ),
-                      const SizedBox(height: 8),
-                      Text(
-                        'Grand Total: ₹${_calculateGrandTotal().toStringAsFixed(2)}',
-                        style: const TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                          color: Color(0xFF4CAF50),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 24),
-                ElevatedButton(
-                  onPressed: _isSaving ? null : _saveChanges,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF2196F3),
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
-                  ),
-                  child: _isSaving
-                      ? const SizedBox(
-                          width: 20,
-                          height: 20,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+              const SizedBox(height: 8),
+              Text(
+                'Customer: ${widget.order.customerName}',
+                style: TextStyle(fontSize: 14, color: Colors.grey[600]),
+              ),
+              const SizedBox(height: 16),
+              const Divider(),
+              const SizedBox(height: 16),
+
+              // Order Items Section
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        const Text(
+                          'Order Items',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
                           ),
-                        )
-                      : const Text('Save Changes'),
+                        ),
+                        const Spacer(),
+                        ElevatedButton.icon(
+                          onPressed: () =>
+                              _showAddProductDialog(productsAsync),
+                          icon: const Icon(Icons.add, size: 18),
+                          label: const Text('Add Product'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFF4CAF50),
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 8,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    Expanded(
+                      child: _items.isEmpty
+                          ? Center(
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(
+                                    Icons.shopping_cart_outlined,
+                                    size: 64,
+                                    color: Colors.grey[300],
+                                  ),
+                                  const SizedBox(height: 16),
+                                  Text(
+                                    'No items in order',
+                                    style: TextStyle(color: Colors.grey[600]),
+                                  ),
+                                ],
+                              ),
+                            )
+                          : ListView.builder(
+                              itemCount: _items.length,
+                              itemBuilder: (context, index) {
+                                return _buildItemCard(
+                                  _items[index],
+                                  index,
+                                  isMobile,
+                                );
+                              },
+                            ),
+                    ),
+                  ],
                 ),
-              ],
-            ),
-          ],
+              ),
+
+              const Divider(),
+              const SizedBox(height: 16),
+
+              // Summary and Actions
+              if (isMobile)
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    totalsColumn,
+                    const SizedBox(height: 16),
+                    saveButton,
+                  ],
+                )
+              else
+                Row(
+                  children: [
+                    Expanded(child: totalsColumn),
+                    const SizedBox(width: 24),
+                    saveButton,
+                  ],
+                ),
+            ],
+          ),
         ),
       ),
     );
   }
 
-  Widget _buildItemCard(OrderItem item, int index) {
+  Widget _buildItemCard(OrderItem item, int index, bool isMobile) {
+    // A larger minimum tap target than the icons' visual size, so +/- are
+    // comfortable to tap on a touch screen without changing their look.
+    const stepButtonConstraints = BoxConstraints(minWidth: 40, minHeight: 40);
+
+    final productInfo = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          item.productName,
+          style: const TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          item.productCategory,
+          style: TextStyle(
+            fontSize: 12,
+            color: Colors.grey[600],
+          ),
+        ),
+        if (item.farmerName != null) ...[
+          const SizedBox(height: 4),
+          Row(
+            children: [
+              Icon(Icons.agriculture, size: 12, color: Colors.green[700]),
+              const SizedBox(width: 4),
+              Text(
+                item.farmerName!,
+                style: TextStyle(
+                  fontSize: 11,
+                  color: Colors.green[700],
+                ),
+              ),
+            ],
+          ),
+        ],
+      ],
+    );
+
+    final quantityControl = Container(
+      decoration: BoxDecoration(
+        border: Border.all(color: Colors.grey[300]!),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          IconButton(
+            icon: const Icon(Icons.remove, size: 18),
+            onPressed: () => _decrementQuantity(index),
+            padding: const EdgeInsets.all(8),
+            constraints: stepButtonConstraints,
+          ),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            child: Text(
+              item.formattedQuantity,
+              style: const TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+          IconButton(
+            icon: const Icon(Icons.add, size: 18),
+            onPressed: () => _incrementQuantity(index),
+            padding: const EdgeInsets.all(8),
+            constraints: stepButtonConstraints,
+          ),
+        ],
+      ),
+    );
+
+    if (isMobile) {
+      return Card(
+        margin: const EdgeInsets.only(bottom: 12),
+        elevation: 1,
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(child: productInfo),
+                  IconButton(
+                    icon: const Icon(Icons.delete_outline, color: Colors.red),
+                    onPressed: () => _removeItem(index),
+                    tooltip: 'Remove',
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  quantityControl,
+                  const Spacer(),
+                  Text(
+                    '₹${item.price.toStringAsFixed(2)} each',
+                    style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 6),
+              Align(
+                alignment: Alignment.centerRight,
+                child: Text(
+                  'Total: ₹${item.totalPrice.toStringAsFixed(2)}',
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF4CAF50),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
       elevation: 1,
@@ -186,82 +366,11 @@ class _EditOrderDialogState extends ConsumerState<EditOrderDialog> {
         padding: const EdgeInsets.all(16),
         child: Row(
           children: [
-            Expanded(
-              flex: 3,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    item.productName,
-                    style: const TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    item.productCategory,
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: Colors.grey[600],
-                    ),
-                  ),
-                  if (item.farmerName != null) ...[
-                    const SizedBox(height: 4),
-                    Row(
-                      children: [
-                        Icon(Icons.agriculture, size: 12, color: Colors.green[700]),
-                        const SizedBox(width: 4),
-                        Text(
-                          item.farmerName!,
-                          style: TextStyle(
-                            fontSize: 11,
-                            color: Colors.green[700],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ],
-              ),
-            ),
+            Expanded(flex: 3, child: productInfo),
             const SizedBox(width: 16),
-            
-            // Quantity Controls
-            Container(
-              decoration: BoxDecoration(
-                border: Border.all(color: Colors.grey[300]!),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Row(
-                children: [
-                  IconButton(
-                    icon: const Icon(Icons.remove, size: 18),
-                    onPressed: () => _decrementQuantity(index),
-                    padding: const EdgeInsets.all(8),
-                    constraints: const BoxConstraints(),
-                  ),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12),
-                    child: Text(
-                      item.formattedQuantity,
-                      style: const TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.add, size: 18),
-                    onPressed: () => _incrementQuantity(index),
-                    padding: const EdgeInsets.all(8),
-                    constraints: const BoxConstraints(),
-                  ),
-                ],
-              ),
-            ),
+            quantityControl,
             const SizedBox(width: 16),
-            
+
             // Price
             SizedBox(
               width: 80,
@@ -272,7 +381,7 @@ class _EditOrderDialogState extends ConsumerState<EditOrderDialog> {
               ),
             ),
             const SizedBox(width: 16),
-            
+
             // Total
             SizedBox(
               width: 100,
@@ -287,7 +396,7 @@ class _EditOrderDialogState extends ConsumerState<EditOrderDialog> {
               ),
             ),
             const SizedBox(width: 16),
-            
+
             // Remove Button
             IconButton(
               icon: const Icon(Icons.delete_outline, color: Colors.red),
@@ -478,24 +587,42 @@ class _AddProductDialogState extends State<_AddProductDialog> {
              product.category.toLowerCase().contains(_searchQuery.toLowerCase());
     }).toList();
 
+    final screenSize = MediaQuery.of(context).size;
+    final isMobile = screenSize.width < 600;
+    final horizontalInset = isMobile ? 16.0 : 40.0;
+    final maxDialogWidth = isMobile
+        ? screenSize.width - horizontalInset * 2
+        : math.min(600.0, screenSize.width - horizontalInset * 2);
+    final maxDialogHeight = math.min(500.0, screenSize.height * 0.9);
+
     return Dialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      child: Container(
-        width: 600,
-        height: 500,
-        padding: const EdgeInsets.all(24),
-        child: Column(
+      insetPadding: EdgeInsets.symmetric(
+        horizontal: horizontalInset,
+        vertical: 24,
+      ),
+      child: ConstrainedBox(
+        constraints: BoxConstraints(
+          maxWidth: maxDialogWidth,
+          maxHeight: maxDialogHeight,
+        ),
+        child: Padding(
+          padding: EdgeInsets.all(isMobile ? 16 : 24),
+          child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
               children: [
                 const Icon(Icons.add_shopping_cart, color: Color(0xFF4CAF50)),
                 const SizedBox(width: 12),
-                const Text(
-                  'Add Product',
-                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                const Expanded(
+                  child: Text(
+                    'Add Product',
+                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
                 ),
-                const Spacer(),
                 IconButton(
                   icon: const Icon(Icons.close),
                   onPressed: () => Navigator.pop(context),
@@ -575,73 +702,100 @@ class _AddProductDialogState extends State<_AddProductDialog> {
             if (_selectedProduct != null) ...[
               const Divider(),
               const SizedBox(height: 16),
-              Row(
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          _selectedProduct!.name,
-                          style: const TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        Text(
-                          '₹${_selectedProduct!.price.toStringAsFixed(2)} per ${_selectedProduct!.unit}',
-                          style: TextStyle(color: Colors.grey[600]),
-                        ),
-                      ],
+              Builder(builder: (context) {
+                final nameAndPrice = Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      _selectedProduct!.name,
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
+                    Text(
+                      '₹${_selectedProduct!.price.toStringAsFixed(2)} per ${_selectedProduct!.unit}',
+                      style: TextStyle(color: Colors.grey[600]),
+                    ),
+                  ],
+                );
+
+                final quantityStepper = Container(
+                  decoration: BoxDecoration(
+                    border: Border.all(color: Colors.grey[300]!),
+                    borderRadius: BorderRadius.circular(8),
                   ),
-                  const SizedBox(width: 16),
-                  Container(
-                    decoration: BoxDecoration(
-                      border: Border.all(color: Colors.grey[300]!),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Row(
-                      children: [
-                        IconButton(
-                          icon: const Icon(Icons.remove),
-                          onPressed: () {
-                            setState(() {
-                              if (_quantity > 0.25) _quantity -= 0.25;
-                            });
-                          },
-                        ),
-                        Text(
-                          _quantity.toString(),
-                          style: const TextStyle(fontWeight: FontWeight.bold),
-                        ),
-                        IconButton(
-                          icon: const Icon(Icons.add),
-                          onPressed: () {
-                            setState(() {
-                              _quantity += 0.25;
-                            });
-                          },
-                        ),
-                      ],
-                    ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      IconButton(
+                        icon: const Icon(Icons.remove),
+                        onPressed: () {
+                          setState(() {
+                            if (_quantity > 0.25) _quantity -= 0.25;
+                          });
+                        },
+                      ),
+                      Text(
+                        _quantity.toString(),
+                        style: const TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.add),
+                        onPressed: () {
+                          setState(() {
+                            _quantity += 0.25;
+                          });
+                        },
+                      ),
+                    ],
                   ),
-                  const SizedBox(width: 16),
-                  ElevatedButton(
-                    onPressed: () {
-                      widget.onProductAdded(_selectedProduct!, _quantity);
-                      Navigator.pop(context);
-                    },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF4CAF50),
-                      foregroundColor: Colors.white,
-                    ),
-                    child: const Text('Add to Order'),
+                );
+
+                final addButton = ElevatedButton(
+                  onPressed: () {
+                    widget.onProductAdded(_selectedProduct!, _quantity);
+                    Navigator.pop(context);
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF4CAF50),
+                    foregroundColor: Colors.white,
                   ),
-                ],
+                  child: const Text('Add to Order'),
+                );
+
+                if (isMobile) {
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      nameAndPrice,
+                      const SizedBox(height: 12),
+                      Row(
+                        children: [
+                          quantityStepper,
+                          const Spacer(),
+                          addButton,
+                        ],
+                      ),
+                    ],
+                  );
+                }
+
+                return Row(
+                  children: [
+                    Expanded(child: nameAndPrice),
+                    const SizedBox(width: 16),
+                    quantityStepper,
+                    const SizedBox(width: 16),
+                    addButton,
+                  ],
+                );
+              },
               ),
             ],
           ],
+        ),
         ),
       ),
     );

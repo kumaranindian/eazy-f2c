@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
@@ -13,108 +15,188 @@ class OrderDetailsDialog extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final screenSize = MediaQuery.of(context).size;
+    final isMobile = screenSize.width < 600;
+    final horizontalInset = isMobile ? 16.0 : 40.0;
+    // Desktop keeps the existing 800px-wide, 600px-tall dialog; mobile uses
+    // almost the full viewport with safe margins instead of the old fixed
+    // size, which was wider and taller than most phone viewports.
+    final maxDialogWidth = isMobile
+        ? screenSize.width - horizontalInset * 2
+        : math.min(800.0, screenSize.width - horizontalInset * 2);
+    final maxDialogHeight = math.min(600.0, screenSize.height * 0.9);
+
+    final showWhatsApp = order.status == OrderStatus.ready ||
+        order.status == OrderStatus.in_transit ||
+        order.status == OrderStatus.delivered;
+
+    final whatsAppButton = ElevatedButton.icon(
+      onPressed: () => _sendWhatsAppNotification(context),
+      icon: const Icon(Icons.send, size: 18),
+      label: const Text('WhatsApp'),
+      style: ElevatedButton.styleFrom(
+        backgroundColor: const Color(0xFF25D366), // WhatsApp green
+        foregroundColor: Colors.white,
+      ),
+    );
+
+    final viewBillButton = ElevatedButton.icon(
+      onPressed: () => _viewBill(context),
+      icon: const Icon(Icons.receipt, size: 18),
+      label: const Text('View Bill'),
+      style: ElevatedButton.styleFrom(
+        backgroundColor: Colors.green[700],
+        foregroundColor: Colors.white,
+      ),
+    );
+
     return Dialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      child: Container(
-        width: 800,
-        height: 600,
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                const Icon(Icons.receipt_long, color: Color(0xFF2196F3)),
-                const SizedBox(width: 12),
-                Text(
-                  'Order #${order.id.substring(0, 8).toUpperCase()}',
-                  style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-                ),
-                const Spacer(),
-                // Show WhatsApp button only for ready/in_transit/delivered orders
-                if (order.status == OrderStatus.ready || 
-                    order.status == OrderStatus.in_transit || 
-                    order.status == OrderStatus.delivered)
-                  ElevatedButton.icon(
-                    onPressed: () => _sendWhatsAppNotification(context),
-                    icon: const Icon(Icons.send, size: 18),
-                    label: const Text('WhatsApp'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF25D366), // WhatsApp green
-                      foregroundColor: Colors.white,
-                    ),
-                  ),
-                if (order.status == OrderStatus.ready || 
-                    order.status == OrderStatus.in_transit || 
-                    order.status == OrderStatus.delivered)
-                  const SizedBox(width: 8),
-                ElevatedButton.icon(
-                  onPressed: () => _viewBill(context),
-                  icon: const Icon(Icons.receipt, size: 18),
-                  label: const Text('View Bill'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.green[700],
-                    foregroundColor: Colors.white,
-                  ),
-                ),
-                const SizedBox(width: 8),
-                IconButton(
-                  icon: const Icon(Icons.close),
-                  onPressed: () => Navigator.pop(context),
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-            _buildOrderInfo(),
-            const SizedBox(height: 16),
-            const Divider(),
-            const SizedBox(height: 16),
-            Expanded(
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
+      insetPadding: EdgeInsets.symmetric(
+        horizontal: horizontalInset,
+        vertical: 24,
+      ),
+      child: ConstrainedBox(
+        constraints: BoxConstraints(
+          maxWidth: maxDialogWidth,
+          maxHeight: maxDialogHeight,
+        ),
+        child: Padding(
+          padding: EdgeInsets.all(isMobile ? 16 : 24),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
                 children: [
-                  // Left Panel - Status Timeline
+                  const Icon(Icons.receipt_long, color: Color(0xFF2196F3)),
+                  const SizedBox(width: 12),
                   Expanded(
-                    flex: 2,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          'Status Timeline',
-                          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                        ),
-                        const SizedBox(height: 12),
-                        Expanded(child: _buildVerticalTimeline()),
-                      ],
+                    child: Text(
+                      'Order #${order.id.substring(0, 8).toUpperCase()}',
+                      style: const TextStyle(
+                          fontSize: 20, fontWeight: FontWeight.bold),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
                   ),
-                  const SizedBox(width: 24),
-                  // Right Panel - Order Items
-                  Expanded(
-                    flex: 3,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          'Order Items',
-                          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                        ),
-                        const SizedBox(height: 12),
-                        Expanded(child: _buildOrderItems()),
-                        const SizedBox(height: 16),
-                        const Text(
-                          'Delivery Address',
-                          style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
-                        ),
-                        const SizedBox(height: 8),
-                        Text(order.deliveryAddress ?? 'N/A', style: const TextStyle(fontSize: 13)),
-                      ],
-                    ),
+                  // On mobile the action buttons move below (see the Wrap
+                  // further down) so they have room for their labels
+                  // instead of squeezing into the header next to the title.
+                  if (!isMobile) ...[
+                    if (showWhatsApp) whatsAppButton,
+                    if (showWhatsApp) const SizedBox(width: 8),
+                    viewBillButton,
+                    const SizedBox(width: 8),
+                  ],
+                  IconButton(
+                    icon: const Icon(Icons.close),
+                    onPressed: () => Navigator.pop(context),
                   ),
                 ],
               ),
-            ),
-          ],
+              if (isMobile) ...[
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    if (showWhatsApp) whatsAppButton,
+                    viewBillButton,
+                  ],
+                ),
+              ],
+              const SizedBox(height: 16),
+              _buildOrderInfo(),
+              const SizedBox(height: 16),
+              const Divider(),
+              const SizedBox(height: 16),
+              Expanded(
+                child: isMobile
+                    ? SingleChildScrollView(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'Status Timeline',
+                              style: TextStyle(
+                                  fontSize: 16, fontWeight: FontWeight.bold),
+                            ),
+                            const SizedBox(height: 12),
+                            SizedBox(
+                                height: 220, child: _buildVerticalTimeline()),
+                            const SizedBox(height: 16),
+                            const Text(
+                              'Order Items',
+                              style: TextStyle(
+                                  fontSize: 16, fontWeight: FontWeight.bold),
+                            ),
+                            const SizedBox(height: 12),
+                            _buildOrderItems(),
+                            const SizedBox(height: 16),
+                            const Text(
+                              'Delivery Address',
+                              style: TextStyle(
+                                  fontSize: 14, fontWeight: FontWeight.bold),
+                            ),
+                            const SizedBox(height: 8),
+                            Text(order.deliveryAddress ?? 'N/A',
+                                style: const TextStyle(fontSize: 13)),
+                          ],
+                        ),
+                      )
+                    : Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // Left Panel - Status Timeline
+                          Expanded(
+                            flex: 2,
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text(
+                                  'Status Timeline',
+                                  style: TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.bold),
+                                ),
+                                const SizedBox(height: 12),
+                                Expanded(child: _buildVerticalTimeline()),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 24),
+                          // Right Panel - Order Items
+                          Expanded(
+                            flex: 3,
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text(
+                                  'Order Items',
+                                  style: TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.bold),
+                                ),
+                                const SizedBox(height: 12),
+                                Expanded(child: _buildOrderItems()),
+                                const SizedBox(height: 16),
+                                const Text(
+                                  'Delivery Address',
+                                  style: TextStyle(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.bold),
+                                ),
+                                const SizedBox(height: 8),
+                                Text(order.deliveryAddress ?? 'N/A',
+                                    style: const TextStyle(fontSize: 13)),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -159,7 +241,14 @@ class OrderDetailsDialog extends StatelessWidget {
       children: [
         Text(label, style: const TextStyle(fontWeight: FontWeight.w600)),
         const Spacer(),
-        Text(value),
+        Flexible(
+          child: Text(
+            value,
+            textAlign: TextAlign.right,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
       ],
     );
   }
