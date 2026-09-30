@@ -1062,61 +1062,85 @@ class _CustomerDashboardPageState extends ConsumerState<CustomerDashboardPage> {
             const SizedBox(height: 16),
 
             // Category and Farmer Filters
-            Padding(
-              padding: EdgeInsets.symmetric(horizontal: isMobile ? 16 : 24),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Category Filter
-                  const Text(
-                    'Category',
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.black87,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  SizedBox(
-                    height: 40,
-                    child: SingleChildScrollView(
-                      scrollDirection: Axis.horizontal,
-                      child: Row(
-                        children: [
-                          _buildCategoryChip('All'),
-                          ..._getCategories(products)
-                              .map((category) => _buildCategoryChip(category)),
-                        ],
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
+            Builder(
+              builder: (context) {
+                // Get products only from active schedules
+                final scheduleProducts = <ProductWithSchedule>[];
+                for (var schedule in schedules) {
+                  final productsInSchedule = schedule.products
+                      .map((sp) => products.firstWhere(
+                            (p) => p.product.id == sp.productId,
+                            orElse: () => products.first,
+                          ))
+                      .toList();
+                  scheduleProducts.addAll(productsInSchedule);
+                }
 
-                  // Farmer Filter
-                  const Text(
-                    'Farmer',
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.black87,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  SizedBox(
-                    height: 40,
-                    child: SingleChildScrollView(
-                      scrollDirection: Axis.horizontal,
-                      child: Row(
-                        children: [
-                          _buildFarmerChip(null, 'All Farmers'),
-                          ..._getFarmers(products).map((farmer) =>
-                              _buildFarmerChip(farmer['id']!, farmer['name']!)),
-                        ],
+                // Remove duplicates
+                final uniqueProducts = <String, ProductWithSchedule>{};
+                for (var p in scheduleProducts) {
+                  uniqueProducts[p.product.id] = p;
+                }
+                final filteredProducts = uniqueProducts.values.toList();
+
+                return Padding(
+                  padding: EdgeInsets.symmetric(horizontal: isMobile ? 16 : 24),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Category Filter
+                      const Text(
+                        'Category',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.black87,
+                        ),
                       ),
-                    ),
+                      const SizedBox(height: 8),
+                      SizedBox(
+                        height: 40,
+                        child: SingleChildScrollView(
+                          scrollDirection: Axis.horizontal,
+                          child: Row(
+                            children: [
+                              _buildCategoryChip('All'),
+                              ..._getCategories(filteredProducts).map(
+                                  (category) => _buildCategoryChip(category)),
+                            ],
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+
+                      // Farmer Filter
+                      const Text(
+                        'Farmer',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.black87,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      SizedBox(
+                        height: 40,
+                        child: SingleChildScrollView(
+                          scrollDirection: Axis.horizontal,
+                          child: Row(
+                            children: [
+                              _buildFarmerChip(null, 'All Farmers'),
+                              ..._getFarmers(filteredProducts).map((farmer) =>
+                                  _buildFarmerChip(
+                                      farmer['id']!, farmer['name']!)),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
-                ],
-              ),
+                );
+              },
             ),
 
             const SizedBox(height: 16),
@@ -2195,12 +2219,6 @@ class _AnimatedEmptyStateState extends State<_AnimatedEmptyState>
                         icon: Icons.agriculture,
                         title: 'Farm Fresh',
                         color: Colors.orange,
-                        isMobile: isMobile,
-                      ),
-                      _buildFeatureCard(
-                        icon: Icons.local_shipping,
-                        title: 'Home Delivery',
-                        color: Colors.blue,
                         isMobile: isMobile,
                       ),
                     ],
