@@ -1,3 +1,4 @@
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -990,35 +991,7 @@ class _CustomerDashboardPageState extends ConsumerState<CustomerDashboardPage> {
     return schedulesAsync.when(
       data: (schedules) {
         if (schedules.isEmpty) {
-          return Center(
-            child: Padding(
-              padding: const EdgeInsets.all(48.0),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(Icons.shopping_basket_outlined,
-                      size: 80, color: Colors.grey[300]),
-                  const SizedBox(height: 24),
-                  Text(
-                    'No schedules available',
-                    style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.grey[700],
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'Check back later for fresh products',
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: Colors.grey[500],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          );
+          return const _AnimatedEmptyState();
         }
 
         return Column(
@@ -1991,3 +1964,378 @@ class _CustomerDashboardPageState extends ConsumerState<CustomerDashboardPage> {
     );
   }
 }
+
+// Animated Empty State Widget
+class _AnimatedEmptyState extends StatefulWidget {
+  const _AnimatedEmptyState();
+
+  @override
+  State<_AnimatedEmptyState> createState() => _AnimatedEmptyStateState();
+}
+
+class _AnimatedEmptyStateState extends State<_AnimatedEmptyState>
+    with TickerProviderStateMixin {
+  late AnimationController _bounceController;
+  late AnimationController _rotateController;
+  late AnimationController _fadeController;
+  late Animation<double> _bounceAnimation;
+  late Animation<double> _rotateAnimation;
+  late Animation<double> _fadeAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+
+    // Bounce animation for main icon
+    _bounceController = AnimationController(
+      duration: const Duration(milliseconds: 2000),
+      vsync: this,
+    )..repeat(reverse: true);
+
+    _bounceAnimation = Tween<double>(begin: -10, end: 10).animate(
+      CurvedAnimation(parent: _bounceController, curve: Curves.easeInOut),
+    );
+
+    // Rotate animation for decorative elements
+    _rotateController = AnimationController(
+      duration: const Duration(seconds: 4),
+      vsync: this,
+    )..repeat();
+
+    _rotateAnimation = Tween<double>(begin: 0, end: 1).animate(
+      CurvedAnimation(parent: _rotateController, curve: Curves.linear),
+    );
+
+    // Fade animation for text
+    _fadeController = AnimationController(
+      duration: const Duration(milliseconds: 1500),
+      vsync: this,
+    )..repeat(reverse: true);
+
+    _fadeAnimation = Tween<double>(begin: 0.5, end: 1.0).animate(
+      CurvedAnimation(parent: _fadeController, curve: Curves.easeInOut),
+    );
+  }
+
+  @override
+  void dispose() {
+    _bounceController.dispose();
+    _rotateController.dispose();
+    _fadeController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isMobile = MediaQuery.of(context).size.width < 600;
+    final isTablet = MediaQuery.of(context).size.width >= 600 &&
+        MediaQuery.of(context).size.width < 1024;
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        return Center(
+          child: SingleChildScrollView(
+            child: Padding(
+              padding: EdgeInsets.symmetric(
+                horizontal: isMobile
+                    ? 24
+                    : isTablet
+                        ? 48
+                        : 64,
+                vertical: isMobile ? 32 : 48,
+              ),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  // Animated illustration with floating vegetables
+                  SizedBox(
+                    height: isMobile
+                        ? 200
+                        : isTablet
+                            ? 250
+                            : 300,
+                    child: Stack(
+                      alignment: Alignment.center,
+                      children: [
+                        // Background circle with gradient
+                        Container(
+                          width: isMobile
+                              ? 180
+                              : isTablet
+                                  ? 220
+                                  : 260,
+                          height: isMobile
+                              ? 180
+                              : isTablet
+                                  ? 220
+                                  : 260,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            gradient: LinearGradient(
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                              colors: [
+                                Colors.green[50]!,
+                                Colors.orange[50]!,
+                              ],
+                            ),
+                          ),
+                        ),
+
+                        // Rotating decorative elements (vegetables)
+                        ...List.generate(6, (index) {
+                          final angle = (index * 60.0) * 3.14159 / 180;
+                          final radius = isMobile
+                              ? 100.0
+                              : isTablet
+                                  ? 120.0
+                                  : 140.0;
+
+                          return AnimatedBuilder(
+                            animation: _rotateAnimation,
+                            builder: (context, child) {
+                              final rotatedAngle = angle +
+                                  (_rotateAnimation.value * 2 * 3.14159);
+                              final x = radius * cos(rotatedAngle);
+                              final y = radius * sin(rotatedAngle);
+
+                              return Transform.translate(
+                                offset: Offset(x, y),
+                                child: _buildFloatingIcon(index),
+                              );
+                            },
+                          );
+                        }),
+
+                        // Center bouncing basket icon
+                        AnimatedBuilder(
+                          animation: _bounceAnimation,
+                          builder: (context, child) {
+                            return Transform.translate(
+                              offset: Offset(0, _bounceAnimation.value),
+                              child: Container(
+                                padding: EdgeInsets.all(isMobile ? 20 : 24),
+                                decoration: BoxDecoration(
+                                  color: Colors.white,
+                                  shape: BoxShape.circle,
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Colors.green.withOpacity(0.2),
+                                      blurRadius: 20,
+                                      spreadRadius: 5,
+                                    ),
+                                  ],
+                                ),
+                                child: Icon(
+                                  Icons.shopping_basket,
+                                  size: isMobile
+                                      ? 60
+                                      : isTablet
+                                          ? 70
+                                          : 80,
+                                  color: Colors.green[600],
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  SizedBox(height: isMobile ? 32 : 40),
+
+                  // Animated title
+                  FadeTransition(
+                    opacity: _fadeAnimation,
+                    child: Text(
+                      'No Fresh Deliveries Yet',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontSize: isMobile
+                            ? 24
+                            : isTablet
+                                ? 28
+                                : 32,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.grey[800],
+                        letterSpacing: 0.5,
+                      ),
+                    ),
+                  ),
+
+                  SizedBox(height: isMobile ? 12 : 16),
+
+                  // Subtitle
+                  Text(
+                    'Our farmers are preparing fresh organic produce for you',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: isMobile ? 14 : 16,
+                      color: Colors.grey[600],
+                      height: 1.5,
+                    ),
+                  ),
+
+                  SizedBox(height: isMobile ? 24 : 32),
+
+                  // Feature cards
+                  Wrap(
+                    alignment: WrapAlignment.center,
+                    spacing: isMobile ? 12 : 16,
+                    runSpacing: isMobile ? 12 : 16,
+                    children: [
+                      _buildFeatureCard(
+                        icon: Icons.eco,
+                        title: '100% Organic',
+                        color: Colors.green,
+                        isMobile: isMobile,
+                      ),
+                      _buildFeatureCard(
+                        icon: Icons.agriculture,
+                        title: 'Farm Fresh',
+                        color: Colors.orange,
+                        isMobile: isMobile,
+                      ),
+                      _buildFeatureCard(
+                        icon: Icons.local_shipping,
+                        title: 'Home Delivery',
+                        color: Colors.blue,
+                        isMobile: isMobile,
+                      ),
+                    ],
+                  ),
+
+                  SizedBox(height: isMobile ? 24 : 32),
+
+                  // Call to action
+                  Container(
+                    padding: EdgeInsets.all(isMobile ? 16 : 20),
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [
+                          Colors.green[50]!,
+                          Colors.green[100]!,
+                        ],
+                      ),
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(
+                        color: Colors.green[200]!,
+                        width: 2,
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.schedule,
+                          color: Colors.green[700],
+                          size: isMobile ? 20 : 24,
+                        ),
+                        SizedBox(width: isMobile ? 8 : 12),
+                        Flexible(
+                          child: Text(
+                            'New schedules will appear here soon!',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              fontSize: isMobile ? 13 : 15,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.green[800],
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildFloatingIcon(int index) {
+    final icons = [
+      Icons.apple,
+      Icons.eco,
+      Icons.local_florist,
+      Icons.grass,
+      Icons.spa,
+      Icons.energy_savings_leaf,
+    ];
+
+    final colors = [
+      Colors.red[400]!,
+      Colors.green[400]!,
+      Colors.pink[400]!,
+      Colors.lime[400]!,
+      Colors.teal[400]!,
+      Colors.lightGreen[400]!,
+    ];
+
+    return Container(
+      padding: const EdgeInsets.all(8),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        shape: BoxShape.circle,
+        boxShadow: [
+          BoxShadow(
+            color: colors[index].withOpacity(0.3),
+            blurRadius: 8,
+            spreadRadius: 2,
+          ),
+        ],
+      ),
+      child: Icon(
+        icons[index],
+        size: 24,
+        color: colors[index],
+      ),
+    );
+  }
+
+  Widget _buildFeatureCard({
+    required IconData icon,
+    required String title,
+    required Color color,
+    required bool isMobile,
+  }) {
+    return Container(
+      padding: EdgeInsets.symmetric(
+        horizontal: isMobile ? 16 : 20,
+        vertical: isMobile ? 12 : 16,
+      ),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: color.withOpacity(0.3),
+          width: 2,
+        ),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, color: color, size: isMobile ? 20 : 24),
+          SizedBox(width: isMobile ? 6 : 8),
+          Text(
+            title,
+            style: TextStyle(
+              fontSize: isMobile ? 12 : 14,
+              fontWeight: FontWeight.w600,
+              color: Color.lerp(color, Colors.black, 0.3),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// Helper function for cos
+double cos(double radians) => math.cos(radians);
+
+// Helper function for sin
+double sin(double radians) => math.sin(radians);
