@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
+import 'package:f2c/core/shared/logger/app_logger.dart';
+import 'package:f2c/core/widgets/responsive_data_table.dart';
+import 'package:f2c/core/widgets/responsive_stat_cards_row.dart';
 import 'package:f2c/features/customer/models/order_model.dart';
 import 'package:f2c/features/customer/models/bill_model.dart';
 import 'package:f2c/features/customer/services/bill_service.dart';
@@ -184,51 +187,37 @@ class _AdminPackagingPageState extends ConsumerState<AdminPackagingPage> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
       color: Colors.white,
-      child: Row(
-        children: [
-          Expanded(
-            child: _buildStatCard(
-              'Total Orders',
-              totalOrders.toString(),
-              Icons.receipt_long_outlined,
-              const Color(0xFF2196F3),
-            ),
+      child: ResponsiveStatCardsRow(
+        cards: [
+          _buildStatCard(
+            'Total Orders',
+            totalOrders.toString(),
+            Icons.receipt_long_outlined,
+            const Color(0xFF2196F3),
           ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: _buildStatCard(
-              'Packed',
-              packedCount.toString(),
-              Icons.check_circle_outline,
-              const Color(0xFF4CAF50),
-            ),
+          _buildStatCard(
+            'Packed',
+            packedCount.toString(),
+            Icons.check_circle_outline,
+            const Color(0xFF4CAF50),
           ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: _buildStatCard(
-              'In Progress',
-              inProgressCount.toString(),
-              Icons.inventory_2_outlined,
-              const Color(0xFFFF9800),
-            ),
+          _buildStatCard(
+            'In Progress',
+            inProgressCount.toString(),
+            Icons.inventory_2_outlined,
+            const Color(0xFFFF9800),
           ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: _buildStatCard(
-              'Pending',
-              pendingCount.toString(),
-              Icons.pending_outlined,
-              const Color(0xFFFFC107),
-            ),
+          _buildStatCard(
+            'Pending',
+            pendingCount.toString(),
+            Icons.pending_outlined,
+            const Color(0xFFFFC107),
           ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: _buildStatCard(
-              'Notified',
-              notifiedCount.toString(),
-              Icons.notifications_outlined,
-              const Color(0xFF9C27B0),
-            ),
+          _buildStatCard(
+            'Notified',
+            notifiedCount.toString(),
+            Icons.notifications_outlined,
+            const Color(0xFF9C27B0),
           ),
         ],
       ),
@@ -325,36 +314,28 @@ class _AdminPackagingPageState extends ConsumerState<AdminPackagingPage> {
   }
 
   Widget _buildFiltersRow() {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-      color: Colors.white,
-      child: Row(
-        children: [
-          Expanded(
-            flex: 2,
-            child: TextField(
-              onChanged: (value) => setState(() => _searchQuery = value),
-              decoration: InputDecoration(
-                hintText: 'Search by Order ID or Customer',
-                prefixIcon: const Icon(Icons.search, size: 18),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(6),
-                  borderSide: BorderSide(color: Colors.grey[300]!),
-                ),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(6),
-                  borderSide: BorderSide(color: Colors.grey[300]!),
-                ),
-                contentPadding:
-                    const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                filled: true,
-                fillColor: Colors.grey[50],
-                isDense: true,
-              ),
-            ),
-          ),
-          const SizedBox(width: 12),
-          Container(
+    final searchField = TextField(
+      onChanged: (value) => setState(() => _searchQuery = value),
+      decoration: InputDecoration(
+        hintText: 'Search by Order ID or Customer',
+        prefixIcon: const Icon(Icons.search, size: 18),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(6),
+          borderSide: BorderSide(color: Colors.grey[300]!),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(6),
+          borderSide: BorderSide(color: Colors.grey[300]!),
+        ),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        filled: true,
+        fillColor: Colors.grey[50],
+        isDense: true,
+      ),
+    );
+
+    final filterControls = [
+      Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             decoration: BoxDecoration(
               border: Border.all(color: Colors.grey[300]!),
@@ -417,103 +398,141 @@ class _AdminPackagingPageState extends ConsumerState<AdminPackagingPage> {
               },
             ),
           ),
-          const SizedBox(width: 12),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            decoration: BoxDecoration(
-              border: Border.all(color: Colors.grey[300]!),
-              borderRadius: BorderRadius.circular(6),
-              color: Colors.grey[50],
-            ),
-            child: DropdownButton<String>(
-              value: _selectedStatus,
-              underline: const SizedBox(),
-              isDense: true,
-              style: const TextStyle(fontSize: 13),
-              items: ['All Statuses', 'Packed', 'Pending', 'Notified']
-                  .map((status) {
-                return DropdownMenuItem(
-                    value: status,
-                    child: Text(status, style: const TextStyle(fontSize: 13)));
-              }).toList(),
-              onChanged: (value) => setState(() => _selectedStatus = value!),
-            ),
+      Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          border: Border.all(color: Colors.grey[300]!),
+          borderRadius: BorderRadius.circular(6),
+          color: Colors.grey[50],
+        ),
+        child: DropdownButton<String>(
+          value: _selectedStatus,
+          underline: const SizedBox(),
+          isDense: true,
+          style: const TextStyle(fontSize: 13),
+          items: ['All Statuses', 'Packed', 'Pending', 'Notified']
+              .map((status) {
+            return DropdownMenuItem(
+                value: status,
+                child: Text(status, style: const TextStyle(fontSize: 13)));
+          }).toList(),
+          onChanged: (value) => setState(() => _selectedStatus = value!),
+        ),
+      ),
+      Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          border: Border.all(color: Colors.grey[300]!),
+          borderRadius: BorderRadius.circular(6),
+          color: Colors.grey[50],
+        ),
+        child: DropdownButton<String>(
+          value: _selectedDateFilter,
+          underline: const SizedBox(),
+          isDense: true,
+          style: const TextStyle(fontSize: 13),
+          items: [
+            'This Week',
+            'This Month',
+            'This Quarter',
+            'This Year',
+            'Custom'
+          ].map((filter) {
+            return DropdownMenuItem(
+                value: filter,
+                child: Text(filter, style: const TextStyle(fontSize: 13)));
+          }).toList(),
+          onChanged: (value) {
+            if (value == 'Custom') {
+              _showDateRangePicker();
+            } else {
+              _applyDateFilter(value!);
+            }
+          },
+        ),
+      ),
+      if (_selectedDateFilter == 'Custom' &&
+          _startDate != null &&
+          _endDate != null)
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          decoration: BoxDecoration(
+            border: Border.all(color: const Color(0xFF4CAF50)),
+            borderRadius: BorderRadius.circular(6),
+            color: const Color(0xFF4CAF50).withOpacity(0.05),
           ),
-          const SizedBox(width: 12),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            decoration: BoxDecoration(
-              border: Border.all(color: Colors.grey[300]!),
-              borderRadius: BorderRadius.circular(6),
-              color: Colors.grey[50],
-            ),
-            child: DropdownButton<String>(
-              value: _selectedDateFilter,
-              underline: const SizedBox(),
-              isDense: true,
-              style: const TextStyle(fontSize: 13),
-              items: [
-                'This Week',
-                'This Month',
-                'This Quarter',
-                'This Year',
-                'Custom'
-              ].map((filter) {
-                return DropdownMenuItem(
-                    value: filter,
-                    child: Text(filter, style: const TextStyle(fontSize: 13)));
-              }).toList(),
-              onChanged: (value) {
-                if (value == 'Custom') {
-                  _showDateRangePicker();
-                } else {
-                  _applyDateFilter(value!);
-                }
-              },
-            ),
-          ),
-          const SizedBox(width: 12),
-          if (_selectedDateFilter == 'Custom' &&
-              _startDate != null &&
-              _endDate != null)
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              decoration: BoxDecoration(
-                border: Border.all(color: const Color(0xFF4CAF50)),
-                borderRadius: BorderRadius.circular(6),
-                color: const Color(0xFF4CAF50).withOpacity(0.05),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.date_range,
+                  size: 16, color: Color(0xFF4CAF50)),
+              const SizedBox(width: 6),
+              Text(
+                '${DateFormat('dd MMM').format(_startDate!)} - ${DateFormat('dd MMM yyyy').format(_endDate!)}',
+                style:
+                    const TextStyle(fontSize: 12, color: Color(0xFF4CAF50)),
               ),
-              child: Row(
-                children: [
-                  const Icon(Icons.date_range,
-                      size: 16, color: Color(0xFF4CAF50)),
-                  const SizedBox(width: 6),
-                  Text(
-                    '${DateFormat('dd MMM').format(_startDate!)} - ${DateFormat('dd MMM yyyy').format(_endDate!)}',
-                    style:
-                        const TextStyle(fontSize: 12, color: Color(0xFF4CAF50)),
-                  ),
-                  const SizedBox(width: 6),
-                  InkWell(
-                    onTap: () => _showDateRangePicker(),
-                    child: const Icon(Icons.edit,
-                        size: 14, color: Color(0xFF4CAF50)),
-                  ),
+              const SizedBox(width: 6),
+              InkWell(
+                onTap: () => _showDateRangePicker(),
+                child: const Icon(Icons.edit,
+                    size: 14, color: Color(0xFF4CAF50)),
+              ),
+            ],
+          ),
+        ),
+    ];
+
+    final filterButton = OutlinedButton.icon(
+      onPressed: () {},
+      icon: const Icon(Icons.filter_list, size: 16),
+      label: const Text('Filter', style: TextStyle(fontSize: 13)),
+      style: OutlinedButton.styleFrom(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        side: BorderSide(color: Colors.grey[300]!),
+        minimumSize: const Size(60, 32),
+      ),
+    );
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+      color: Colors.white,
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          // Below this width the dropdowns + search field don't fit on one
+          // line without squeezing or overflowing, so stack the search
+          // field above a wrapping row of filter controls instead. Above
+          // it, this renders exactly like the original single Row.
+          final isNarrow = constraints.maxWidth < 700;
+
+          if (!isNarrow) {
+            return Row(
+              children: [
+                Expanded(flex: 2, child: searchField),
+                const SizedBox(width: 12),
+                for (final control in filterControls) ...[
+                  control,
+                  const SizedBox(width: 12),
                 ],
+                const Spacer(),
+                filterButton,
+              ],
+            );
+          }
+
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              searchField,
+              const SizedBox(height: 12),
+              Wrap(
+                spacing: 12,
+                runSpacing: 12,
+                children: [...filterControls, filterButton],
               ),
-            ),
-          const Spacer(),
-          OutlinedButton.icon(
-            onPressed: () {},
-            icon: const Icon(Icons.filter_list, size: 16),
-            label: const Text('Filter', style: TextStyle(fontSize: 13)),
-            style: OutlinedButton.styleFrom(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              side: BorderSide(color: Colors.grey[300]!),
-              minimumSize: const Size(60, 32),
-            ),
-          ),
-        ],
+            ],
+          );
+        },
       ),
     );
   }
@@ -548,14 +567,17 @@ class _AdminPackagingPageState extends ConsumerState<AdminPackagingPage> {
           ),
           child: Column(
             children: [
-              _buildTableHeader(),
               Expanded(
-                child: ListView.builder(
-                  itemCount: paginatedOrders.length,
-                  itemBuilder: (context, index) {
-                    final order = paginatedOrders[index];
-                    return _buildTableRow(order, index);
-                  },
+                child: ResponsiveDataTable(
+                  minWidth: 1000,
+                  header: _buildTableHeader(),
+                  body: ListView.builder(
+                    itemCount: paginatedOrders.length,
+                    itemBuilder: (context, index) {
+                      final order = paginatedOrders[index];
+                      return _buildTableRow(order, index);
+                    },
+                  ),
                 ),
               ),
               _buildPaginationControls(filteredOrders.length, totalPages),
@@ -564,7 +586,9 @@ class _AdminPackagingPageState extends ConsumerState<AdminPackagingPage> {
         );
       },
       loading: () => const Center(child: CircularProgressIndicator()),
-      error: (error, stack) => Center(child: Text('Error: $error')),
+      error: (error, stack) => const Center(
+        child: Text('Unable to load packing orders. Please try again.'),
+      ),
     );
   }
 
@@ -797,8 +821,14 @@ class _AdminPackagingPageState extends ConsumerState<AdminPackagingPage> {
           top: BorderSide(color: Colors.grey[200]!),
         ),
       ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      // Wrap instead of Row: identical when there's room for both pieces on
+      // one line, but drops to a second line on very narrow screens instead
+      // of overflowing.
+      child: Wrap(
+        alignment: WrapAlignment.spaceBetween,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        spacing: 12,
+        runSpacing: 8,
         children: [
           Text(
             'Showing ${(_currentPage - 1) * _itemsPerPage + 1}-${(_currentPage * _itemsPerPage).clamp(0, totalItems)} of $totalItems',
@@ -806,6 +836,7 @@ class _AdminPackagingPageState extends ConsumerState<AdminPackagingPage> {
           ),
           if (totalPages > 1)
             Row(
+              mainAxisSize: MainAxisSize.min,
               children: [
                 IconButton(
                   icon: const Icon(Icons.chevron_left, size: 20),
@@ -1470,10 +1501,11 @@ class _PackingDialogState extends State<PackingDialog> {
         }
       }
     } catch (e) {
+      AppLogger.error('Bill sync check failed', e);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Sync failed: $e'),
+          const SnackBar(
+            content: Text('Unable to verify the bill for this order. Please try again.'),
             backgroundColor: Colors.red,
           ),
         );
@@ -1547,10 +1579,11 @@ class _PackingDialogState extends State<PackingDialog> {
         );
       }
     } catch (e) {
+      AppLogger.error('Failed to update bill', e);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Failed to update bill: $e'),
+          const SnackBar(
+            content: Text('Unable to update the bill. Please try again.'),
             backgroundColor: Colors.red,
           ),
         );
@@ -1679,9 +1712,13 @@ class _PackingDialogState extends State<PackingDialog> {
         );
       }
     } catch (e) {
+      AppLogger.error('Failed to mark order as packed', e);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e')),
+          const SnackBar(
+            content: Text('Unable to update packing status. Please try again.'),
+            backgroundColor: Colors.red,
+          ),
         );
       }
     } finally {

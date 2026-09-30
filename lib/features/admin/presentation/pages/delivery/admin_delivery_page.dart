@@ -2,6 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
+import 'package:f2c/core/shared/logger/app_logger.dart';
+import 'package:f2c/core/widgets/responsive_breakpoints.dart';
+import 'package:f2c/core/widgets/responsive_data_table.dart';
+import 'package:f2c/core/widgets/responsive_stat_cards_row.dart';
 import 'package:f2c/features/customer/models/order_model.dart';
 import 'package:f2c/features/admin/presentation/widgets/order_details_dialog.dart';
 import 'package:f2c/features/admin/providers/hub_providers.dart';
@@ -141,6 +145,8 @@ class _AdminDeliveryPageState extends ConsumerState<AdminDeliveryPage> {
     final deliveredOrdersAsync = ref.watch(deliveredOrdersProvider);
     final pendingOrdersAsync = ref.watch(pendingOrdersProvider);
     final cancelledOrdersAsync = ref.watch(cancelledOrdersProvider);
+    final isNarrowAppBar =
+        ResponsiveBreakpoints.isMobile(MediaQuery.of(context).size.width);
 
     return Scaffold(
       backgroundColor: const Color(0xFFF5F7FA),
@@ -155,16 +161,26 @@ class _AdminDeliveryPageState extends ConsumerState<AdminDeliveryPage> {
             onPressed: () {},
             tooltip: DateFormat('dd MMM yyyy').format(DateTime.now()),
           ),
-          ElevatedButton.icon(
-            onPressed: () {},
-            icon: const Icon(Icons.add, size: 18),
-            label: const Text('Create Delivery'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF4CAF50),
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+          // A full label + icon button doesn't fit next to the title and
+          // calendar icon on a narrow mobile viewport (it would overflow
+          // the AppBar), so collapse it to an icon-only button there.
+          if (isNarrowAppBar)
+            IconButton(
+              icon: const Icon(Icons.add_circle, color: Color(0xFF4CAF50)),
+              onPressed: () {},
+              tooltip: 'Create Delivery',
+            )
+          else
+            ElevatedButton.icon(
+              onPressed: () {},
+              icon: const Icon(Icons.add, size: 18),
+              label: const Text('Create Delivery'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF4CAF50),
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+              ),
             ),
-          ),
           const SizedBox(width: 16),
         ],
       ),
@@ -218,60 +234,43 @@ class _AdminDeliveryPageState extends ConsumerState<AdminDeliveryPage> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
       color: Colors.white,
-      child: Row(
-        children: [
-          Expanded(
-            child: _buildStatCard(
-              'Total Deliveries',
-              totalDeliveries.toString(),
-              Icons.local_shipping_outlined,
-              const Color(0xFF2196F3),
-            ),
+      child: ResponsiveStatCardsRow(
+        cards: [
+          _buildStatCard(
+            'Total Deliveries',
+            totalDeliveries.toString(),
+            Icons.local_shipping_outlined,
+            const Color(0xFF2196F3),
           ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: _buildStatCard(
-              'Ready for Pickup',
-              ready.toString(),
-              Icons.inventory_2_outlined,
-              const Color(0xFF4CAF50),
-            ),
+          _buildStatCard(
+            'Ready for Pickup',
+            ready.toString(),
+            Icons.inventory_2_outlined,
+            const Color(0xFF4CAF50),
           ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: _buildStatCard(
-              'In Transit',
-              inTransit.toString(),
-              Icons.flight_takeoff_outlined,
-              const Color(0xFF9C27B0),
-            ),
+          _buildStatCard(
+            'In Transit',
+            inTransit.toString(),
+            Icons.flight_takeoff_outlined,
+            const Color(0xFF9C27B0),
           ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: _buildStatCard(
-              'Delivered',
-              delivered.toString(),
-              Icons.check_circle_outline,
-              const Color(0xFF2196F3),
-            ),
+          _buildStatCard(
+            'Delivered',
+            delivered.toString(),
+            Icons.check_circle_outline,
+            const Color(0xFF2196F3),
           ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: _buildStatCard(
-              'Pending',
-              pending.toString(),
-              Icons.pending_outlined,
-              const Color(0xFFFFC107),
-            ),
+          _buildStatCard(
+            'Pending',
+            pending.toString(),
+            Icons.pending_outlined,
+            const Color(0xFFFFC107),
           ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: _buildStatCard(
-              'Failed / Cancelled',
-              failedCancelled.toString(),
-              Icons.cancel_outlined,
-              const Color(0xFFF44336),
-            ),
+          _buildStatCard(
+            'Failed / Cancelled',
+            failedCancelled.toString(),
+            Icons.cancel_outlined,
+            const Color(0xFFF44336),
           ),
         ],
       ),
@@ -313,164 +312,195 @@ class _AdminDeliveryPageState extends ConsumerState<AdminDeliveryPage> {
   }
 
   Widget _buildFiltersRow() {
+    final searchField = TextField(
+      onChanged: (value) => setState(() => _searchQuery = value),
+      decoration: InputDecoration(
+        hintText: 'Search by Delivery ID, Order ID or Customer',
+        prefixIcon: const Icon(Icons.search, size: 18),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(6),
+          borderSide: BorderSide(color: Colors.grey[300]!),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(6),
+          borderSide: BorderSide(color: Colors.grey[300]!),
+        ),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        filled: true,
+        fillColor: Colors.grey[50],
+        isDense: true,
+      ),
+    );
+
+    final filterControls = [
+      Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          border: Border.all(color: Colors.grey[300]!),
+          borderRadius: BorderRadius.circular(6),
+          color: Colors.grey[50],
+        ),
+        child: Consumer(
+          builder: (context, ref, child) {
+            final hubsAsync = ref.watch(hubsStreamProvider);
+            return hubsAsync.when(
+              data: (hubs) {
+                final hubNames = ['All Hubs', ...hubs.map((h) => h.name).toList()];
+                final validValue = hubNames.contains(_selectedHub) ? _selectedHub : 'All Hubs';
+                return DropdownButton<String>(
+                  value: validValue,
+                  underline: const SizedBox(),
+                  isDense: true,
+                  style: const TextStyle(fontSize: 13),
+                  items: hubNames.map((hub) {
+                    return DropdownMenuItem(value: hub, child: Text(hub, style: const TextStyle(fontSize: 13)));
+                  }).toList(),
+                  onChanged: (value) => setState(() => _selectedHub = value!),
+                );
+              },
+              loading: () => DropdownButton<String>(
+                value: 'All Hubs',
+                underline: const SizedBox(),
+                isDense: true,
+                style: const TextStyle(fontSize: 13),
+                items: const [
+                  DropdownMenuItem(value: 'All Hubs', child: Text('Loading...', style: TextStyle(fontSize: 13))),
+                ],
+                onChanged: null,
+              ),
+              error: (_, __) => DropdownButton<String>(
+                value: 'All Hubs',
+                underline: const SizedBox(),
+                isDense: true,
+                style: const TextStyle(fontSize: 13),
+                items: const [
+                  DropdownMenuItem(value: 'All Hubs', child: Text('Error', style: TextStyle(fontSize: 13))),
+                ],
+                onChanged: null,
+              ),
+            );
+          },
+        ),
+      ),
+      Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          border: Border.all(color: Colors.grey[300]!),
+          borderRadius: BorderRadius.circular(6),
+          color: Colors.grey[50],
+        ),
+        child: DropdownButton<String>(
+          value: _selectedStatus,
+          underline: const SizedBox(),
+          isDense: true,
+          style: const TextStyle(fontSize: 13),
+          items: ['All Statuses', 'Ready for Pickup', 'In Transit', 'Delivered'].map((status) {
+            return DropdownMenuItem(value: status, child: Text(status, style: const TextStyle(fontSize: 13)));
+          }).toList(),
+          onChanged: (value) => setState(() => _selectedStatus = value!),
+        ),
+      ),
+      Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          border: Border.all(color: Colors.grey[300]!),
+          borderRadius: BorderRadius.circular(6),
+          color: Colors.grey[50],
+        ),
+        child: DropdownButton<String>(
+          value: _selectedDateFilter,
+          underline: const SizedBox(),
+          isDense: true,
+          style: const TextStyle(fontSize: 13),
+          items: ['All Time', 'This Week', 'This Month', 'This Quarter', 'This Year', 'Custom'].map((filter) {
+            return DropdownMenuItem(value: filter, child: Text(filter, style: const TextStyle(fontSize: 13)));
+          }).toList(),
+          onChanged: (value) {
+            if (value == 'Custom') {
+              _showDateRangePicker();
+            } else {
+              _applyDateFilter(value!);
+            }
+          },
+        ),
+      ),
+      if (_selectedDateFilter == 'Custom' && _startDate != null && _endDate != null)
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          decoration: BoxDecoration(
+            border: Border.all(color: const Color(0xFF4CAF50)),
+            borderRadius: BorderRadius.circular(6),
+            color: const Color(0xFF4CAF50).withOpacity(0.05),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.date_range, size: 16, color: Color(0xFF4CAF50)),
+              const SizedBox(width: 6),
+              Text(
+                '${DateFormat('dd MMM').format(_startDate!)} - ${DateFormat('dd MMM yyyy').format(_endDate!)}',
+                style: const TextStyle(fontSize: 12, color: Color(0xFF4CAF50)),
+              ),
+              const SizedBox(width: 6),
+              InkWell(
+                onTap: () => _showDateRangePicker(),
+                child: const Icon(Icons.edit, size: 14, color: Color(0xFF4CAF50)),
+              ),
+            ],
+          ),
+        ),
+    ];
+
+    final filterButton = OutlinedButton.icon(
+      onPressed: () {},
+      icon: const Icon(Icons.filter_list, size: 16),
+      label: const Text('Filter', style: TextStyle(fontSize: 13)),
+      style: OutlinedButton.styleFrom(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        side: BorderSide(color: Colors.grey[300]!),
+        minimumSize: const Size(60, 32),
+      ),
+    );
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
       color: Colors.white,
-      child: Row(
-        children: [
-          Expanded(
-            flex: 2,
-            child: TextField(
-              onChanged: (value) => setState(() => _searchQuery = value),
-              decoration: InputDecoration(
-                hintText: 'Search by Delivery ID, Order ID or Customer',
-                prefixIcon: const Icon(Icons.search, size: 18),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(6),
-                  borderSide: BorderSide(color: Colors.grey[300]!),
-                ),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(6),
-                  borderSide: BorderSide(color: Colors.grey[300]!),
-                ),
-                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                filled: true,
-                fillColor: Colors.grey[50],
-                isDense: true,
-              ),
-            ),
-          ),
-          const SizedBox(width: 12),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            decoration: BoxDecoration(
-              border: Border.all(color: Colors.grey[300]!),
-              borderRadius: BorderRadius.circular(6),
-              color: Colors.grey[50],
-            ),
-            child: Consumer(
-              builder: (context, ref, child) {
-                final hubsAsync = ref.watch(hubsStreamProvider);
-                return hubsAsync.when(
-                  data: (hubs) {
-                    final hubNames = ['All Hubs', ...hubs.map((h) => h.name).toList()];
-                    final validValue = hubNames.contains(_selectedHub) ? _selectedHub : 'All Hubs';
-                    return DropdownButton<String>(
-                      value: validValue,
-                      underline: const SizedBox(),
-                      isDense: true,
-                      style: const TextStyle(fontSize: 13),
-                      items: hubNames.map((hub) {
-                        return DropdownMenuItem(value: hub, child: Text(hub, style: const TextStyle(fontSize: 13)));
-                      }).toList(),
-                      onChanged: (value) => setState(() => _selectedHub = value!),
-                    );
-                  },
-                  loading: () => DropdownButton<String>(
-                    value: 'All Hubs',
-                    underline: const SizedBox(),
-                    isDense: true,
-                    style: const TextStyle(fontSize: 13),
-                    items: const [
-                      DropdownMenuItem(value: 'All Hubs', child: Text('Loading...', style: TextStyle(fontSize: 13))),
-                    ],
-                    onChanged: null,
-                  ),
-                  error: (_, __) => DropdownButton<String>(
-                    value: 'All Hubs',
-                    underline: const SizedBox(),
-                    isDense: true,
-                    style: const TextStyle(fontSize: 13),
-                    items: const [
-                      DropdownMenuItem(value: 'All Hubs', child: Text('Error', style: TextStyle(fontSize: 13))),
-                    ],
-                    onChanged: null,
-                  ),
-                );
-              },
-            ),
-          ),
-          const SizedBox(width: 12),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            decoration: BoxDecoration(
-              border: Border.all(color: Colors.grey[300]!),
-              borderRadius: BorderRadius.circular(6),
-              color: Colors.grey[50],
-            ),
-            child: DropdownButton<String>(
-              value: _selectedStatus,
-              underline: const SizedBox(),
-              isDense: true,
-              style: const TextStyle(fontSize: 13),
-              items: ['All Statuses', 'Ready for Pickup', 'In Transit', 'Delivered'].map((status) {
-                return DropdownMenuItem(value: status, child: Text(status, style: const TextStyle(fontSize: 13)));
-              }).toList(),
-              onChanged: (value) => setState(() => _selectedStatus = value!),
-            ),
-          ),
-          const SizedBox(width: 12),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            decoration: BoxDecoration(
-              border: Border.all(color: Colors.grey[300]!),
-              borderRadius: BorderRadius.circular(6),
-              color: Colors.grey[50],
-            ),
-            child: DropdownButton<String>(
-              value: _selectedDateFilter,
-              underline: const SizedBox(),
-              isDense: true,
-              style: const TextStyle(fontSize: 13),
-              items: ['All Time', 'This Week', 'This Month', 'This Quarter', 'This Year', 'Custom'].map((filter) {
-                return DropdownMenuItem(value: filter, child: Text(filter, style: const TextStyle(fontSize: 13)));
-              }).toList(),
-              onChanged: (value) {
-                if (value == 'Custom') {
-                  _showDateRangePicker();
-                } else {
-                  _applyDateFilter(value!);
-                }
-              },
-            ),
-          ),
-          const SizedBox(width: 12),
-          if (_selectedDateFilter == 'Custom' && _startDate != null && _endDate != null)
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              decoration: BoxDecoration(
-                border: Border.all(color: const Color(0xFF4CAF50)),
-                borderRadius: BorderRadius.circular(6),
-                color: const Color(0xFF4CAF50).withOpacity(0.05),
-              ),
-              child: Row(
-                children: [
-                  const Icon(Icons.date_range, size: 16, color: Color(0xFF4CAF50)),
-                  const SizedBox(width: 6),
-                  Text(
-                    '${DateFormat('dd MMM').format(_startDate!)} - ${DateFormat('dd MMM yyyy').format(_endDate!)}',
-                    style: const TextStyle(fontSize: 12, color: Color(0xFF4CAF50)),
-                  ),
-                  const SizedBox(width: 6),
-                  InkWell(
-                    onTap: () => _showDateRangePicker(),
-                    child: const Icon(Icons.edit, size: 14, color: Color(0xFF4CAF50)),
-                  ),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          // Below this width the dropdowns + search field don't fit on one
+          // line without squeezing or overflowing, so stack the search
+          // field above a wrapping row of filter controls instead. Above
+          // it, this renders exactly like the original single Row.
+          final isNarrow = constraints.maxWidth < 700;
+
+          if (!isNarrow) {
+            return Row(
+              children: [
+                Expanded(flex: 2, child: searchField),
+                const SizedBox(width: 12),
+                for (final control in filterControls) ...[
+                  control,
+                  const SizedBox(width: 12),
                 ],
+                const Spacer(),
+                filterButton,
+              ],
+            );
+          }
+
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              searchField,
+              const SizedBox(height: 12),
+              Wrap(
+                spacing: 12,
+                runSpacing: 12,
+                children: [...filterControls, filterButton],
               ),
-            ),
-          const Spacer(),
-          OutlinedButton.icon(
-            onPressed: () {},
-            icon: const Icon(Icons.filter_list, size: 16),
-            label: const Text('Filter', style: TextStyle(fontSize: 13)),
-            style: OutlinedButton.styleFrom(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              side: BorderSide(color: Colors.grey[300]!),
-              minimumSize: const Size(60, 32),
-            ),
-          ),
-        ],
+            ],
+          );
+        },
       ),
     );
   }
@@ -513,14 +543,17 @@ class _AdminDeliveryPageState extends ConsumerState<AdminDeliveryPage> {
                   ),
                   child: Column(
                     children: [
-                      _buildTableHeader(),
                       Expanded(
-                        child: ListView.builder(
-                          itemCount: paginatedOrders.length,
-                          itemBuilder: (context, index) {
-                            final order = paginatedOrders[index];
-                            return _buildTableRow(order, index);
-                          },
+                        child: ResponsiveDataTable(
+                          minWidth: 900,
+                          header: _buildTableHeader(),
+                          body: ListView.builder(
+                            itemCount: paginatedOrders.length,
+                            itemBuilder: (context, index) {
+                              final order = paginatedOrders[index];
+                              return _buildTableRow(order, index);
+                            },
+                          ),
                         ),
                       ),
                       _buildPaginationControls(filteredOrders.length, totalPages),
@@ -529,15 +562,21 @@ class _AdminDeliveryPageState extends ConsumerState<AdminDeliveryPage> {
                 );
               },
               loading: () => const Center(child: CircularProgressIndicator()),
-              error: (error, stack) => Center(child: Text('Error: $error')),
+              error: (error, stack) => const Center(
+                child: Text('Unable to load delivery orders. Please try again.'),
+              ),
             );
           },
           loading: () => const Center(child: CircularProgressIndicator()),
-          error: (error, stack) => Center(child: Text('Error: $error')),
+          error: (error, stack) => const Center(
+            child: Text('Unable to load delivery orders. Please try again.'),
+          ),
         );
       },
       loading: () => const Center(child: CircularProgressIndicator()),
-      error: (error, stack) => Center(child: Text('Error: $error')),
+      error: (error, stack) => const Center(
+        child: Text('Unable to load delivery orders. Please try again.'),
+      ),
     );
   }
 
@@ -750,8 +789,14 @@ class _AdminDeliveryPageState extends ConsumerState<AdminDeliveryPage> {
           top: BorderSide(color: Colors.grey[200]!),
         ),
       ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      // Wrap instead of Row: identical when there's room for both pieces on
+      // one line, but drops to a second line on very narrow screens instead
+      // of overflowing.
+      child: Wrap(
+        alignment: WrapAlignment.spaceBetween,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        spacing: 12,
+        runSpacing: 8,
         children: [
           Text(
             'Showing ${(_currentPage - 1) * _itemsPerPage + 1}-${(_currentPage * _itemsPerPage).clamp(0, totalItems)} of $totalItems',
@@ -759,6 +804,7 @@ class _AdminDeliveryPageState extends ConsumerState<AdminDeliveryPage> {
           ),
           if (totalPages > 1)
             Row(
+              mainAxisSize: MainAxisSize.min,
               children: [
                 IconButton(
                   icon: const Icon(Icons.chevron_left, size: 20),
@@ -899,9 +945,13 @@ class _AdminDeliveryPageState extends ConsumerState<AdminDeliveryPage> {
         );
       }
     } catch (e) {
+      AppLogger.error('Failed to mark order as in transit', e);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e')),
+          const SnackBar(
+            content: Text('Unable to update delivery status. Please try again.'),
+            backgroundColor: Colors.red,
+          ),
         );
       }
     }
@@ -955,7 +1005,7 @@ class _PaymentCollectionDialogState extends State<PaymentCollectionDialog> {
         });
       }
     } catch (e) {
-      print('Error loading GPay ID: $e');
+      AppLogger.error('Failed to load GPay ID', e);
     }
   }
 
@@ -1001,9 +1051,13 @@ class _PaymentCollectionDialogState extends State<PaymentCollectionDialog> {
         );
       }
     } catch (e) {
+      AppLogger.error('Failed to confirm delivery', e);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e')),
+          const SnackBar(
+            content: Text('Unable to confirm delivery. Please try again.'),
+            backgroundColor: Colors.red,
+          ),
         );
       }
     } finally {

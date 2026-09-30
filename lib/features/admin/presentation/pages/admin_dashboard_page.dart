@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:f2c/core/constants/app_constants.dart';
+import 'package:f2c/core/shared/logger/app_logger.dart';
 import 'package:f2c/core/utils/image_url_helper.dart';
 import 'package:f2c/core/widgets/f2c_logo.dart';
 import 'package:f2c/features/authentication/providers/auth_providers.dart';
@@ -76,42 +77,51 @@ class _AdminDashboardPageState extends ConsumerState<AdminDashboardPage> {
 
     return Scaffold(
       backgroundColor: const Color(0xFFF5F7FA),
-      body: userAsync.when(
-        data: (user) {
-          if (user == null) {
-            return const Center(child: Text('User not found'));
-          }
+      // Wrapped in a Builder so the top bar's menu button gets a context
+      // that is actually a descendant of this Scaffold. Without this, the
+      // captured `context` is this State's own context (the Scaffold's
+      // parent, not a descendant), so `Scaffold.of(context).openDrawer()`
+      // cannot find the Scaffold and the mobile hamburger menu never opens.
+      body: Builder(
+        builder: (scaffoldContext) => userAsync.when(
+          data: (user) {
+            if (user == null) {
+              return const Center(child: Text('User not found'));
+            }
 
-          // Set initial menu for super admin
-          if (user.role.canManageUsers && _selectedMenu == 'Dashboard') {
-            _selectedMenu = 'Users & Roles';
-          }
+            // Set initial menu for super admin
+            if (user.role.canManageUsers && _selectedMenu == 'Dashboard') {
+              _selectedMenu = 'Users & Roles';
+            }
 
-          return Row(
-            children: [
-              if (isDesktop || isTablet)
-                _buildSidebar(context, user),
-              Expanded(
-                child: Column(
-                  children: [
-                    _buildTopBar(context, user, isDesktop),
-                    Expanded(
-                      child: _buildDashboardContent(context, isDesktop, isTablet),
-                    ),
-                  ],
+            return Row(
+              children: [
+                if (isDesktop || isTablet)
+                  _buildSidebar(context, user),
+                Expanded(
+                  child: Column(
+                    children: [
+                      _buildTopBar(scaffoldContext, user, isDesktop),
+                      Expanded(
+                        child: _buildDashboardContent(context, isDesktop, isTablet),
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-            ],
-          );
-        },
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (error, stack) => Center(child: Text('Error: $error')),
+              ],
+            );
+          },
+          loading: () => const Center(child: CircularProgressIndicator()),
+          error: (error, stack) => const Center(
+            child: Text('Unable to load your account. Please try again.'),
+          ),
+        ),
       ),
       drawer: (!isDesktop && !isTablet) ? _buildDrawer(context, userAsync.value!) : null,
     );
   }
 
-  Widget _buildSidebar(BuildContext context, user) {
+  Widget _buildSidebar(BuildContext context, user, {bool insideDrawer = false}) {
     final isSuperAdmin = user.role == UserRole.superAdmin;
     final isAdmin = user.role == UserRole.admin;
     
@@ -166,27 +176,27 @@ class _AdminDashboardPageState extends ConsumerState<AdminDashboardPage> {
               children: [
                 // Super Admin sees only Users & Roles
                 if (isSuperAdmin) ...[
-                  _buildMenuItem(Icons.people_outline, 'Users & Roles', _selectedMenu == 'Users & Roles'),
+                  _buildMenuItem(Icons.people_outline, 'Users & Roles', _selectedMenu == 'Users & Roles', insideDrawer: insideDrawer),
                 ] else ...[
                   // Regular Admin sees all menus
-                  _buildMenuItem(Icons.dashboard_outlined, 'Dashboard', _selectedMenu == 'Dashboard'),
-                  _buildMenuItem(Icons.business_outlined, 'Branch Management', _selectedMenu == 'Branch Management'),
-                  _buildMenuItem(Icons.hub_outlined, 'HUB Management', _selectedMenu == 'HUB Management'),
-                  _buildMenuItem(Icons.apartment_outlined, 'Apartment Management', _selectedMenu == 'Apartment Management'),
-                  _buildMenuItem(Icons.person_outline, 'Customer Management', _selectedMenu == 'Customer Management'),
-                  _buildMenuItem(Icons.agriculture_outlined, 'Farmer Management', _selectedMenu == 'Farmer Management'),
-                  _buildMenuItem(Icons.inventory_2_outlined, 'Product Management', _selectedMenu == 'Product Management'),
-                  _buildMenuItem(Icons.calendar_today_outlined, 'Operational Schedule', _selectedMenu == 'Operational Schedule'),
-                  _buildMenuItem(Icons.shopping_cart_outlined, 'Orders', _selectedMenu == 'Orders'),
-                  _buildMenuItem(Icons.local_shipping_outlined, 'Packaging', _selectedMenu == 'Packaging'),
-                  _buildMenuItem(Icons.inventory_2_outlined, 'Farmer Packaging List', _selectedMenu == 'Farmer Packaging List'),
-                  _buildMenuItem(Icons.local_shipping_outlined, 'Deliveries', _selectedMenu == 'Deliveries'),
-                  _buildMenuItem(Icons.assessment_outlined, 'Reports', _selectedMenu == 'Reports'),
-                  _buildMenuItem(Icons.account_balance_wallet_outlined, 'Profit Report', _selectedMenu == 'Profit Report'),
-                  _buildMenuItem(Icons.notifications_outlined, 'Notifications', _selectedMenu == 'Notifications'),
-                  _buildMenuItem(Icons.people_outline, 'Users & Roles', _selectedMenu == 'Users & Roles'),
-                  _buildMenuItem(Icons.settings_outlined, 'Settings', _selectedMenu == 'Settings'),
-                  _buildMenuItem(Icons.account_balance_wallet_outlined, 'Transactions', _selectedMenu == 'Transactions'),
+                  _buildMenuItem(Icons.dashboard_outlined, 'Dashboard', _selectedMenu == 'Dashboard', insideDrawer: insideDrawer),
+                  _buildMenuItem(Icons.business_outlined, 'Branch Management', _selectedMenu == 'Branch Management', insideDrawer: insideDrawer),
+                  _buildMenuItem(Icons.hub_outlined, 'HUB Management', _selectedMenu == 'HUB Management', insideDrawer: insideDrawer),
+                  _buildMenuItem(Icons.apartment_outlined, 'Apartment Management', _selectedMenu == 'Apartment Management', insideDrawer: insideDrawer),
+                  _buildMenuItem(Icons.person_outline, 'Customer Management', _selectedMenu == 'Customer Management', insideDrawer: insideDrawer),
+                  _buildMenuItem(Icons.agriculture_outlined, 'Farmer Management', _selectedMenu == 'Farmer Management', insideDrawer: insideDrawer),
+                  _buildMenuItem(Icons.inventory_2_outlined, 'Product Management', _selectedMenu == 'Product Management', insideDrawer: insideDrawer),
+                  _buildMenuItem(Icons.calendar_today_outlined, 'Operational Schedule', _selectedMenu == 'Operational Schedule', insideDrawer: insideDrawer),
+                  _buildMenuItem(Icons.shopping_cart_outlined, 'Orders', _selectedMenu == 'Orders', insideDrawer: insideDrawer),
+                  _buildMenuItem(Icons.local_shipping_outlined, 'Packaging', _selectedMenu == 'Packaging', insideDrawer: insideDrawer),
+                  _buildMenuItem(Icons.inventory_2_outlined, 'Farmer Packaging List', _selectedMenu == 'Farmer Packaging List', insideDrawer: insideDrawer),
+                  _buildMenuItem(Icons.local_shipping_outlined, 'Deliveries', _selectedMenu == 'Deliveries', insideDrawer: insideDrawer),
+                  _buildMenuItem(Icons.assessment_outlined, 'Reports', _selectedMenu == 'Reports', insideDrawer: insideDrawer),
+                  _buildMenuItem(Icons.account_balance_wallet_outlined, 'Profit Report', _selectedMenu == 'Profit Report', insideDrawer: insideDrawer),
+                  _buildMenuItem(Icons.notifications_outlined, 'Notifications', _selectedMenu == 'Notifications', insideDrawer: insideDrawer),
+                  _buildMenuItem(Icons.people_outline, 'Users & Roles', _selectedMenu == 'Users & Roles', insideDrawer: insideDrawer),
+                  _buildMenuItem(Icons.settings_outlined, 'Settings', _selectedMenu == 'Settings', insideDrawer: insideDrawer),
+                  _buildMenuItem(Icons.account_balance_wallet_outlined, 'Transactions', _selectedMenu == 'Transactions', insideDrawer: insideDrawer),
                 ],
               ],
             ),
@@ -200,18 +210,24 @@ class _AdminDashboardPageState extends ConsumerState<AdminDashboardPage> {
               height: 48,
               child: ElevatedButton.icon(
                 onPressed: () async {
-                  print('Logout button pressed');
                   try {
                     final authRepo = ref.read(authRepositoryProvider);
                     await authRepo.logout();
-                    print('Logout completed, invalidating session');
                     ref.invalidate(currentSessionProvider);
-                    print('Session invalidated, navigating to login');
                     if (context.mounted) {
                       context.go(RouteNames.login);
                     }
                   } catch (e) {
-                    print('Logout error: $e');
+                    AppLogger.error('Logout failed', e);
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Unable to log out. Please try again.'),
+                          backgroundColor: Colors.red,
+                          behavior: SnackBarBehavior.floating,
+                        ),
+                      );
+                    }
                   }
                 },
                 icon: Icon(Icons.logout_outlined, size: 18),
@@ -235,11 +251,11 @@ class _AdminDashboardPageState extends ConsumerState<AdminDashboardPage> {
 
   Widget _buildDrawer(BuildContext context, user) {
     return Drawer(
-      child: _buildSidebar(context, user),
+      child: _buildSidebar(context, user, insideDrawer: true),
     );
   }
 
-  Widget _buildMenuItem(IconData icon, String title, bool isSelected, {int? badge}) {
+  Widget _buildMenuItem(IconData icon, String title, bool isSelected, {int? badge, bool insideDrawer = false}) {
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
       decoration: BoxDecoration(
@@ -279,6 +295,13 @@ class _AdminDashboardPageState extends ConsumerState<AdminDashboardPage> {
             _selectedMenu = title;
           });
           _navigateToMenu(context, title);
+          // Close the drawer after selection on mobile so the user isn't
+          // left staring at the menu over the newly-selected content. Only
+          // do this when rendered inside the Drawer — the permanent
+          // desktop/tablet sidebar isn't a drawer and has no route to pop.
+          if (insideDrawer) {
+            Navigator.pop(context);
+          }
         },
       ),
     );
@@ -379,18 +402,24 @@ class _AdminDashboardPageState extends ConsumerState<AdminDashboardPage> {
           IconButton(
             icon: const Icon(Icons.logout_outlined),
             onPressed: () async {
-              print('Top bar logout button pressed');
               try {
                 final authRepo = ref.read(authRepositoryProvider);
                 await authRepo.logout();
-                print('Top bar logout completed, invalidating session');
                 ref.invalidate(currentSessionProvider);
-                print('Session invalidated, navigating to login');
                 if (context.mounted) {
                   context.go(RouteNames.login);
                 }
               } catch (e) {
-                print('Top bar logout error: $e');
+                AppLogger.error('Logout failed', e);
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Unable to log out. Please try again.'),
+                      backgroundColor: Colors.red,
+                      behavior: SnackBarBehavior.floating,
+                    ),
+                  );
+                }
               }
             },
             tooltip: 'Logout',
