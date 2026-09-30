@@ -530,19 +530,24 @@ class _CustomerDashboardPageState extends ConsumerState<CustomerDashboardPage> {
                         flexibleSpace: FlexibleSpaceBar(
                           background: Stack(
                             children: [
-                              // Background image (responsive)
+                              // Background color
                               Positioned.fill(
+                                child: Container(
+                                  color: const Color(0xFFF5F5DC),
+                                ),
+                              ),
+                              // Background image - use fitWidth to show full image without cropping
+                              Positioned(
+                                top: 0,
+                                left: 0,
+                                right: 0,
                                 child: Image.asset(
-                                  isMobile
-                                      ? 'assets/images/f2c_hero_mobile.png'
-                                      : constraints.maxWidth < 900
-                                          ? 'assets/images/f2c_hero_tablet.png'
-                                          : 'assets/images/f2c_hero_desktop.png',
-                                  fit: BoxFit.cover,
-                                  alignment: Alignment.topCenter,
+                                  'assets/images/f2c_hero_desktop.png',
+                                  fit: BoxFit.fitWidth,
                                   errorBuilder: (context, error, stackTrace) {
                                     // Fallback to gradient if image fails to load
                                     return Container(
+                                      height: 300,
                                       decoration: const BoxDecoration(
                                         gradient: LinearGradient(
                                           begin: Alignment.topLeft,
