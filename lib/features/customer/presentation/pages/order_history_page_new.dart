@@ -5,9 +5,12 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
 import 'package:f2c/features/customer/providers/customer_providers.dart';
 import 'package:f2c/features/customer/models/order_model.dart';
+import 'package:f2c/features/customer/models/bill_model.dart';
+import 'package:f2c/features/customer/presentation/widgets/bill_view_dialog.dart';
 
 // Provider for customer orders
-final customerOrdersProvider = StreamProvider.autoDispose<List<OrderModel>>((ref) {
+final customerOrdersProvider =
+    StreamProvider.autoDispose<List<OrderModel>>((ref) {
   final customerAsync = ref.watch(currentCustomerProvider);
 
   return customerAsync.when(
@@ -21,7 +24,9 @@ final customerOrdersProvider = StreamProvider.autoDispose<List<OrderModel>>((ref
           .orderBy('createdAt', descending: true)
           .snapshots()
           .map((snapshot) {
-        return snapshot.docs.map((doc) => OrderModel.fromFirestore(doc)).toList();
+        return snapshot.docs
+            .map((doc) => OrderModel.fromFirestore(doc))
+            .toList();
       });
     },
     loading: () => Stream.value([]),
@@ -33,14 +38,16 @@ class OrderHistoryPageNew extends ConsumerStatefulWidget {
   const OrderHistoryPageNew({super.key});
 
   @override
-  ConsumerState<OrderHistoryPageNew> createState() => _OrderHistoryPageNewState();
+  ConsumerState<OrderHistoryPageNew> createState() =>
+      _OrderHistoryPageNewState();
 }
 
 class _OrderHistoryPageNewState extends ConsumerState<OrderHistoryPageNew> {
   OrderStatus? _filterStatus;
   String _searchQuery = '';
 
-  bool _isMobile(BuildContext context) => MediaQuery.of(context).size.width < 600;
+  bool _isMobile(BuildContext context) =>
+      MediaQuery.of(context).size.width < 600;
 
   @override
   Widget build(BuildContext context) {
@@ -98,7 +105,8 @@ class _OrderHistoryPageNewState extends ConsumerState<OrderHistoryPageNew> {
           ),
           filled: true,
           fillColor: Colors.grey[50],
-          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          contentPadding:
+              const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         ),
       ),
     );
@@ -114,7 +122,8 @@ class _OrderHistoryPageNewState extends ConsumerState<OrderHistoryPageNew> {
             label: Text(_filterStatus!.displayName),
             deleteIcon: const Icon(Icons.close, size: 18),
             onDeleted: () => setState(() => _filterStatus = null),
-            backgroundColor: Color(int.parse(_filterStatus!.statusColor.replaceFirst('#', '0xFF'))),
+            backgroundColor: Color(int.parse(
+                _filterStatus!.statusColor.replaceFirst('#', '0xFF'))),
             labelStyle: const TextStyle(color: Colors.white),
           ),
         ],
@@ -167,7 +176,8 @@ class _OrderHistoryPageNewState extends ConsumerState<OrderHistoryPageNew> {
   }
 
   Widget _buildOrderCard(OrderModel order, bool isMobile) {
-    final statusColor = Color(int.parse(order.status.statusColor.replaceFirst('#', '0xFF')));
+    final statusColor =
+        Color(int.parse(order.status.statusColor.replaceFirst('#', '0xFF')));
 
     return Card(
       margin: const EdgeInsets.only(bottom: 16),
@@ -175,7 +185,8 @@ class _OrderHistoryPageNewState extends ConsumerState<OrderHistoryPageNew> {
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
         side: BorderSide(
-          color: order.isEditable ? Colors.orange.shade200 : Colors.grey.shade200,
+          color:
+              order.isEditable ? Colors.orange.shade200 : Colors.grey.shade200,
           width: order.isEditable ? 2 : 1,
         ),
       ),
@@ -205,7 +216,8 @@ class _OrderHistoryPageNewState extends ConsumerState<OrderHistoryPageNew> {
                             if (order.isEditable) ...[
                               const SizedBox(width: 8),
                               Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 6, vertical: 2),
                                 decoration: BoxDecoration(
                                   color: Colors.orange[100],
                                   borderRadius: BorderRadius.circular(4),
@@ -213,7 +225,8 @@ class _OrderHistoryPageNewState extends ConsumerState<OrderHistoryPageNew> {
                                 child: Row(
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
-                                    Icon(Icons.edit, size: 12, color: Colors.orange[900]),
+                                    Icon(Icons.edit,
+                                        size: 12, color: Colors.orange[900]),
                                     const SizedBox(width: 4),
                                     Text(
                                       'Editable',
@@ -231,7 +244,8 @@ class _OrderHistoryPageNewState extends ConsumerState<OrderHistoryPageNew> {
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          DateFormat('dd MMM yyyy, hh:mm a').format(order.createdAt),
+                          DateFormat('dd MMM yyyy, hh:mm a')
+                              .format(order.createdAt),
                           style: TextStyle(
                             fontSize: 12,
                             color: Colors.grey[600],
@@ -241,7 +255,8 @@ class _OrderHistoryPageNewState extends ConsumerState<OrderHistoryPageNew> {
                     ),
                   ),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                     decoration: BoxDecoration(
                       color: statusColor.withOpacity(0.1),
                       borderRadius: BorderRadius.circular(20),
@@ -262,7 +277,8 @@ class _OrderHistoryPageNewState extends ConsumerState<OrderHistoryPageNew> {
               if (order.scheduleName != null) ...[
                 Row(
                   children: [
-                    Icon(Icons.calendar_today, size: 16, color: Colors.grey[600]),
+                    Icon(Icons.calendar_today,
+                        size: 16, color: Colors.grey[600]),
                     const SizedBox(width: 8),
                     Text(
                       order.scheduleName!,
@@ -278,7 +294,8 @@ class _OrderHistoryPageNewState extends ConsumerState<OrderHistoryPageNew> {
               if (order.deliveryDate != null) ...[
                 Row(
                   children: [
-                    Icon(Icons.local_shipping, size: 16, color: Colors.blue[700]),
+                    Icon(Icons.local_shipping,
+                        size: 16, color: Colors.blue[700]),
                     const SizedBox(width: 8),
                     Text(
                       'Delivery: ${DateFormat('EEE, dd MMM yyyy').format(order.deliveryDate!)}',
@@ -323,7 +340,8 @@ class _OrderHistoryPageNewState extends ConsumerState<OrderHistoryPageNew> {
                   ),
                   child: Row(
                     children: [
-                      Icon(Icons.access_time, size: 14, color: Colors.orange[700]),
+                      Icon(Icons.access_time,
+                          size: 14, color: Colors.orange[700]),
                       const SizedBox(width: 6),
                       Expanded(
                         child: Text(
@@ -349,7 +367,8 @@ class _OrderHistoryPageNewState extends ConsumerState<OrderHistoryPageNew> {
     var filtered = orders;
 
     if (_filterStatus != null) {
-      filtered = filtered.where((order) => order.status == _filterStatus).toList();
+      filtered =
+          filtered.where((order) => order.status == _filterStatus).toList();
     }
 
     if (_searchQuery.isNotEmpty) {
@@ -357,7 +376,8 @@ class _OrderHistoryPageNewState extends ConsumerState<OrderHistoryPageNew> {
       filtered = filtered.where((order) {
         return order.id.toLowerCase().contains(query) ||
             order.scheduleName?.toLowerCase().contains(query) == true ||
-            order.items.any((item) => item.productName.toLowerCase().contains(query));
+            order.items
+                .any((item) => item.productName.toLowerCase().contains(query));
       }).toList();
     }
 
@@ -462,13 +482,20 @@ class _OrderHistoryPageNewState extends ConsumerState<OrderHistoryPageNew> {
                   padding: const EdgeInsets.all(20),
                   children: [
                     _buildDetailSection('Order Information', [
-                      _buildDetailRow('Order ID', '#${order.id.substring(0, 8)}'),
+                      _buildDetailRow(
+                          'Order ID', '#${order.id.substring(0, 8)}'),
                       _buildDetailRow('Status', order.status.displayName),
-                      _buildDetailRow('Placed On', DateFormat('dd MMM yyyy, hh:mm a').format(order.createdAt)),
+                      _buildDetailRow(
+                          'Placed On',
+                          DateFormat('dd MMM yyyy, hh:mm a')
+                              .format(order.createdAt)),
                       if (order.scheduleName != null)
                         _buildDetailRow('Schedule', order.scheduleName!),
                       if (order.deliveryDate != null)
-                        _buildDetailRow('Delivery Date', DateFormat('dd MMM yyyy').format(order.deliveryDate!)),
+                        _buildDetailRow(
+                            'Delivery Date',
+                            DateFormat('dd MMM yyyy')
+                                .format(order.deliveryDate!)),
                       if (order.deliveryTimeSlot != null)
                         _buildDetailRow('Time Slot', order.deliveryTimeSlot!),
                     ]),
@@ -478,9 +505,13 @@ class _OrderHistoryPageNewState extends ConsumerState<OrderHistoryPageNew> {
                     ]),
                     const SizedBox(height: 24),
                     _buildDetailSection('Payment', [
-                      _buildDetailRow('Payment Method', order.paymentMethod?.toUpperCase() ?? 'N/A'),
-                      _buildDetailRow('Payment Status', order.paymentStatus?.toUpperCase() ?? 'N/A'),
-                      _buildDetailRow('Total Amount', '₹${order.totalAmount.toStringAsFixed(2)}', isBold: true),
+                      _buildDetailRow('Payment Method',
+                          order.paymentMethod?.toUpperCase() ?? 'N/A'),
+                      _buildDetailRow('Payment Status',
+                          order.paymentStatus?.toUpperCase() ?? 'N/A'),
+                      _buildDetailRow('Total Amount',
+                          '₹${order.totalAmount.toStringAsFixed(2)}',
+                          isBold: true),
                     ]),
                     if (order.deliveryInstructions != null) ...[
                       const SizedBox(height: 24),
@@ -497,11 +528,77 @@ class _OrderHistoryPageNewState extends ConsumerState<OrderHistoryPageNew> {
                   ],
                 ),
               ),
+              // Footer with View Bill button (show for all orders except cancelled)
+              if (order.status != OrderStatus.cancelled)
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.grey[100],
+                    border: Border(
+                      top: BorderSide(color: Colors.grey[300]!),
+                    ),
+                  ),
+                  child: SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton.icon(
+                      onPressed: () => _viewBill(order),
+                      icon: const Icon(Icons.receipt_long),
+                      label: const Text('View Bill'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF00C853),
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                      ),
+                    ),
+                  ),
+                ),
             ],
           ),
         ),
       ),
     );
+  }
+
+  Future<void> _viewBill(OrderModel order) async {
+    try {
+      // Fetch bill from Firestore
+      final billDoc = await FirebaseFirestore.instance
+          .collection('bills')
+          .where('orderId', isEqualTo: order.id)
+          .limit(1)
+          .get();
+
+      if (billDoc.docs.isEmpty) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Bill not yet generated for this order'),
+              backgroundColor: Colors.orange,
+            ),
+          );
+        }
+        return;
+      }
+
+      final bill = BillModel.fromFirestore(billDoc.docs.first);
+
+      if (mounted) {
+        Navigator.pop(context); // Close order details
+        showDialog(
+          context: context,
+          builder: (context) => BillViewDialog(bill: bill),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error loading bill: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
   }
 
   Widget _buildDetailSection(String title, List<Widget> children) {
