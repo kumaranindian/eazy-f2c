@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -1025,111 +1027,297 @@ class _PackingDialogState extends State<PackingDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final screenSize = MediaQuery.of(context).size;
+    final isMobile = screenSize.width < 600;
+    final horizontalInset = isMobile ? 16.0 : 40.0;
+    // Desktop keeps the existing 600px-wide dialog; mobile uses almost the
+    // full viewport width with safe margins instead of the old fixed width,
+    // which was wider than the viewport on phones and caused the squeeze.
+    final maxDialogWidth = isMobile
+        ? screenSize.width - horizontalInset * 2
+        : math.min(600.0, screenSize.width - horizontalInset * 2);
+    // Bounding the dialog's height lets the item list (below) become the
+    // scrollable region instead of the whole dialog growing past the
+    // viewport on orders with many items.
+    final maxDialogHeight = screenSize.height * 0.9;
+
     return Dialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      child: Container(
-        width: 600,
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                const Icon(Icons.inventory_2, color: Color(0xFF9C27B0)),
-                const SizedBox(width: 12),
-                Text(
-                  'Pack Order #${widget.order.id.substring(0, 8)}',
-                  style: const TextStyle(
-                      fontSize: 20, fontWeight: FontWeight.bold),
-                ),
-                const Spacer(),
-                IconButton(
-                  icon: const Icon(Icons.sync, color: Color(0xFF2196F3)),
-                  tooltip: 'Sync Order & Bill',
-                  onPressed: _isProcessing ? null : _syncOrderAndBill,
-                ),
-                IconButton(
-                  icon: const Icon(Icons.close),
-                  onPressed: () => Navigator.pop(context),
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Enter actual packed quantities for each item. System will automatically adjust the final bill.',
-              style: TextStyle(fontSize: 13, color: Colors.grey[600]),
-            ),
-            const SizedBox(height: 16),
-            Row(
-              children: [
-                const Text('Customer',
-                    style: TextStyle(fontWeight: FontWeight.w600)),
-                const Spacer(),
-                Text(widget.order.customerName),
-              ],
-            ),
-            const SizedBox(height: 8),
-            Row(
-              children: [
-                const Text('Order Date',
-                    style: TextStyle(fontWeight: FontWeight.w600)),
-                const Spacer(),
-                Text(DateFormat('dd/MM/yyyy').format(widget.order.createdAt)),
-              ],
-            ),
-            const Divider(height: 32),
-            const Text(
-              'Pack Items',
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 16),
-            Flexible(
-              child: ListView.builder(
-                shrinkWrap: true,
-                itemCount: widget.order.items.length,
-                itemBuilder: (context, index) {
-                  final item = widget.order.items[index];
-                  return _buildPackItemRow(item);
-                },
-              ),
-            ),
-            const SizedBox(height: 16),
-            _buildBillingSummary(),
-            const SizedBox(height: 24),
-            Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton(
-                    onPressed: () => Navigator.pop(context),
-                    child: const Text('Cancel'),
-                  ),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: ElevatedButton.icon(
-                    onPressed: _isProcessing ? null : _saveAndMarkPacked,
-                    icon: const Icon(Icons.save),
-                    label: const Text('Save & Mark Packed'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF4CAF50),
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 12),
+      insetPadding: EdgeInsets.symmetric(
+        horizontal: horizontalInset,
+        vertical: 24,
+      ),
+      child: ConstrainedBox(
+        constraints: BoxConstraints(
+          maxWidth: maxDialogWidth,
+          maxHeight: maxDialogHeight,
+        ),
+        child: Padding(
+          padding: EdgeInsets.all(isMobile ? 16 : 24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  const Icon(Icons.inventory_2, color: Color(0xFF9C27B0)),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      'Pack Order #${widget.order.id.substring(0, 8)}',
+                      style: TextStyle(
+                        fontSize: isMobile ? 17 : 20,
+                        fontWeight: FontWeight.bold,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
                   ),
+                  IconButton(
+                    icon: const Icon(Icons.sync, color: Color(0xFF2196F3)),
+                    tooltip: 'Sync Order & Bill',
+                    onPressed: _isProcessing ? null : _syncOrderAndBill,
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.close),
+                    onPressed: () => Navigator.pop(context),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Enter actual packed quantities for each item. System will automatically adjust the final bill.',
+                style: TextStyle(fontSize: 13, color: Colors.grey[600]),
+              ),
+              const SizedBox(height: 16),
+              Row(
+                children: [
+                  const Text('Customer',
+                      style: TextStyle(fontWeight: FontWeight.w600)),
+                  const Spacer(),
+                  Flexible(
+                    child: Text(
+                      widget.order.customerName,
+                      textAlign: TextAlign.right,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  const Text('Order Date',
+                      style: TextStyle(fontWeight: FontWeight.w600)),
+                  const Spacer(),
+                  Text(DateFormat('dd/MM/yyyy').format(widget.order.createdAt)),
+                ],
+              ),
+              const Divider(height: 32),
+              const Text(
+                'Pack Items',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 16),
+              Flexible(
+                child: ListView.builder(
+                  shrinkWrap: true,
+                  itemCount: widget.order.items.length,
+                  itemBuilder: (context, index) {
+                    final item = widget.order.items[index];
+                    return _buildPackItemRow(item, isMobile);
+                  },
                 ),
-              ],
-            ),
-          ],
+              ),
+              const SizedBox(height: 16),
+              _buildBillingSummary(),
+              const SizedBox(height: 24),
+              if (isMobile)
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    OutlinedButton(
+                      onPressed: () => Navigator.pop(context),
+                      child: const Text('Cancel'),
+                    ),
+                    const SizedBox(height: 12),
+                    ElevatedButton.icon(
+                      onPressed: _isProcessing ? null : _saveAndMarkPacked,
+                      icon: const Icon(Icons.save),
+                      label: const Text('Save & Mark Packed'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF4CAF50),
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                      ),
+                    ),
+                  ],
+                )
+              else
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: () => Navigator.pop(context),
+                        child: const Text('Cancel'),
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: ElevatedButton.icon(
+                        onPressed: _isProcessing ? null : _saveAndMarkPacked,
+                        icon: const Icon(Icons.save),
+                        label: const Text('Save & Mark Packed'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF4CAF50),
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+            ],
+          ),
         ),
       ),
     );
   }
 
-  Widget _buildPackItemRow(OrderItem item) {
+  Widget _buildPackItemRow(OrderItem item, bool isMobile) {
     final orderedQty = item.quantity;
     final packedQty = _packedQuantities[item.productId] ?? orderedQty;
     final difference = packedQty - orderedQty;
+
+    // Shared with both the desktop 3-column layout and the mobile card
+    // layout below, so the actual quantity-update logic exists in exactly
+    // one place regardless of which layout renders.
+    void decrement() {
+      final current = _packedQuantities[item.productId] ?? orderedQty;
+      final increment = _getIncrementStep(item.unit);
+      final newValue = (current - increment).clamp(0.0, orderedQty * 2);
+      setState(() {
+        _packedQuantities[item.productId] = newValue;
+        _controllers[item.productId]?.text = newValue.toStringAsFixed(2);
+      });
+    }
+
+    void increment() {
+      final current = _packedQuantities[item.productId] ?? orderedQty;
+      final step = _getIncrementStep(item.unit);
+      final newValue = current + step;
+      setState(() {
+        _packedQuantities[item.productId] = newValue;
+        _controllers[item.productId]?.text = newValue.toStringAsFixed(2);
+      });
+    }
+
+    void onQuantityTextChanged(String value) {
+      final parsed = double.tryParse(value);
+      if (parsed != null) {
+        setState(() => _packedQuantities[item.productId] = parsed);
+      }
+    }
+
+    // A larger minimum tap target than the icons' visual size, so +/- are
+    // comfortable to tap on a touch screen without changing their look.
+    const stepButtonConstraints = BoxConstraints(minWidth: 40, minHeight: 40);
+
+    final quantityField = TextField(
+      controller: _controllers[item.productId],
+      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+      textAlign: TextAlign.center,
+      style: const TextStyle(
+        fontSize: 16,
+        fontWeight: FontWeight.bold,
+        color: Colors.orange,
+      ),
+      decoration: const InputDecoration(
+        isDense: true,
+        contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+        border: OutlineInputBorder(),
+      ),
+      onChanged: onQuantityTextChanged,
+    );
+
+    if (isMobile) {
+      return Container(
+        margin: const EdgeInsets.only(bottom: 12),
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          border: Border.all(color: Colors.grey[300]!),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              item.productName,
+              style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15),
+            ),
+            Text(
+              '₹${item.price.toStringAsFixed(0)}/${item.unit}',
+              style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+            ),
+            const Divider(height: 20),
+            _MobileQuantityLine(
+              label: 'ORDERED',
+              labelColor: Colors.blue,
+              valueText: '${orderedQty.toStringAsFixed(2)} ${item.unit}',
+              valueColor: Colors.blue,
+              amountText: '₹${(orderedQty * item.price).toStringAsFixed(2)}',
+            ),
+            const SizedBox(height: 12),
+            const Text(
+              'PACKED',
+              style: TextStyle(
+                fontSize: 11,
+                color: Colors.orange,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(height: 6),
+            Row(
+              children: [
+                IconButton(
+                  icon: const Icon(Icons.remove_circle_outline),
+                  onPressed: decrement,
+                  padding: EdgeInsets.zero,
+                  constraints: stepButtonConstraints,
+                ),
+                const SizedBox(width: 4),
+                SizedBox(width: 80, child: quantityField),
+                const SizedBox(width: 4),
+                IconButton(
+                  icon: const Icon(Icons.add_circle_outline),
+                  onPressed: increment,
+                  padding: EdgeInsets.zero,
+                  constraints: stepButtonConstraints,
+                ),
+                const Spacer(),
+                Text(
+                  '₹${(packedQty * item.price).toStringAsFixed(2)}',
+                  style: TextStyle(fontSize: 13, color: Colors.grey[700]),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            _MobileQuantityLine(
+              label: 'DIFFERENCE',
+              labelColor: Colors.grey,
+              valueText:
+                  '${difference > 0 ? '+' : ''}${difference.toStringAsFixed(2)} ${item.unit}',
+              valueColor: difference == 0
+                  ? Colors.grey
+                  : (difference > 0 ? Colors.green : Colors.red),
+              amountText:
+                  '${difference > 0 ? '+' : ''}₹${(difference * item.price).toStringAsFixed(2)}',
+            ),
+          ],
+        ),
+      );
+    }
 
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
@@ -1184,62 +1372,16 @@ class _PackingDialogState extends State<PackingDialog> {
                       children: [
                         IconButton(
                           icon: const Icon(Icons.remove_circle_outline),
-                          onPressed: () {
-                            final current =
-                                _packedQuantities[item.productId] ?? orderedQty;
-                            final increment = _getIncrementStep(item.unit);
-                            final newValue = (current - increment)
-                                .clamp(0.0, orderedQty * 2);
-                            setState(() {
-                              _packedQuantities[item.productId] = newValue;
-                              _controllers[item.productId]?.text =
-                                  newValue.toStringAsFixed(2);
-                            });
-                          },
+                          onPressed: decrement,
                           padding: EdgeInsets.zero,
-                          constraints: const BoxConstraints(),
+                          constraints: stepButtonConstraints,
                         ),
-                        SizedBox(
-                          width: 60,
-                          child: TextField(
-                            controller: _controllers[item.productId],
-                            keyboardType:
-                                TextInputType.numberWithOptions(decimal: true),
-                            textAlign: TextAlign.center,
-                            style: const TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.orange),
-                            decoration: const InputDecoration(
-                              isDense: true,
-                              contentPadding: EdgeInsets.symmetric(
-                                  horizontal: 8, vertical: 4),
-                              border: OutlineInputBorder(),
-                            ),
-                            onChanged: (value) {
-                              final parsed = double.tryParse(value);
-                              if (parsed != null) {
-                                setState(() =>
-                                    _packedQuantities[item.productId] = parsed);
-                              }
-                            },
-                          ),
-                        ),
+                        SizedBox(width: 60, child: quantityField),
                         IconButton(
                           icon: const Icon(Icons.add_circle_outline),
-                          onPressed: () {
-                            final current =
-                                _packedQuantities[item.productId] ?? orderedQty;
-                            final increment = _getIncrementStep(item.unit);
-                            final newValue = current + increment;
-                            setState(() {
-                              _packedQuantities[item.productId] = newValue;
-                              _controllers[item.productId]?.text =
-                                  newValue.toStringAsFixed(2);
-                            });
-                          },
+                          onPressed: increment,
                           padding: EdgeInsets.zero,
-                          constraints: const BoxConstraints(),
+                          constraints: stepButtonConstraints,
                         ),
                       ],
                     ),
@@ -1726,6 +1868,56 @@ class _PackingDialogState extends State<PackingDialog> {
         setState(() => _isProcessing = false);
       }
     }
+  }
+}
+
+/// A label + quantity + amount line used by the mobile Pack Order card
+/// layout for the Ordered and Difference sections (Packed has its own
+/// layout since it also hosts the quantity controls).
+class _MobileQuantityLine extends StatelessWidget {
+  const _MobileQuantityLine({
+    required this.label,
+    required this.labelColor,
+    required this.valueText,
+    required this.valueColor,
+    required this.amountText,
+  });
+
+  final String label;
+  final Color labelColor;
+  final String valueText;
+  final Color valueColor;
+  final String amountText;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(label,
+                  style: TextStyle(
+                      fontSize: 11,
+                      color: labelColor,
+                      fontWeight: FontWeight.w600)),
+              const SizedBox(height: 2),
+              Text(
+                valueText,
+                style: TextStyle(
+                    fontSize: 15, fontWeight: FontWeight.bold, color: valueColor),
+              ),
+            ],
+          ),
+        ),
+        Text(
+          amountText,
+          style: TextStyle(fontSize: 13, color: Colors.grey[700]),
+        ),
+      ],
+    );
   }
 }
 
