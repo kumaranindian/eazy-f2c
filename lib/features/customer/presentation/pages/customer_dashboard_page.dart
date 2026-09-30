@@ -519,10 +519,10 @@ class _CustomerDashboardPageState extends ConsumerState<CustomerDashboardPage> {
                       // Modern App Bar with Hero Section
                       SliverAppBar(
                         expandedHeight: isMobile
-                            ? 220
+                            ? 260
                             : constraints.maxWidth < 900
-                                ? 260
-                                : 280,
+                                ? 300
+                                : 340,
                         floating: false,
                         pinned: true,
                         elevation: _showAppBarShadow ? 4 : 0,
@@ -539,7 +539,7 @@ class _CustomerDashboardPageState extends ConsumerState<CustomerDashboardPage> {
                                           ? 'assets/images/f2c_hero_tablet.png'
                                           : 'assets/images/f2c_hero_desktop.png',
                                   fit: BoxFit.cover,
-                                  alignment: Alignment.center,
+                                  alignment: Alignment.topCenter,
                                   errorBuilder: (context, error, stackTrace) {
                                     // Fallback to gradient if image fails to load
                                     return Container(
@@ -557,31 +557,31 @@ class _CustomerDashboardPageState extends ConsumerState<CustomerDashboardPage> {
                                   },
                                 ),
                               ),
-                              // Top gradient overlay for better icon contrast
+                              // Top gradient overlay for better icon contrast (lighter & smaller)
                               Positioned(
                                 top: 0,
                                 left: 0,
                                 right: 0,
-                                height: 100,
+                                height: 70,
                                 child: Container(
                                   decoration: BoxDecoration(
                                     gradient: LinearGradient(
                                       begin: Alignment.topCenter,
                                       end: Alignment.bottomCenter,
                                       colors: [
-                                        Colors.black.withOpacity(0.3),
+                                        Colors.black.withOpacity(0.35),
                                         Colors.transparent,
                                       ],
                                     ),
                                   ),
                                 ),
                               ),
-                              // Bottom gradient overlay for text readability
+                              // Bottom gradient overlay for text readability (lighter & smaller)
                               Positioned(
                                 bottom: 0,
                                 left: 0,
                                 right: 0,
-                                height: 180,
+                                height: 120,
                                 child: Container(
                                   decoration: BoxDecoration(
                                     gradient: LinearGradient(
@@ -589,7 +589,7 @@ class _CustomerDashboardPageState extends ConsumerState<CustomerDashboardPage> {
                                       end: Alignment.bottomCenter,
                                       colors: [
                                         Colors.transparent,
-                                        Colors.black.withOpacity(0.5),
+                                        Colors.black.withOpacity(0.55),
                                       ],
                                     ),
                                   ),
