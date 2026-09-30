@@ -525,33 +525,33 @@ class _OrderHistoryPageNewState extends ConsumerState<OrderHistoryPageNew> {
                         ),
                       ]),
                     ],
+                    // Footer with View Bill button (show for all orders except cancelled)
+                    if (order.status != OrderStatus.cancelled) ...[
+                      const SizedBox(height: 32),
+                      const Divider(),
+                      const SizedBox(height: 16),
+                      SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton.icon(
+                          onPressed: () => _viewBill(order),
+                          icon: const Icon(Icons.receipt_long, size: 20),
+                          label: const Text(
+                            'View Bill',
+                            style: TextStyle(fontSize: 16),
+                          ),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFF00C853),
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(vertical: 16),
+                            elevation: 2,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+                    ],
                   ],
                 ),
               ),
-              // Footer with View Bill button (show for all orders except cancelled)
-              if (order.status != OrderStatus.cancelled)
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: Colors.grey[100],
-                    border: Border(
-                      top: BorderSide(color: Colors.grey[300]!),
-                    ),
-                  ),
-                  child: SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton.icon(
-                      onPressed: () => _viewBill(order),
-                      icon: const Icon(Icons.receipt_long),
-                      label: const Text('View Bill'),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF00C853),
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                      ),
-                    ),
-                  ),
-                ),
             ],
           ),
         ),
