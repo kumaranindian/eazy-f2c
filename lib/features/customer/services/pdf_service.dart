@@ -31,7 +31,7 @@ class PdfService {
   <style>
     @page {
       size: A4;
-      margin: 10mm;
+      margin: 8mm;
     }
     
     @media print {
@@ -56,30 +56,30 @@ class PdfService {
     
     body {
       font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-      padding: 8px;
+      padding: 4px;
       color: #333;
-      font-size: 11px;
-      line-height: 1.3;
+      font-size: 10px;
+      line-height: 1.2;
     }
     
     .header {
       background: linear-gradient(135deg, #2e7d32 0%, #388e3c 100%);
       color: white;
-      padding: 8px 12px;
-      border-radius: 4px;
-      margin-bottom: 6px;
+      padding: 6px 10px;
+      border-radius: 3px;
+      margin-bottom: 4px;
       display: flex;
       justify-content: space-between;
       align-items: center;
     }
     
     .header h1 {
-      font-size: 18px;
+      font-size: 16px;
       margin: 0;
     }
     
     .header .bill-number {
-      font-size: 10px;
+      font-size: 9px;
       opacity: 0.9;
     }
     
@@ -94,8 +94,8 @@ class PdfService {
     .top-section {
       display: flex;
       justify-content: space-between;
-      gap: 12px;
-      margin-bottom: 6px;
+      gap: 8px;
+      margin-bottom: 4px;
     }
     
     .company-info {
@@ -103,86 +103,86 @@ class PdfService {
     }
     
     .company-info h2 {
-      font-size: 14px;
+      font-size: 12px;
       color: #2e7d32;
-      margin-bottom: 2px;
+      margin-bottom: 1px;
     }
     
     .company-info p {
       color: #666;
-      font-size: 10px;
+      font-size: 9px;
     }
     
     .customer-info {
       flex: 1;
       background: #f9f9f9;
-      padding: 8px;
-      border-radius: 4px;
+      padding: 5px 6px;
+      border-radius: 3px;
       border: 1px solid #e0e0e0;
     }
     
     .customer-info .label {
-      font-size: 9px;
+      font-size: 8px;
       color: #666;
-      font-weight: bold;
-      margin-bottom: 3px;
-    }
-    
-    .customer-info .name {
-      font-size: 12px;
       font-weight: bold;
       margin-bottom: 2px;
     }
     
+    .customer-info .name {
+      font-size: 11px;
+      font-weight: bold;
+      margin-bottom: 1px;
+    }
+    
     .customer-info div {
-      font-size: 10px;
-      line-height: 1.4;
+      font-size: 9px;
+      line-height: 1.3;
     }
     
     .order-info {
       display: flex;
-      gap: 8px;
-      margin-bottom: 8px;
+      gap: 6px;
+      margin-bottom: 4px;
     }
     
     .info-card {
       flex: 1;
       background: #e8f5e9;
-      padding: 6px 8px;
-      border-radius: 3px;
+      padding: 4px 6px;
+      border-radius: 2px;
       text-align: center;
     }
     
     .info-card .label {
-      font-size: 9px;
+      font-size: 8px;
       color: #666;
-      margin-bottom: 2px;
+      margin-bottom: 1px;
     }
     
     .info-card .value {
-      font-size: 11px;
+      font-size: 10px;
       font-weight: bold;
     }
     
     table {
       width: 100%;
       border-collapse: collapse;
-      margin-bottom: 8px;
+      margin-bottom: 6px;
     }
     
     th {
       background: #f5f5f5;
-      padding: 6px 4px;
+      padding: 4px 3px;
       text-align: left;
-      font-size: 10px;
+      font-size: 9px;
       font-weight: bold;
       border: 1px solid #ddd;
     }
     
     td {
-      padding: 5px 4px;
+      padding: 3px 3px;
       border: 1px solid #e0e0e0;
-      font-size: 10px;
+      font-size: 9px;
       vertical-align: top;
     }
     
