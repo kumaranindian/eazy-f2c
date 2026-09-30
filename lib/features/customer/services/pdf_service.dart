@@ -322,7 +322,7 @@ class PdfService {
     </div>
   </div>
   
-  <table class="avoid-break">
+  <table>
     <thead>
       <tr>
         <th style="width: 25px;">#</th>
