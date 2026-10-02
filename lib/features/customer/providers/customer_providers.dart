@@ -266,10 +266,11 @@ final availableProductsProvider =
           .where('isDeleted', isEqualTo: false)
           .get();
 
-      // Fetch all farmers to get farmer names
+      // Fetch all farmers to get farmer names. Only non-deleted farmers are
+      // excluded here (not just temporarily inactive ones) so a paused
+      // farmer's products still show their name instead of hiding it.
       final farmersSnapshot = await FirebaseFirestore.instance
           .collection('farmers')
-          .where('isActive', isEqualTo: true)
           .where('isDeleted', isEqualTo: false)
           .get();
 
@@ -293,15 +294,20 @@ final availableProductsProvider =
           return schedule.products.any((p) => p.productId == product.id);
         }).toList();
 
-        // Get farmer name from schedule or farmers collection
+        // Get farmer display name. Prefer a fresh lookup by farmerId (which
+        // already resolves to the farmer's displayName, falling back to
+        // their raw name) over the name baked into the schedule at creation
+        // time, since that stored value may be the farmer's raw/legal name
+        // rather than their customer-facing display name.
         String? farmerName;
-        if (relatedSchedules.isNotEmpty) {
+        if (product.farmerId != null &&
+            farmerNames.containsKey(product.farmerId)) {
+          farmerName = farmerNames[product.farmerId];
+        } else if (relatedSchedules.isNotEmpty) {
           farmerName = relatedSchedules.first.products
               .firstWhere((p) => p.productId == product.id,
                   orElse: () => relatedSchedules.first.products.first)
               .farmerName;
-        } else if (product.farmerId != null) {
-          farmerName = farmerNames[product.farmerId];
         }
 
         // Add product with availability status

@@ -10,6 +10,7 @@ import 'package:f2c/core/widgets/responsive_stat_cards_row.dart';
 import 'package:f2c/features/admin/presentation/widgets/order_details_dialog.dart';
 import 'package:f2c/features/admin/presentation/widgets/edit_order_dialog.dart';
 import 'package:f2c/features/admin/providers/hub_providers.dart';
+import 'package:f2c/features/admin/providers/farmer_providers.dart';
 
 // Provider for all orders
 final adminOrdersProvider = StreamProvider.autoDispose<List<OrderModel>>((ref) {
@@ -1033,6 +1034,13 @@ class _AdminOrdersPageState extends ConsumerState<AdminOrdersPage> {
           );
 
           if (shouldFix == true) {
+            // Resolve any missing farmer names from the farmers collection
+            // before falling back to "Unknown".
+            final farmers = await ref.read(farmersStreamProvider.future);
+            final farmerNamesById = {
+              for (final farmer in farmers) farmer.id: farmer.effectiveName,
+            };
+
             // Update bill
             final updatedBillItems = order.items.map((orderItem) {
               final existingBillItem =
@@ -1041,11 +1049,16 @@ class _AdminOrdersPageState extends ConsumerState<AdminOrdersPage> {
                         orElse: () => null,
                       );
 
+              final resolvedFarmerName = orderItem.farmerName ??
+                  (orderItem.farmerId != null
+                      ? farmerNamesById[orderItem.farmerId]
+                      : null);
+
               return BillItemModel(
                 productId: orderItem.productId,
                 productName: orderItem.productName,
                 farmerId: orderItem.farmerId ?? '',
-                farmerName: orderItem.farmerName ?? 'Unknown',
+                farmerName: resolvedFarmerName ?? 'Unknown',
                 orderedQuantity:
                     existingBillItem?.orderedQuantity ?? orderItem.quantity,
                 orderedUnit: orderItem.unit,

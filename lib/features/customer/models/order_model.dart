@@ -102,7 +102,8 @@ class OrderItem with _$OrderItem {
       'packet',
       'dozen',
       'unit',
-      'pcs'
+      'pcs',
+      'set'
     ];
     final unitLower = unit.toLowerCase();
 

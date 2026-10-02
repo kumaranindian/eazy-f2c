@@ -4023,6 +4023,7 @@ class _ProductManagementContent extends ConsumerStatefulWidget {
 class _ProductManagementContentState extends ConsumerState<_ProductManagementContent> {
   String? selectedCategoryFilter;
   String? selectedFarmerFilter;
+  String productSearchQuery = '';
 
   Widget _buildStatCard(String title, String value, String subtitle, IconData icon, Color color) {
     return Container(
@@ -4160,10 +4161,30 @@ class _ProductManagementContentState extends ConsumerState<_ProductManagementCon
           const SizedBox(height: 32),
           
           // Filters
-          Row(
-            children: [
-              Expanded(
-                child: categoriesAsync.when(
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final searchField = TextFormField(
+                initialValue: productSearchQuery,
+                decoration: InputDecoration(
+                  labelText: 'Search Products',
+                  hintText: 'Search by name or category',
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  prefixIcon: const Icon(Icons.search),
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 12,
+                  ),
+                ),
+                onChanged: (value) {
+                  setState(() {
+                    productSearchQuery = value;
+                  });
+                },
+              );
+
+              final categoryFilter = categoriesAsync.when(
                   data: (categories) {
                     final activeCategories = categories
                         .where((cat) => !cat.isDeleted && cat.isActive)
@@ -4202,16 +4223,14 @@ class _ProductManagementContentState extends ConsumerState<_ProductManagementCon
                   },
                   loading: () => const CircularProgressIndicator(),
                   error: (_, __) => const Text('Error loading categories'),
-                ),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: farmersAsync.when(
+                );
+
+              final farmerFilter = farmersAsync.when(
                   data: (farmers) {
                     final activeFarmers = farmers
                         .where((farmer) => !farmer.isDeleted && farmer.isActive)
                         .toList();
-                    
+
                     return DropdownButtonFormField<String>(
                       value: selectedFarmerFilter,
                       decoration: InputDecoration(
@@ -4233,7 +4252,7 @@ class _ProductManagementContentState extends ConsumerState<_ProductManagementCon
                         ),
                         ...activeFarmers.map((farmer) => DropdownMenuItem(
                           value: farmer.id,
-                          child: Text(farmer.name),
+                          child: Text(farmer.effectiveName),
                         )),
                       ],
                       onChanged: (value) {
@@ -4245,20 +4264,53 @@ class _ProductManagementContentState extends ConsumerState<_ProductManagementCon
                   },
                   loading: () => const CircularProgressIndicator(),
                   error: (_, __) => const Text('Error loading farmers'),
-                ),
-              ),
-              const SizedBox(width: 16),
-              IconButton(
+                );
+
+              final clearButton = IconButton(
                 onPressed: () {
                   setState(() {
                     selectedCategoryFilter = null;
                     selectedFarmerFilter = null;
+                    productSearchQuery = '';
                   });
                 },
                 icon: const Icon(Icons.clear),
                 tooltip: 'Clear Filters',
-              ),
-            ],
+              );
+
+              final isNarrow = constraints.maxWidth < 800;
+
+              if (!isNarrow) {
+                return Row(
+                  children: [
+                    Expanded(child: searchField),
+                    const SizedBox(width: 16),
+                    Expanded(child: categoryFilter),
+                    const SizedBox(width: 16),
+                    Expanded(child: farmerFilter),
+                    const SizedBox(width: 16),
+                    clearButton,
+                  ],
+                );
+              }
+
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  searchField,
+                  const SizedBox(height: 12),
+                  categoryFilter,
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      Expanded(child: farmerFilter),
+                      const SizedBox(width: 8),
+                      clearButton,
+                    ],
+                  ),
+                ],
+              );
+            },
           ),
           const SizedBox(height: 24),
           
@@ -4301,7 +4353,18 @@ class _ProductManagementContentState extends ConsumerState<_ProductManagementCon
                     currentProducts.where((p) => p.farmerId == selectedFarmerFilter).toList()
                   );
                 }
-                
+                if (productSearchQuery.trim().isNotEmpty) {
+                  final query = productSearchQuery.trim().toLowerCase();
+                  final currentProducts = List<ProductModel>.from(filteredProducts);
+                  filteredProducts.clear();
+                  filteredProducts.addAll(
+                    currentProducts.where((p) =>
+                        p.name.toLowerCase().contains(query) ||
+                        p.displayName.toLowerCase().contains(query) ||
+                        p.category.toLowerCase().contains(query))
+                  );
+                }
+
                 // Calculate stats from filtered products
                 final totalProducts = filteredProducts.length;
                 final activeProducts = filteredProducts.where((p) => p.isActive).length;
@@ -4508,7 +4571,7 @@ class _ProductManagementContentState extends ConsumerState<_ProductManagementCon
                                                         createdBy: '',
                                                       ),
                                                     );
-                                                    farmerName = farmer.name;
+                                                    farmerName = farmer.effectiveName;
                                                   }
                                                   return Text(
                                                     '${product.name} • ${product.category} • ₹${product.price}/${product.unit}\nFarmer: $farmerName • Stock: ${product.stockQuantity}',

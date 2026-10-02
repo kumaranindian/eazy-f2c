@@ -80,7 +80,8 @@ class BillItemModel {
       'packet',
       'dozen',
       'unit',
-      'pcs'
+      'pcs',
+      'set'
     ];
     if (discreteUnits.contains(unitLower)) {
       return '${quantity.toInt()}';

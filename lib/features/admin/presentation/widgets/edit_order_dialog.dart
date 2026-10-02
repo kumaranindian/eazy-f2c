@@ -8,6 +8,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:f2c/features/customer/models/order_model.dart';
 import 'package:f2c/features/admin/models/product_model.dart';
 import 'package:f2c/features/admin/providers/product_providers.dart';
+import 'package:f2c/features/admin/providers/farmer_providers.dart';
 import 'package:f2c/features/customer/services/bill_service.dart';
 
 class EditOrderDialog extends ConsumerStatefulWidget {
@@ -22,6 +23,7 @@ class EditOrderDialog extends ConsumerStatefulWidget {
 class _EditOrderDialogState extends ConsumerState<EditOrderDialog> {
   late List<OrderItem> _items;
   bool _isSaving = false;
+  Map<String, String> _farmerNamesById = {};
 
   @override
   void initState() {
@@ -29,9 +31,24 @@ class _EditOrderDialogState extends ConsumerState<EditOrderDialog> {
     _items = List.from(widget.order.items);
   }
 
+  String? _resolveFarmerName(OrderItem item) {
+    if (item.farmerName != null && item.farmerName!.isNotEmpty) {
+      return item.farmerName;
+    }
+    if (item.farmerId != null) {
+      return _farmerNamesById[item.farmerId];
+    }
+    return null;
+  }
+
   @override
   Widget build(BuildContext context) {
     final productsAsync = ref.watch(productsStreamProvider);
+    ref.watch(farmersStreamProvider).whenData((farmers) {
+      _farmerNamesById = {
+        for (final farmer in farmers) farmer.id: farmer.effectiveName,
+      };
+    });
     final screenSize = MediaQuery.of(context).size;
     final isMobile = screenSize.width < 600;
     final horizontalInset = isMobile ? 16.0 : 40.0;
@@ -238,6 +255,7 @@ class _EditOrderDialogState extends ConsumerState<EditOrderDialog> {
     // A larger minimum tap target than the icons' visual size, so +/- are
     // comfortable to tap on a touch screen without changing their look.
     const stepButtonConstraints = BoxConstraints(minWidth: 40, minHeight: 40);
+    final farmerName = _resolveFarmerName(item);
 
     final productInfo = Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -257,14 +275,14 @@ class _EditOrderDialogState extends ConsumerState<EditOrderDialog> {
             color: Colors.grey[600],
           ),
         ),
-        if (item.farmerName != null) ...[
+        if (farmerName != null) ...[
           const SizedBox(height: 4),
           Row(
             children: [
               Icon(Icons.agriculture, size: 12, color: Colors.green[700]),
               const SizedBox(width: 4),
               Text(
-                item.farmerName!,
+                farmerName,
                 style: TextStyle(
                   fontSize: 11,
                   color: Colors.green[700],
@@ -472,7 +490,9 @@ class _EditOrderDialogState extends ConsumerState<EditOrderDialog> {
                   imageUrl: product.imageUrl ?? '',
                   quantity: quantity,
                   farmerId: product.farmerId,
-                  farmerName: null, // Will be populated from order context if needed
+                  farmerName: product.farmerId != null
+                      ? _farmerNamesById[product.farmerId]
+                      : null,
                 ));
               });
             },
@@ -518,9 +538,18 @@ class _EditOrderDialogState extends ConsumerState<EditOrderDialog> {
     try {
       final orderRef = FirebaseFirestore.instance.collection('orders').doc(widget.order.id);
       final currentUser = FirebaseAuth.instance.currentUser;
-      
+
+      // Backfill any missing farmer names from the farmers collection before
+      // persisting, so BillService never has to fall back to "Unknown" for
+      // an item whose farmerId we can actually resolve.
+      final resolvedItems = _items
+          .map((item) => item.farmerName == null || item.farmerName!.isEmpty
+              ? item.copyWith(farmerName: _resolveFarmerName(item))
+              : item)
+          .toList();
+
       final updatedOrder = widget.order.copyWith(
-        items: _items,
+        items: resolvedItems,
         totalAmount: _calculateSubtotal(),
       );
 

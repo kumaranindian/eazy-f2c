@@ -69,7 +69,8 @@ class _FarmerPackagingListPageState
       'packet',
       'dozen',
       'unit',
-      'pcs'
+      'pcs',
+      'set'
     ];
     if (discreteUnits.contains(unitLower)) {
       return '${quantity.toInt()}';
@@ -192,6 +193,16 @@ class _FarmerPackagingListPageState
         return;
       }
 
+      // Order items only carry the product's display name (stored under
+      // `productName`). Look up each product's raw/internal name by id so
+      // the export can show both names side by side.
+      final productsSnapshot =
+          await FirebaseFirestore.instance.collection('products').get();
+      final Map<String, String> rawProductNameById = {
+        for (final doc in productsSnapshot.docs)
+          doc.id: (doc.data()['name'] as String? ?? ''),
+      };
+
       // Group orders by farmer and schedule
       final Map<String, Map<String, Set<String>>> farmerScheduleOrders = {};
 
@@ -220,7 +231,7 @@ class _FarmerPackagingListPageState
 
       // CSV Header
       csvBuffer.writeln(
-          'Farmer Name,Farmer Location,Delivery Date,Schedule Name,Product Name,Product Category,Unit Quantity,Unit,Total Quantity,Total Orders,Total Items');
+          'Farmer Name,Farmer Location,Delivery Date,Schedule Name,Product Name,Product Display Name,Product Category,Unit Quantity,Unit,Total Quantity,Total Orders,Total Items');
 
       // Process each farmer
       for (final farmerId in farmerScheduleOrders.keys) {
@@ -252,6 +263,7 @@ class _FarmerPackagingListPageState
           final Map<String, String> productUnits = {};
           final Map<String, String> productNames = {};
           final Map<String, String> productCategories = {};
+          final Map<String, String> productIds = {};
 
           // Process only orders for this schedule
           for (final orderId in orderIds) {
@@ -268,6 +280,7 @@ class _FarmerPackagingListPageState
                   productUnits[key] = item.unit;
                   productNames[key] = item.productName;
                   productCategories[key] = item.productCategory;
+                  productIds[key] = item.productId;
                 }
                 // Add original ordered quantity (not affected by packaging variations)
                 productQuantities[key] =
@@ -280,7 +293,9 @@ class _FarmerPackagingListPageState
 
           // Write each product as a row
           for (final productKey in productQuantities.keys) {
-            final productName = productNames[productKey] ?? '';
+            final productDisplayName = productNames[productKey] ?? '';
+            final productName = rawProductNameById[productIds[productKey]] ??
+                productDisplayName;
             final productCategory = productCategories[productKey] ?? '';
             final aggregatedQuantity = productQuantities[productKey] ?? 0;
             final unit = productUnits[productKey] ?? '';
@@ -291,7 +306,7 @@ class _FarmerPackagingListPageState
             final totalQuantity = _formatQuantity(aggregatedQuantity, unit);
 
             csvBuffer.writeln(
-                '"$farmerName","$farmerLocation","$deliveryDateStr","$scheduleName","$productName","$productCategory",$unitQuantity,"$unit","$totalQuantity",$orderCount,$itemCount');
+                '"$farmerName","$farmerLocation","$deliveryDateStr","$scheduleName","$productName","$productDisplayName","$productCategory",$unitQuantity,"$unit","$totalQuantity",$orderCount,$itemCount');
           }
         }
       }
@@ -314,7 +329,7 @@ class _FarmerPackagingListPageState
       final StringBuffer summaryBuffer = StringBuffer();
       summaryBuffer.write('\uFEFF'); // BOM
       summaryBuffer.writeln(
-          'Farmer Name,Farmer Location,Delivery Date,Schedules,Product Name,Product Category,Unit Quantity,Unit,Total Quantity,Total Orders,Total Items');
+          'Farmer Name,Farmer Location,Delivery Date,Schedules,Product Name,Product Display Name,Product Category,Unit Quantity,Unit,Total Quantity,Total Orders,Total Items');
 
       // Group by farmer and delivery date
       final Map<String, Map<String, Map<String, dynamic>>> farmerDateSummary =
@@ -350,6 +365,7 @@ class _FarmerPackagingListPageState
               'productUnits': <String, String>{},
               'productNames': <String, String>{},
               'productCategories': <String, String>{},
+              'productIds': <String, String>{},
             };
           }
 
@@ -381,12 +397,16 @@ class _FarmerPackagingListPageState
                 final productCategories =
                     farmerDateSummary[farmerId]![dateKey]!['productCategories']
                         as Map<String, String>;
+                final productIds =
+                    farmerDateSummary[farmerId]![dateKey]!['productIds']
+                        as Map<String, String>;
 
                 if (!products.containsKey(key)) {
                   products[key] = 0;
                   productUnits[key] = item.unit;
                   productNames[key] = item.productName;
                   productCategories[key] = item.productCategory;
+                  productIds[key] = item.productId;
                 }
                 products[key] = (products[key] ?? 0) + item.quantity;
               }
@@ -411,12 +431,15 @@ class _FarmerPackagingListPageState
           final productNames = summary['productNames'] as Map<String, String>;
           final productCategories =
               summary['productCategories'] as Map<String, String>;
+          final productIds = summary['productIds'] as Map<String, String>;
 
           final totalOrders = orderIds.length;
           final totalItems = products.length;
 
           for (final productKey in products.keys) {
-            final productName = productNames[productKey] ?? '';
+            final productDisplayName = productNames[productKey] ?? '';
+            final productName = rawProductNameById[productIds[productKey]] ??
+                productDisplayName;
             final productCategory = productCategories[productKey] ?? '';
             final aggregatedQuantity = products[productKey] ?? 0;
             final unit = productUnits[productKey] ?? '';
@@ -427,7 +450,7 @@ class _FarmerPackagingListPageState
             final totalQuantity = _formatQuantity(aggregatedQuantity, unit);
 
             summaryBuffer.writeln(
-                '"$farmerName","$farmerLocation","$deliveryDateStr","$scheduleNames","$productName","$productCategory",$unitQuantity,"$unit","$totalQuantity",$totalOrders,$totalItems');
+                '"$farmerName","$farmerLocation","$deliveryDateStr","$scheduleNames","$productName","$productDisplayName","$productCategory",$unitQuantity,"$unit","$totalQuantity",$totalOrders,$totalItems');
           }
         }
       }

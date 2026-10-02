@@ -342,7 +342,8 @@ class _CustomerDashboardPageState extends ConsumerState<CustomerDashboardPage> {
       'packet',
       'dozen',
       'unit',
-      'pcs'
+      'pcs',
+      'set'
     ];
     final unitLower = unit.toLowerCase();
 

@@ -55,7 +55,8 @@ class CartItemModel with _$CartItemModel {
       'packet',
       'dozen',
       'unit',
-      'pcs'
+      'pcs',
+      'set'
     ];
     final unitLower = unit.toLowerCase();
 
