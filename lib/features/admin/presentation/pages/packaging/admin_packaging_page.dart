@@ -12,6 +12,7 @@ import 'package:f2c/features/customer/models/bill_model.dart';
 import 'package:f2c/features/customer/services/bill_service.dart';
 import 'package:f2c/features/admin/presentation/widgets/order_details_dialog.dart';
 import 'package:f2c/features/admin/providers/hub_providers.dart';
+import 'package:f2c/features/admin/providers/farmer_providers.dart';
 
 // Provider for packaging orders (confirmed and preparing status)
 final packagingOrdersProvider =
@@ -992,19 +993,20 @@ class _AdminPackagingPageState extends ConsumerState<AdminPackagingPage> {
 }
 
 // Packing Dialog (simplified - reuse from old file)
-class PackingDialog extends StatefulWidget {
+class PackingDialog extends ConsumerStatefulWidget {
   final OrderModel order;
 
   const PackingDialog({super.key, required this.order});
 
   @override
-  State<PackingDialog> createState() => _PackingDialogState();
+  ConsumerState<PackingDialog> createState() => _PackingDialogState();
 }
 
-class _PackingDialogState extends State<PackingDialog> {
+class _PackingDialogState extends ConsumerState<PackingDialog> {
   final Map<String, double> _packedQuantities = {};
   final Map<String, TextEditingController> _controllers = {};
   bool _isProcessing = false;
+  Map<String, String> _farmerNamesById = {};
 
   @override
   void initState() {
@@ -1017,6 +1019,16 @@ class _PackingDialogState extends State<PackingDialog> {
     }
   }
 
+  String? _resolveFarmerName(OrderItem item) {
+    if (item.farmerName != null && item.farmerName!.isNotEmpty) {
+      return item.farmerName;
+    }
+    if (item.farmerId != null) {
+      return _farmerNamesById[item.farmerId];
+    }
+    return null;
+  }
+
   @override
   void dispose() {
     for (var controller in _controllers.values) {
@@ -1027,6 +1039,11 @@ class _PackingDialogState extends State<PackingDialog> {
 
   @override
   Widget build(BuildContext context) {
+    ref.watch(farmersStreamProvider).whenData((farmers) {
+      _farmerNamesById = {
+        for (final farmer in farmers) farmer.id: farmer.effectiveName,
+      };
+    });
     final screenSize = MediaQuery.of(context).size;
     final isMobile = screenSize.width < 600;
     final horizontalInset = isMobile ? 16.0 : 40.0;
@@ -1185,10 +1202,35 @@ class _PackingDialogState extends State<PackingDialog> {
     );
   }
 
+  Widget _buildFarmerNameTag(String? farmerName) {
+    if (farmerName == null || farmerName.isEmpty) {
+      return const SizedBox.shrink();
+    }
+    return Padding(
+      padding: const EdgeInsets.only(top: 4),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.agriculture, size: 12, color: Colors.green[700]),
+          const SizedBox(width: 4),
+          Flexible(
+            child: Text(
+              farmerName,
+              style: TextStyle(fontSize: 11, color: Colors.green[700]),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildPackItemRow(OrderItem item, bool isMobile) {
     final orderedQty = item.quantity;
     final packedQty = _packedQuantities[item.productId] ?? orderedQty;
     final difference = packedQty - orderedQty;
+    final farmerName = _resolveFarmerName(item);
 
     // Shared with both the desktop 3-column layout and the mobile card
     // layout below, so the actual quantity-update logic exists in exactly
@@ -1260,6 +1302,7 @@ class _PackingDialogState extends State<PackingDialog> {
               '₹${item.price.toStringAsFixed(0)}/${item.unit}',
               style: TextStyle(fontSize: 12, color: Colors.grey[600]),
             ),
+            _buildFarmerNameTag(farmerName),
             const Divider(height: 20),
             _MobileQuantityLine(
               label: 'ORDERED',
@@ -1337,6 +1380,7 @@ class _PackingDialogState extends State<PackingDialog> {
             '₹${item.price.toStringAsFixed(0)}/${item.unit}',
             style: TextStyle(fontSize: 12, color: Colors.grey[600]),
           ),
+          _buildFarmerNameTag(farmerName),
           const SizedBox(height: 12),
           Row(
             children: [
