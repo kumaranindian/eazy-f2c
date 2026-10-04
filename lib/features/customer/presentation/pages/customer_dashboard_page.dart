@@ -210,16 +210,16 @@ class _CustomerDashboardPageState extends ConsumerState<CustomerDashboardPage> {
       return today;
     }
 
-    // For weekly and custom days schedules, find the next occurrence of the max day
+    // For weekly and custom days schedules, the last ordering day is the
+    // FURTHEST upcoming occurrence of any recurrence day — not the
+    // numerically largest day number. Using max() breaks windows that
+    // cross the week boundary (e.g. [7,1] = Sun+Mon, where Monday comes
+    // after Sunday but 1 < 7).
     if (schedule.recurrenceType == ScheduleRecurrenceType.weekly ||
         schedule.recurrenceType == ScheduleRecurrenceType.customDays) {
       if (schedule.recurrenceDaysOfWeek.isEmpty) {
         return schedule.scheduledDate;
       }
-
-      // Find the maximum day in recurrenceDaysOfWeek
-      final maxDay =
-          schedule.recurrenceDaysOfWeek.reduce((a, b) => a > b ? a : b);
 
       final scheduleDate = DateTime(
         schedule.scheduledDate.year,
@@ -228,18 +228,19 @@ class _CustomerDashboardPageState extends ConsumerState<CustomerDashboardPage> {
       );
 
       // Start from today or schedule start date, whichever is later
-      var checkDate = today.isBefore(scheduleDate) ? scheduleDate : today;
+      final startDate = today.isBefore(scheduleDate) ? scheduleDate : today;
 
-      // Look for the next occurrence of maxDay within the next 14 days
-      for (int i = 0; i < 14; i++) {
-        if (checkDate.weekday == maxDay) {
-          return checkDate;
+      // Furthest upcoming occurrence of any ordering day.
+      // Dart weekday: 1=Monday ... 7=Sunday; % result is non-negative.
+      var cutoffDate = startDate;
+      for (final day in schedule.recurrenceDaysOfWeek) {
+        final daysAhead = (day - startDate.weekday) % 7;
+        final occurrence = startDate.add(Duration(days: daysAhead));
+        if (occurrence.isAfter(cutoffDate)) {
+          cutoffDate = occurrence;
         }
-        checkDate = checkDate.add(const Duration(days: 1));
       }
-
-      // Fallback to scheduled date
-      return scheduleDate;
+      return cutoffDate;
     }
 
     return schedule.scheduledDate;

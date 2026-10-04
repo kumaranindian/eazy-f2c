@@ -4,11 +4,13 @@ import 'package:f2c/features/customer/models/schedule_cart_model.dart';
 import 'package:f2c/features/admin/models/operational_schedule_model.dart';
 
 /// Provider for managing multiple schedule-based carts
-final scheduleCartsProvider = StateNotifierProvider<ScheduleCartsNotifier, Map<String, ScheduleCartModel>>((ref) {
+final scheduleCartsProvider = StateNotifierProvider<ScheduleCartsNotifier,
+    Map<String, ScheduleCartModel>>((ref) {
   return ScheduleCartsNotifier();
 });
 
-class ScheduleCartsNotifier extends StateNotifier<Map<String, ScheduleCartModel>> {
+class ScheduleCartsNotifier
+    extends StateNotifier<Map<String, ScheduleCartModel>> {
   ScheduleCartsNotifier() : super({});
 
   /// Initialize or get cart for a specific schedule
@@ -44,23 +46,23 @@ class ScheduleCartsNotifier extends StateNotifier<Map<String, ScheduleCartModel>
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
 
-    // Find the maximum day in recurrenceDaysOfWeek (last ordering day)
     if (schedule.recurrenceDaysOfWeek.isEmpty) {
       // If no recurrence days, use today with end time
       return _parseDateTime(today, schedule.endTime);
     }
 
-    final maxDay = schedule.recurrenceDaysOfWeek.reduce((a, b) => a > b ? a : b);
-    
-    // Find next occurrence of max day
+    // The last ordering day is the FURTHEST upcoming occurrence of any
+    // recurrence day — not the numerically largest day number. Using max()
+    // breaks windows that cross the week boundary (e.g. [7,1] = Sun+Mon,
+    // where Monday comes after Sunday but 1 < 7).
+    // Dart weekday: 1=Monday ... 7=Sunday. Dart's % is always non-negative,
+    // so (1 - 7) % 7 = 1 correctly wraps Monday to the next day.
     DateTime cutoffDate = today;
-    for (int i = 0; i < 7; i++) {
-      final checkDate = today.add(Duration(days: i));
-      final weekday = checkDate.weekday; // 1=Monday, 7=Sunday
-      
-      if (weekday == maxDay) {
-        cutoffDate = checkDate;
-        break;
+    for (final day in schedule.recurrenceDaysOfWeek) {
+      final daysAhead = (day - today.weekday) % 7;
+      final occurrence = today.add(Duration(days: daysAhead));
+      if (occurrence.isAfter(cutoffDate)) {
+        cutoffDate = occurrence;
       }
     }
 
@@ -81,10 +83,10 @@ class ScheduleCartsNotifier extends StateNotifier<Map<String, ScheduleCartModel>
     for (int i = 0; i < 14; i++) {
       final checkDate = today.add(Duration(days: i));
       final weekday = checkDate.weekday; // 1=Monday, 7=Sunday
-      
+
       // Convert to 0-6 format (Sunday=0) to match deliveryDaysOfWeek
       final convertedWeekday = weekday == 7 ? 0 : weekday;
-      
+
       if (schedule.deliveryDaysOfWeek.contains(convertedWeekday)) {
         return checkDate;
       }
@@ -111,7 +113,7 @@ class ScheduleCartsNotifier extends StateNotifier<Map<String, ScheduleCartModel>
   /// Add item to a specific schedule's cart
   void addItem(OperationalScheduleModel schedule, CartItemModel item) {
     final cart = _getOrCreateCart(schedule);
-    
+
     // Check if cart can be modified
     if (!cart.canModify) {
       throw Exception('Cannot modify cart after cutoff time');
