@@ -22,12 +22,19 @@ class ScheduleCartsNotifier
     // Calculate cutoff date time
     final cutoffDateTime = _calculateCutoffDateTime(schedule);
 
+    // Delivery time slot: prefer the schedule's dedicated delivery
+    // window; fall back to the ordering window when not set.
+    final deliveryTime =
+        (schedule.deliveryStartTime != null && schedule.deliveryEndTime != null)
+            ? '${schedule.deliveryStartTime} - ${schedule.deliveryEndTime}'
+            : '${schedule.startTime} - ${schedule.endTime}';
+
     // Create new cart for this schedule
     final newCart = ScheduleCartModel(
       scheduleId: schedule.id,
       scheduleName: schedule.scheduleName,
       deliveryDate: _calculateDeliveryDate(schedule),
-      deliveryTime: '${schedule.startTime} - ${schedule.endTime}',
+      deliveryTime: deliveryTime,
       cutoffDateTime: cutoffDateTime,
       hubName: schedule.hubName,
       items: {},
@@ -70,29 +77,31 @@ class ScheduleCartsNotifier
     return _parseDateTime(cutoffDate, schedule.endTime);
   }
 
-  /// Calculate delivery date based on schedule's delivery days
+  /// Calculate delivery date based on schedule's delivery slot config
   DateTime _calculateDeliveryDate(OperationalScheduleModel schedule) {
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
 
-    if (schedule.deliveryDaysOfWeek.isEmpty) {
-      return schedule.scheduledDate;
+    // One-time delivery: use the explicit delivery date
+    if (schedule.deliverySlotType == ScheduleRecurrenceType.oneTime) {
+      return schedule.deliveryDate ?? schedule.scheduledDate;
     }
 
-    // Find next delivery day
-    for (int i = 0; i < 14; i++) {
-      final checkDate = today.add(Duration(days: i));
-      final weekday = checkDate.weekday; // 1=Monday, 7=Sunday
-
-      // Convert to 0-6 format (Sunday=0) to match deliveryDaysOfWeek
-      final convertedWeekday = weekday == 7 ? 0 : weekday;
-
-      if (schedule.deliveryDaysOfWeek.contains(convertedWeekday)) {
-        return checkDate;
+    // Weekly/custom delivery days: deliveryDaysOfWeek uses the same
+    // 1=Monday ... 7=Sunday convention as DateTime.weekday (the admin
+    // wizard stores 7 for Sunday). Do NOT convert to 0-6 — doing so
+    // makes Sunday deliveries never match and fall back to the wrong
+    // scheduledDate.
+    if (schedule.deliveryDaysOfWeek.isNotEmpty) {
+      for (int i = 0; i < 14; i++) {
+        final checkDate = today.add(Duration(days: i));
+        if (schedule.deliveryDaysOfWeek.contains(checkDate.weekday)) {
+          return checkDate;
+        }
       }
     }
 
-    return schedule.scheduledDate;
+    return schedule.deliveryDate ?? schedule.scheduledDate;
   }
 
   /// Parse time string and combine with date
