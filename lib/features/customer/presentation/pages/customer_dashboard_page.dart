@@ -49,19 +49,20 @@ class _CustomerDashboardPageState extends ConsumerState<CustomerDashboardPage> {
 
   // Get display string for delivery date based on schedule type
   String _getDeliveryDateDisplay(OperationalScheduleModel schedule) {
-    // For one-time schedules, show the full date
-    if (schedule.recurrenceType == ScheduleRecurrenceType.oneTime) {
+    // One-time delivery slot - show the actual delivery date
+    if (schedule.deliverySlotType == ScheduleRecurrenceType.oneTime) {
       final date = schedule.deliveryDate ?? schedule.scheduledDate;
       return DateFormat('EEE, dd MMM yyyy').format(date);
     }
 
-    // For recurring schedules (daily, weekly, custom days), show day(s) of week
-    if (schedule.recurrenceType == ScheduleRecurrenceType.daily) {
+    // Daily delivery slot
+    if (schedule.deliverySlotType == ScheduleRecurrenceType.daily) {
       return 'Every Day';
     }
 
-    if (schedule.recurrenceType == ScheduleRecurrenceType.weekly ||
-        schedule.recurrenceType == ScheduleRecurrenceType.customDays) {
+    // Weekly/custom delivery slot - show delivery day(s) of week
+    if (schedule.deliverySlotType == ScheduleRecurrenceType.weekly ||
+        schedule.deliverySlotType == ScheduleRecurrenceType.customDays) {
       final daysOfWeek = schedule.deliveryDaysOfWeek.isNotEmpty
           ? schedule.deliveryDaysOfWeek
           : schedule.recurrenceDaysOfWeek;
@@ -162,10 +163,8 @@ class _CustomerDashboardPageState extends ConsumerState<CustomerDashboardPage> {
 
       // Look for the next occurrence within the next 14 days (2 weeks to ensure we find it)
       for (int i = 0; i < 14; i++) {
-        // Convert weekday: DateTime uses 1-7 (Mon-Sun), but we store 0-6 (Sun-Sat) in deliveryDaysOfWeek
-        final checkWeekday = checkDate.weekday == 7
-            ? 0
-            : checkDate.weekday; // Convert Sunday from 7 to 0
+        // deliveryDaysOfWeek is stored as 1=Mon..7=Sun, same as DateTime.weekday
+        final checkWeekday = checkDate.weekday;
         print(
             'DEBUG: Checking day $i: checkDate=$checkDate, weekday=${checkDate.weekday}, converted=$checkWeekday, contains=${daysOfWeek.contains(checkWeekday)}');
         if (daysOfWeek.contains(checkWeekday)) {
