@@ -804,15 +804,37 @@ class _CheckoutPageNewState extends ConsumerState<CheckoutPageNew> {
         if (existingOrders != null && existingOrders.isNotEmpty) {
           final existingOrder = existingOrders.first;
           final orderRef = FirebaseFirestore.instance.collection('orders').doc(existingOrder.id);
-          
-          final updatedItems = existingOrder.items.where((i) => i.productId != item.productId).toList();
-          final newTotal = updatedItems.fold(0.0, (sum, i) => sum + i.totalPrice);
-          
-          await orderRef.update({
-            'items': updatedItems.map((i) => i.toJson()).toList(),
-            'totalAmount': newTotal,
+
+          // Remove from the order as currently persisted, not our local copy.
+          await FirebaseFirestore.instance.runTransaction((transaction) async {
+            final snapshot = await transaction.get(orderRef);
+            if (!snapshot.exists) {
+              throw Exception('Order no longer exists');
+            }
+            final currentOrder = OrderModel.fromFirestore(snapshot);
+            if (!currentOrder.isEditable) {
+              throw Exception('This order can no longer be edited');
+            }
+
+            final updatedOrder = currentOrder.copyWith(
+              items: currentOrder.items
+                  .where((i) => i.productId != item.productId)
+                  .toList(),
+            );
+
+            transaction.update(orderRef, {
+              'items': updatedOrder.items.map((i) => i.toJson()).toList(),
+              'totalAmount': updatedOrder.subtotal,
+              'updatedAt': FieldValue.serverTimestamp(),
+            });
           });
-          
+
+          // Bring the draft bill in line with the order we just saved.
+          await BillService().syncDraftBillWithOrder(
+            orderId: existingOrder.id,
+            updatedBy: existingOrder.customerId,
+          );
+
           // Reload orders
           await _loadExistingOrders();
           
@@ -1156,8 +1178,9 @@ class _CheckoutPageNewState extends ConsumerState<CheckoutPageNew> {
         throw Exception('Customer not found');
       }
 
-      final batch = FirebaseFirestore.instance.batch();
+      final firestore = FirebaseFirestore.instance;
       final now = DateTime.now();
+      final plans = <_CartOrderPlan>[];
 
       // Check for existing pending orders for each schedule
       for (final cart in carts) {
@@ -1205,146 +1228,166 @@ class _CheckoutPageNewState extends ConsumerState<CheckoutPageNew> {
             })
             .toList();
 
-        if (existingOrders.isNotEmpty) {
-          // Merge with existing order
-          final existingOrder = existingOrders.first;
-          final orderRef = FirebaseFirestore.instance.collection('orders').doc(existingOrder.id);
-
-          // Merge items - combine quantities if same product, add new items
-          final Map<String, OrderItem> mergedItems = {};
-          
-          // Add existing items
-          for (final item in existingOrder.items) {
-            mergedItems[item.productId] = item;
-          }
-          
-          // Add/merge new items
-          for (final cartItem in cart.items.values) {
-            if (mergedItems.containsKey(cartItem.productId)) {
-              // Same product - add quantities
-              final existingItem = mergedItems[cartItem.productId]!;
-              mergedItems[cartItem.productId] = existingItem.copyWith(
-                quantity: existingItem.quantity + cartItem.quantity,
-              );
-            } else {
-              // New product - add to order
-              mergedItems[cartItem.productId] = OrderItem(
-                productId: cartItem.productId,
-                productName: cartItem.productName,
-                productCategory: cartItem.productCategory,
-                price: cartItem.price,
-                unit: cartItem.unit,
-                imageUrl: cartItem.imageUrl,
-                quantity: cartItem.quantity,
-                farmerId: cartItem.farmerId,
-                farmerName: cartItem.farmerName,
-              );
-            }
-          }
-
-          // Calculate new total
-          final newTotal = mergedItems.values.fold(
-            0.0,
-            (sum, item) => sum + item.totalPrice,
-          );
-
-          // Update existing order (keep existing charges, don't override)
-          final updatedOrder = existingOrder.copyWith(
-            items: mergedItems.values.toList(),
-            totalAmount: newTotal,
-            deliveryInstructions: _deliveryInstructionsController.text.trim().isEmpty
-                ? existingOrder.deliveryInstructions
-                : _deliveryInstructionsController.text.trim(),
-            // Charges remain the same from existing order
-          );
-
-          batch.update(orderRef, updatedOrder.toFirestore());
-        } else {
-          // Create new order
-          final orderRef = FirebaseFirestore.instance.collection('orders').doc();
-
-          final order = OrderModel(
-            id: orderRef.id,
-            customerId: customer.id,
-            customerName: customer.name,
-            customerEmail: customer.email,
-            apartmentId: customer.apartmentId,
-            apartmentName: customer.apartmentName,
-            scheduleId: cart.scheduleId,
-            scheduleName: cart.scheduleName,
-            deliveryDate: cart.deliveryDate,
-            deliveryTimeSlot: cart.deliveryTime,
-            cutoffDateTime: cart.cutoffDateTime,
-            hubName: cart.hubName,
-            items: cart.items.values
-                .map((item) => OrderItem(
-                      productId: item.productId,
-                      productName: item.productName,
-                      productCategory: item.productCategory,
-                      price: item.price,
-                      unit: item.unit,
-                      imageUrl: item.imageUrl,
-                      quantity: item.quantity,
-                      farmerId: item.farmerId,
-                      farmerName: item.farmerName,
-                    ))
-                .toList(),
-            totalAmount: cart.totalAmount,
-            status: OrderStatus.pending,
-            createdAt: now,
-            scheduledDate: cart.deliveryDate,
-            deliveryInstructions: _deliveryInstructionsController.text.trim().isEmpty
-                ? null
-                : _deliveryInstructionsController.text.trim(),
-            paymentMethod: _paymentMethod,
-            paymentStatus: _paymentMethod == 'cash_on_delivery' ? 'pending' : 'paid',
-            canEdit: true,
-            // Add charges from schedule
+        plans.add(
+          _CartOrderPlan(
+            cart: cart,
+            orderRef: existingOrders.isNotEmpty
+                ? firestore.collection('orders').doc(existingOrders.first.id)
+                : firestore.collection('orders').doc(),
+            mergeIntoExisting: existingOrders.isNotEmpty,
             deliveryCharges: deliveryCharges,
             cleaningCharges: cleaningCharges,
-          );
-
-          batch.set(orderRef, order.toFirestore());
-        }
+          ),
+        );
       }
 
-      await batch.commit();
+      // Merge into existing orders inside a transaction so the merge is
+      // applied to the order as it is persisted right now (not the copy we
+      // queried above), and concurrent edits can't be overwritten.
+      await firestore.runTransaction((transaction) async {
+        final existingSnapshots = <String, DocumentSnapshot>{};
+        for (final plan in plans.where((p) => p.mergeIntoExisting)) {
+          existingSnapshots[plan.orderRef.id] =
+              await transaction.get(plan.orderRef);
+        }
 
-      // Generate bills for all new orders
-      final billService = BillService();
-      final userId = customer.id; // Use customer ID as generated by
-      
-      for (final cart in carts) {
-        // Find the order we just created/updated
-        final ordersSnapshot = await FirebaseFirestore.instance
-            .collection('orders')
-            .where('customerId', isEqualTo: customer.id)
-            .where('scheduleId', isEqualTo: cart.scheduleId)
-            .where('deliveryDate', isEqualTo: Timestamp.fromDate(cart.deliveryDate))
-            .where('status', isEqualTo: 'pending')
-            .limit(1)
-            .get();
-        
-        if (ordersSnapshot.docs.isNotEmpty) {
-          final orderDoc = ordersSnapshot.docs.first;
-          final order = OrderModel.fromFirestore(orderDoc);
-          
-          // Check if bill already exists
-          final existingBill = await billService.getBillByOrderId(order.id);
-          
-          if (existingBill == null) {
-            // Generate new bill
-            await billService.generateBillFromOrder(
-              order: order,
-              customerName: customer.name,
-              customerPhone: customer.phone,
-              customerEmail: customer.email,
-              customerAddress: '${customer.apartmentName}',
-              scheduleName: cart.scheduleName,
-              generatedBy: userId,
+        for (final plan in plans) {
+          final cart = plan.cart;
+          final orderRef = plan.orderRef;
+
+          if (plan.mergeIntoExisting) {
+            final snapshot = existingSnapshots[orderRef.id]!;
+            if (!snapshot.exists) {
+              throw Exception(
+                'Your existing order for ${cart.scheduleName} no longer exists. Please try again.',
+              );
+            }
+            final existingOrder = OrderModel.fromFirestore(snapshot);
+            if (!existingOrder.isEditable) {
+              throw Exception(
+                'Your existing order for ${cart.scheduleName} can no longer be edited.',
+              );
+            }
+
+            // Merge items - combine quantities if same product, add new items
+            final Map<String, OrderItem> mergedItems = {};
+
+            // Add existing items
+            for (final item in existingOrder.items) {
+              mergedItems[item.productId] = item;
+            }
+
+            // Add/merge new items
+            for (final cartItem in cart.items.values) {
+              if (mergedItems.containsKey(cartItem.productId)) {
+                // Same product - add quantities
+                final existingItem = mergedItems[cartItem.productId]!;
+                mergedItems[cartItem.productId] = existingItem.copyWith(
+                  quantity: existingItem.quantity + cartItem.quantity,
+                );
+              } else {
+                // New product - add to order
+                mergedItems[cartItem.productId] = OrderItem(
+                  productId: cartItem.productId,
+                  productName: cartItem.productName,
+                  productCategory: cartItem.productCategory,
+                  price: cartItem.price,
+                  unit: cartItem.unit,
+                  imageUrl: cartItem.imageUrl,
+                  quantity: cartItem.quantity,
+                  farmerId: cartItem.farmerId,
+                  farmerName: cartItem.farmerName,
+                );
+              }
+            }
+
+            // Update existing order (keep existing charges, don't override)
+            final mergedOrder = existingOrder.copyWith(
+              items: mergedItems.values.toList(),
+              deliveryInstructions: _deliveryInstructionsController.text.trim().isEmpty
+                  ? existingOrder.deliveryInstructions
+                  : _deliveryInstructionsController.text.trim(),
             );
+            final updatedOrder =
+                mergedOrder.copyWith(totalAmount: mergedOrder.subtotal);
+
+            transaction.update(
+              orderRef,
+              updatedOrder.toFirestore()
+                ..['updatedAt'] = FieldValue.serverTimestamp(),
+            );
+          } else {
+            // Create new order
+            final order = OrderModel(
+              id: orderRef.id,
+              customerId: customer.id,
+              customerName: customer.name,
+              customerEmail: customer.email,
+              apartmentId: customer.apartmentId,
+              apartmentName: customer.apartmentName,
+              scheduleId: cart.scheduleId,
+              scheduleName: cart.scheduleName,
+              deliveryDate: cart.deliveryDate,
+              deliveryTimeSlot: cart.deliveryTime,
+              cutoffDateTime: cart.cutoffDateTime,
+              hubName: cart.hubName,
+              items: cart.items.values
+                  .map((item) => OrderItem(
+                        productId: item.productId,
+                        productName: item.productName,
+                        productCategory: item.productCategory,
+                        price: item.price,
+                        unit: item.unit,
+                        imageUrl: item.imageUrl,
+                        quantity: item.quantity,
+                        farmerId: item.farmerId,
+                        farmerName: item.farmerName,
+                      ))
+                  .toList(),
+              totalAmount: cart.totalAmount,
+              status: OrderStatus.pending,
+              createdAt: now,
+              scheduledDate: cart.deliveryDate,
+              deliveryInstructions: _deliveryInstructionsController.text.trim().isEmpty
+                  ? null
+                  : _deliveryInstructionsController.text.trim(),
+              paymentMethod: _paymentMethod,
+              paymentStatus: _paymentMethod == 'cash_on_delivery' ? 'pending' : 'paid',
+              canEdit: true,
+              // Add charges from schedule
+              deliveryCharges: plan.deliveryCharges,
+              cleaningCharges: plan.cleaningCharges,
+            );
+
+            transaction.set(orderRef, order.toFirestore());
           }
         }
+      });
+
+      // Generate a bill for new orders, and bring the draft bill of merged
+      // orders up to date with the order that was just committed.
+      final billService = BillService();
+      final userId = customer.id; // Use customer ID as generated by
+
+      for (final plan in plans) {
+        final existingBill = await billService.syncDraftBillWithOrder(
+          orderId: plan.orderRef.id,
+          updatedBy: userId,
+        );
+        if (existingBill != null) continue;
+
+        final orderDoc = await plan.orderRef.get();
+        if (!orderDoc.exists) continue;
+
+        await billService.generateBillFromOrder(
+          order: OrderModel.fromFirestore(orderDoc),
+          customerName: customer.name,
+          customerPhone: customer.phone,
+          customerEmail: customer.email,
+          customerAddress: '${customer.apartmentName}',
+          scheduleName: plan.cart.scheduleName,
+          generatedBy: userId,
+        );
       }
 
       // Clear the carts
@@ -1487,4 +1530,22 @@ class _CheckoutPageNewState extends ConsumerState<CheckoutPageNew> {
       }
     }
   }
+}
+
+/// Where a schedule cart's items will be written during checkout: merged into
+/// an existing editable order, or into a newly created one.
+class _CartOrderPlan {
+  final ScheduleCartModel cart;
+  final DocumentReference<Map<String, dynamic>> orderRef;
+  final bool mergeIntoExisting;
+  final double deliveryCharges;
+  final double cleaningCharges;
+
+  const _CartOrderPlan({
+    required this.cart,
+    required this.orderRef,
+    required this.mergeIntoExisting,
+    required this.deliveryCharges,
+    required this.cleaningCharges,
+  });
 }

@@ -2,6 +2,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:intl/intl.dart';
 import 'package:f2c/features/customer/models/order_model.dart';
 import 'package:f2c/features/customer/services/bill_service.dart';
@@ -535,7 +536,11 @@ class OrderDetailsDialog extends StatelessWidget {
   Future<void> _viewBill(BuildContext context) async {
     try {
       final billService = BillService();
-      final bill = await billService.getBillByOrderId(order.id);
+      // Refresh a draft bill from the persisted order; final bills are kept as-is.
+      final bill = await billService.syncDraftBillWithOrder(
+        orderId: order.id,
+        updatedBy: FirebaseAuth.instance.currentUser?.uid ?? 'admin',
+      );
       
       if (bill == null) {
         if (!context.mounted) return;

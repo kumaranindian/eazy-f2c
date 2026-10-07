@@ -5,8 +5,8 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
 import 'package:f2c/features/customer/providers/customer_providers.dart';
 import 'package:f2c/features/customer/models/order_model.dart';
-import 'package:f2c/features/customer/models/bill_model.dart';
 import 'package:f2c/features/customer/presentation/widgets/bill_view_dialog.dart';
+import 'package:f2c/features/customer/services/bill_service.dart';
 
 // Provider for customer orders
 final customerOrdersProvider =
@@ -321,7 +321,7 @@ class _OrderHistoryPageNewState extends ConsumerState<OrderHistoryPageNew> {
                   ),
                   const Spacer(),
                   Text(
-                    '₹${order.totalAmount.toStringAsFixed(2)}',
+                    '₹${order.grandTotal.toStringAsFixed(2)}',
                     style: const TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.bold,
@@ -510,7 +510,7 @@ class _OrderHistoryPageNewState extends ConsumerState<OrderHistoryPageNew> {
                       _buildDetailRow('Payment Status',
                           order.paymentStatus?.toUpperCase() ?? 'N/A'),
                       _buildDetailRow('Total Amount',
-                          '₹${order.totalAmount.toStringAsFixed(2)}',
+                          '₹${order.grandTotal.toStringAsFixed(2)}',
                           isBold: true),
                     ]),
                     if (order.deliveryInstructions != null) ...[
@@ -561,14 +561,14 @@ class _OrderHistoryPageNewState extends ConsumerState<OrderHistoryPageNew> {
 
   Future<void> _viewBill(OrderModel order) async {
     try {
-      // Fetch bill from Firestore
-      final billDoc = await FirebaseFirestore.instance
-          .collection('bills')
-          .where('orderId', isEqualTo: order.id)
-          .limit(1)
-          .get();
+      // A draft bill is re-derived from the persisted order first, so the
+      // invoice always reflects the latest edits. Final bills are untouched.
+      final bill = await BillService().syncDraftBillWithOrder(
+        orderId: order.id,
+        updatedBy: order.customerId,
+      );
 
-      if (billDoc.docs.isEmpty) {
+      if (bill == null) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
@@ -579,8 +579,6 @@ class _OrderHistoryPageNewState extends ConsumerState<OrderHistoryPageNew> {
         }
         return;
       }
-
-      final bill = BillModel.fromFirestore(billDoc.docs.first);
 
       if (mounted) {
         Navigator.pop(context); // Close order details

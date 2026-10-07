@@ -57,6 +57,7 @@ Firestore collection names are centralized in `FirestoreCollections` (`lib/core/
 
 ## Known repo quirks
 
-- Several `presentation/pages/` files are dead code left over from past rewrites, e.g. `customer_dashboard_page_old.dart`, `customer_dashboard_page_backup_20260924_083656.dart`, `checkout_page_new.dart`, `order_history_page_new.dart`. None are imported by `app_router.dart` or anything else — confirm what `app_router.dart` actually wires up before assuming a `*_page.dart` file is live, and don't edit the `_old`/`_backup`/`_new` variants expecting them to take effect.
+- Several `presentation/pages/` files are dead code left over from past rewrites, e.g. `customer_dashboard_page_old.dart`, `customer_dashboard_page_backup_20260924_083656.dart`, `checkout_page.dart`, `order_history_page.dart`. Nothing imports them, so don't edit them expecting the change to take effect.
+- The `_new` suffix does NOT mean unused: the live customer flow is `customer_dashboard_page.dart` → `cart_page.dart` → `checkout_page_new.dart`, and `customer_dashboard_page.dart` → `order_history_page_new.dart`. Many pages are reached through imports from other pages, not from `app_router.dart`, so grep for imports before deciding whether a page is live.
 - The repository root has many dated `*_COMPLETE.md`/`*_FIX.md`/etc. files documenting past feature work; they are historical notes, not current specs — prefer reading the actual code/tests over these when they might be stale.
 - `analysis_options.yaml` enforces `always_use_package_imports`, `require_trailing_commas`, `prefer_single_quotes`, `avoid_print`, and several `unawaited_futures`/`cancel_subscriptions`/`close_sinks` resource-safety rules — run `flutter analyze` after non-trivial changes.
