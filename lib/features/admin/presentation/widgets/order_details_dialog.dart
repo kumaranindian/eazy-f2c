@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:intl/intl.dart';
+import 'package:f2c/core/widgets/farmer_group_header.dart';
 import 'package:f2c/features/customer/models/order_model.dart';
 import 'package:f2c/features/customer/services/bill_service.dart';
 import 'package:f2c/features/customer/presentation/widgets/bill_view_dialog.dart';
@@ -484,11 +485,13 @@ class OrderDetailsDialog extends StatelessWidget {
   Widget _buildOrderItems() {
     return Container(
       constraints: const BoxConstraints(maxHeight: 200),
-      child: ListView.builder(
+      child: ListView(
         shrinkWrap: true,
-        itemCount: order.items.length,
-        itemBuilder: (context, index) {
-          final item = order.items[index];
+        children: buildFarmerGroupedWidgets(
+          order.items,
+          farmerIdOf: (item) => item.farmerId,
+          farmerNameOf: (item) => item.farmerName,
+          itemBuilder: (item, _) {
           return Container(
             padding: const EdgeInsets.all(12),
             margin: const EdgeInsets.only(bottom: 8),
@@ -528,7 +531,8 @@ class OrderDetailsDialog extends StatelessWidget {
               ],
             ),
           );
-        },
+          },
+        ),
       ),
     );
   }

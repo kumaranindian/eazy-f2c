@@ -7,6 +7,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:f2c/features/customer/models/order_model.dart';
 import 'package:f2c/features/admin/models/product_model.dart';
+import 'package:f2c/features/admin/utils/order_item_utils.dart';
 import 'package:f2c/features/admin/providers/product_providers.dart';
 import 'package:f2c/features/admin/providers/farmer_providers.dart';
 import 'package:f2c/features/customer/services/bill_service.dart';
@@ -481,19 +482,17 @@ class _EditOrderDialogState extends ConsumerState<EditOrderDialog> {
             products: products,
             onProductAdded: (product, quantity) {
               setState(() {
-                _items.add(OrderItem(
-                  productId: product.id,
-                  productName: product.name,
-                  productCategory: product.category,
-                  price: product.price,
-                  unit: product.unit,
-                  imageUrl: product.imageUrl ?? '',
-                  quantity: quantity,
-                  farmerId: product.farmerId,
+                final updated = addProductToOrderItems(
+                  _items,
+                  product,
+                  quantity,
                   farmerName: product.farmerId != null
                       ? _farmerNamesById[product.farmerId]
                       : null,
-                ));
+                );
+                _items
+                  ..clear()
+                  ..addAll(updated);
               });
             },
           ),
@@ -612,7 +611,9 @@ class _AddProductDialogState extends State<_AddProductDialog> {
   Widget build(BuildContext context) {
     final filteredProducts = widget.products.where((product) {
       if (_searchQuery.isEmpty) return true;
-      return product.name.toLowerCase().contains(_searchQuery.toLowerCase()) ||
+      final query = _searchQuery.toLowerCase();
+      return product.displayName.toLowerCase().contains(query) ||
+             product.name.toLowerCase().contains(query) ||
              product.category.toLowerCase().contains(_searchQuery.toLowerCase());
     }).toList();
 
@@ -711,7 +712,7 @@ class _AddProductDialogState extends State<_AddProductDialog> {
                               ),
                               child: const Icon(Icons.shopping_bag),
                             ),
-                      title: Text(product.name),
+                      title: Text(product.displayName),
                       subtitle: Text('${product.category} • ₹${product.price.toStringAsFixed(2)}/${product.unit}'),
                       trailing: isSelected
                           ? const Icon(Icons.check_circle, color: Color(0xFF4CAF50))
@@ -737,7 +738,7 @@ class _AddProductDialogState extends State<_AddProductDialog> {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Text(
-                      _selectedProduct!.name,
+                      _selectedProduct!.displayName,
                       style: const TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.bold,
