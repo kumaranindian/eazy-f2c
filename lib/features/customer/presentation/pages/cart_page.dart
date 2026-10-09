@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:f2c/core/widgets/farmer_group_header.dart';
 import 'package:f2c/core/utils/image_url_helper.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
@@ -206,13 +207,18 @@ class CartPage extends ConsumerWidget {
             ],
           ),
           children: [
-            ...cart.items.values.map((item) => _buildCartItem(
-                  context,
-                  ref,
-                  cart.scheduleId,
-                  item,
-                  canModify,
-                )),
+            ...buildFarmerGroupedWidgets(
+              cart.items.values,
+              farmerIdOf: (item) => item.farmerId,
+              farmerNameOf: (item) => item.farmerName,
+              itemBuilder: (item, _) => _buildCartItem(
+                context,
+                ref,
+                cart.scheduleId,
+                item,
+                canModify,
+              ),
+            ),
             if (canModify) ...[
               const Divider(),
               Row(

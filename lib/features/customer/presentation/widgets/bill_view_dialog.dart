@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:f2c/core/widgets/farmer_group_header.dart';
 import 'package:f2c/features/customer/models/bill_model.dart';
 import 'package:f2c/features/customer/services/pdf_service.dart';
 
@@ -289,11 +290,12 @@ class BillViewDialog extends StatelessWidget {
           child: Column(
             children: [
               _buildTableHeader(),
-              ...bill.items.asMap().entries.map((entry) {
-                final index = entry.key;
-                final item = entry.value;
-                return _buildTableRow(item, index);
-              }),
+              ...buildFarmerGroupedWidgets(
+                bill.items,
+                farmerIdOf: (item) => item.farmerId,
+                farmerNameOf: (item) => item.farmerName,
+                itemBuilder: (item, index) => _buildTableRow(item, index),
+              ),
             ],
           ),
         ),

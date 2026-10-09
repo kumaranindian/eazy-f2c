@@ -202,6 +202,10 @@ class _FarmerPackagingListPageState
         for (final doc in productsSnapshot.docs)
           doc.id: (doc.data()['name'] as String? ?? ''),
       };
+      final Map<String, String> catalogueDisplayNameById = {
+        for (final doc in productsSnapshot.docs)
+          doc.id: (doc.data()['displayName'] as String? ?? ''),
+      };
 
       // Group orders by farmer and schedule
       final Map<String, Map<String, Set<String>>> farmerScheduleOrders = {};
@@ -274,7 +278,7 @@ class _FarmerPackagingListPageState
             for (final item in order.items) {
               if (item.farmerId == farmerId) {
                 final key =
-                    '${item.productName}_${item.unit}_${item.productCategory}';
+                    '${item.productId}_${item.unit}_${item.productCategory}';
                 if (!productQuantities.containsKey(key)) {
                   productQuantities[key] = 0;
                   productUnits[key] = item.unit;
@@ -293,7 +297,13 @@ class _FarmerPackagingListPageState
 
           // Write each product as a row
           for (final productKey in productQuantities.keys) {
-            final productDisplayName = productNames[productKey] ?? '';
+            final snapshotName = productNames[productKey] ?? '';
+            final catalogueDisplayName =
+                catalogueDisplayNameById[productIds[productKey]];
+            final productDisplayName =
+                (catalogueDisplayName?.isNotEmpty ?? false)
+                    ? catalogueDisplayName!
+                    : snapshotName;
             final productName = rawProductNameById[productIds[productKey]] ??
                 productDisplayName;
             final productCategory = productCategories[productKey] ?? '';
@@ -384,7 +394,7 @@ class _FarmerPackagingListPageState
             for (final item in order.items) {
               if (item.farmerId == farmerId) {
                 final key =
-                    '${item.productName}_${item.unit}_${item.productCategory}';
+                    '${item.productId}_${item.unit}_${item.productCategory}';
                 final products =
                     farmerDateSummary[farmerId]![dateKey]!['products']
                         as Map<String, double>;
@@ -437,7 +447,13 @@ class _FarmerPackagingListPageState
           final totalItems = products.length;
 
           for (final productKey in products.keys) {
-            final productDisplayName = productNames[productKey] ?? '';
+            final snapshotName = productNames[productKey] ?? '';
+            final catalogueDisplayName =
+                catalogueDisplayNameById[productIds[productKey]];
+            final productDisplayName =
+                (catalogueDisplayName?.isNotEmpty ?? false)
+                    ? catalogueDisplayName!
+                    : snapshotName;
             final productName = rawProductNameById[productIds[productKey]] ??
                 productDisplayName;
             final productCategory = productCategories[productKey] ?? '';
@@ -716,7 +732,7 @@ class _FarmerPackagingListPageState
             for (final item in order.items) {
               if (item.farmerId == farmerId) {
                 final key =
-                    '${item.productName}_${item.unit}_${item.productCategory}';
+                    '${item.productId}_${item.unit}_${item.productCategory}';
                 if (!scheduleProductQuantities[scheduleKey]!.containsKey(key)) {
                   scheduleProductQuantities[scheduleKey]![key] = 0;
                   scheduleProductUnits[scheduleKey]![key] = item.unit;

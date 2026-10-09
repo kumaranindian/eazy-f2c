@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
+import 'package:f2c/core/widgets/farmer_group_header.dart';
 import 'package:f2c/core/shared/logger/app_logger.dart';
 import 'package:f2c/core/widgets/responsive_data_table.dart';
 import 'package:f2c/core/widgets/responsive_stat_cards_row.dart';
@@ -1138,13 +1139,15 @@ class _PackingDialogState extends ConsumerState<PackingDialog> {
               ),
               const SizedBox(height: 16),
               Flexible(
-                child: ListView.builder(
+                child: ListView(
                   shrinkWrap: true,
-                  itemCount: widget.order.items.length,
-                  itemBuilder: (context, index) {
-                    final item = widget.order.items[index];
-                    return _buildPackItemRow(item, isMobile);
-                  },
+                  children: buildFarmerGroupedWidgets(
+                    widget.order.items,
+                    farmerIdOf: (item) => item.farmerId,
+                    farmerNameOf: _resolveFarmerName,
+                    itemBuilder: (item, _) =>
+                        _buildPackItemRow(item, isMobile),
+                  ),
                 ),
               ),
               const SizedBox(height: 16),

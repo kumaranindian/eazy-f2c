@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:f2c/core/shared/utils/farmer_grouping.dart';
 import 'package:f2c/features/customer/models/order_model.dart';
 import 'package:f2c/features/customer/models/bill_model.dart';
 import 'package:f2c/features/customer/services/bill_service.dart';
@@ -106,8 +107,16 @@ class WhatsAppNotificationService {
     
     // Items
     message.writeln('🛒 *Items:*');
-    for (var item in order.items) {
-      message.writeln('• ${item.productName} - ${item.quantity} ${item.unit}');
+    for (final group in groupByFarmer<OrderItem>(
+      order.items,
+      farmerIdOf: (item) => item.farmerId,
+      farmerNameOf: (item) => item.farmerName,
+    )) {
+      message.writeln('_${group.farmerName}_');
+      for (final item in group.items) {
+        message
+            .writeln('• ${item.productName} - ${item.quantity} ${item.unit}');
+      }
     }
     message.writeln('');
     

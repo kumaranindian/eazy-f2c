@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:f2c/core/widgets/farmer_group_header.dart';
 import 'package:f2c/core/utils/image_url_helper.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -501,7 +502,12 @@ class _OrderHistoryPageNewState extends ConsumerState<OrderHistoryPageNew> {
                     ]),
                     const SizedBox(height: 24),
                     _buildDetailSection('Items (${order.items.length})', [
-                      ...order.items.map((item) => _buildOrderItem(item)),
+                      ...buildFarmerGroupedWidgets(
+                        order.items,
+                        farmerIdOf: (item) => item.farmerId,
+                        farmerNameOf: (item) => item.farmerName,
+                        itemBuilder: (item, _) => _buildOrderItem(item),
+                      ),
                     ]),
                     const SizedBox(height: 24),
                     _buildDetailSection('Payment', [

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:f2c/core/widgets/farmer_group_header.dart';
 import 'package:f2c/features/customer/models/order_model.dart';
 import 'package:f2c/features/customer/providers/schedule_cart_provider.dart';
 import 'package:f2c/features/customer/providers/customer_providers.dart';
@@ -513,7 +514,13 @@ class _CheckoutPageNewState extends ConsumerState<CheckoutPageNew> {
                     ],
                   ),
                   const SizedBox(height: 12),
-                  ...existingOrder.items.map((item) => _buildExistingItemRow(item, cart)),
+                  ...buildFarmerGroupedWidgets(
+                    existingOrder.items,
+                    farmerIdOf: (item) => item.farmerId,
+                    farmerNameOf: (item) => item.farmerName,
+                    itemBuilder: (item, _) =>
+                        _buildExistingItemRow(item, cart),
+                  ),
                 ],
               ),
             ),
@@ -546,7 +553,12 @@ class _CheckoutPageNewState extends ConsumerState<CheckoutPageNew> {
                   ],
                 ),
                 const SizedBox(height: 12),
-                ...cart.items.values.map((item) => _buildCartItemRow(item, cart)),
+                ...buildFarmerGroupedWidgets(
+                  cart.items.values,
+                  farmerIdOf: (item) => item.farmerId,
+                  farmerNameOf: (item) => item.farmerName,
+                  itemBuilder: (item, _) => _buildCartItemRow(item, cart),
+                ),
               ],
             ),
           ),

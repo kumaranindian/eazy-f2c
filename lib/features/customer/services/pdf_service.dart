@@ -1,5 +1,6 @@
 import 'dart:html' as html;
 import 'package:intl/intl.dart';
+import 'package:f2c/core/shared/utils/farmer_grouping.dart';
 import 'package:f2c/features/customer/models/bill_model.dart';
 
 class PdfService {
@@ -393,9 +394,26 @@ class PdfService {
   }
 
   String _generateItemsHtml(BillModel bill) {
-    return bill.items.asMap().entries.map((entry) {
-      final index = entry.key;
-      final item = entry.value;
+    final columnCount = bill.hasVariations ? 6 : 5;
+    final buffer = StringBuffer();
+    var index = 0;
+    for (final group in groupByFarmer<BillItemModel>(
+      bill.items,
+      farmerIdOf: (item) => item.farmerId,
+      farmerNameOf: (item) => item.farmerName,
+    )) {
+      buffer.write('''
+        <tr>
+          <td colspan="$columnCount" style="background: #e8f5e9; font-weight: bold; color: #2e7d32;">Farmer: ${group.farmerName}</td>
+        </tr>''');
+      for (final item in group.items) {
+        buffer.write(_generateItemRowHtml(bill, item, index++));
+      }
+    }
+    return buffer.toString();
+  }
+
+  String _generateItemRowHtml(BillModel bill, BillItemModel item, int index) {
 
       // Determine if ordered quantity should be struck through
       final orderedStyle = item.hasVariation
@@ -420,6 +438,5 @@ class PdfService {
           <td style="text-align: right;"><strong>₹${item.finalAmount.toStringAsFixed(2)}</strong></td>
         </tr>
       ''';
-    }).join('\n');
   }
 }
