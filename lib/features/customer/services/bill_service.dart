@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:f2c/features/customer/models/bill_model.dart';
 import 'package:f2c/features/customer/models/order_model.dart';
+import 'package:f2c/features/customer/services/billing_calculator.dart';
 import 'package:intl/intl.dart';
 
 class BillService {
@@ -81,44 +82,113 @@ class BillService {
     return bill.copyWith(billId: docRef.id);
   }
 
-  /// Update bill with packaging variations
+  /// Bill lines for a finalized order. [billable] maps productId to the
+  /// approved final quantity. Ordered values are preserved from [existing]
+  /// bill lines when present, otherwise taken from the order snapshot.
+  static List<BillItemModel> finalBillItems({
+    required OrderModel order,
+    required Map<String, double> billable,
+    required List<BillItemModel> existing,
+    String? variationReason,
+  }) {
+    return order.items.map((orderItem) {
+      BillItemModel? prior;
+      for (final bi in existing) {
+        if (bi.productId == orderItem.productId) prior = bi;
+      }
+      final orderedQty = prior?.orderedQuantity ?? orderItem.quantity;
+      final orderedPrice = prior?.orderedPrice ?? orderItem.price;
+      final actualQty = billable[orderItem.productId] ?? orderItem.quantity;
+      final variation = actualQty - orderedQty;
+      return BillItemModel(
+        productId: orderItem.productId,
+        productName: orderItem.productName,
+        farmerId: orderItem.farmerId ?? '',
+        farmerName: orderItem.farmerName ?? 'Unknown',
+        orderedQuantity: orderedQty,
+        orderedUnit: orderItem.unit,
+        orderedPrice: orderedPrice,
+        orderedAmount: BillingCalculator.lineAmount(
+            unitPrice: orderedPrice, quantity: orderedQty),
+        actualQuantity: actualQty,
+        actualUnit: orderItem.unit,
+        actualPrice: orderItem.price,
+        actualAmount: BillingCalculator.lineAmount(
+            unitPrice: orderItem.price, quantity: actualQty),
+        weightVariation: variation,
+        priceVariation: BillingCalculator.lineAmount(
+            unitPrice: orderItem.price, quantity: variation),
+        variationReason: variation != 0
+            ? (variationReason ?? 'Weight variation during packaging')
+            : null,
+      );
+    }).toList();
+  }
+
+  /// Firestore fields that turn a bill into its final form. The one place
+  /// final totals are computed: actual = sum(lines) + charges.
+  static Map<String, dynamic> finalBillFields({
+    required List<BillItemModel> items,
+    required double deliveryCharges,
+    required double cleaningCharges,
+    required double orderedTotal,
+    required String updatedBy,
+    String? packagingNotes,
+  }) {
+    var subtotalPaise = 0;
+    var hasVariations = false;
+    for (final item in items) {
+      subtotalPaise += BillingCalculator.toPaise(item.finalAmount);
+      if (item.hasVariation) hasVariations = true;
+    }
+    final actualSubtotal = BillingCalculator.toRupees(subtotalPaise);
+    final actualTotal = BillingCalculator.total(
+      subtotal: actualSubtotal,
+      deliveryCharges: deliveryCharges,
+      cleaningCharges: cleaningCharges,
+    );
+    return {
+      'items': items.map((item) => item.toMap()).toList(),
+      'actualSubtotal': actualSubtotal,
+      'actualTotal': actualTotal,
+      'totalVariation': BillingCalculator.toRupees(
+        BillingCalculator.toPaise(actualTotal) -
+            BillingCalculator.toPaise(orderedTotal),
+      ),
+      'hasVariations': hasVariations,
+      'status': 'final',
+      'updatedAt': FieldValue.serverTimestamp(),
+      'updatedBy': updatedBy,
+      'packagingNotes': packagingNotes,
+    };
+  }
+
+  /// Update bill with packaging variations. Refuses to overwrite a bill that
+  /// is already final.
   Future<void> updateBillWithPackagingVariations({
     required String billId,
     required List<BillItemModel> updatedItems,
     required String updatedBy,
     String? packagingNotes,
   }) async {
-    // Calculate new totals
-    double actualSubtotal = 0.0;
-    bool hasVariations = false;
-
-    for (var item in updatedItems) {
-      actualSubtotal += item.finalAmount;
-      if (item.hasVariation) {
-        hasVariations = true;
+    final billRef = _firestore.collection('bills').doc(billId);
+    await _firestore.runTransaction((transaction) async {
+      final billDoc = await transaction.get(billRef);
+      final originalBill = BillModel.fromFirestore(billDoc);
+      if (originalBill.status == 'final') {
+        throw StateError('Bill $billId is already final and cannot be overwritten.');
       }
-    }
-
-    // Get original bill to preserve charges
-    final billDoc = await _firestore.collection('bills').doc(billId).get();
-    final originalBill = BillModel.fromFirestore(billDoc);
-
-    final actualTotal = actualSubtotal + 
-                       originalBill.deliveryCharges + 
-                       originalBill.cleaningCharges;
-    final totalVariation = actualTotal - originalBill.orderedTotal;
-
-    // Update bill
-    await _firestore.collection('bills').doc(billId).update({
-      'items': updatedItems.map((item) => item.toMap()).toList(),
-      'actualSubtotal': actualSubtotal,
-      'actualTotal': actualTotal,
-      'totalVariation': totalVariation,
-      'hasVariations': hasVariations,
-      'status': 'final',
-      'updatedAt': FieldValue.serverTimestamp(),
-      'updatedBy': updatedBy,
-      'packagingNotes': packagingNotes,
+      transaction.update(
+        billRef,
+        finalBillFields(
+          items: updatedItems,
+          deliveryCharges: originalBill.deliveryCharges,
+          cleaningCharges: originalBill.cleaningCharges,
+          orderedTotal: originalBill.orderedTotal,
+          updatedBy: updatedBy,
+          packagingNotes: packagingNotes,
+        ),
+      );
     });
   }
 

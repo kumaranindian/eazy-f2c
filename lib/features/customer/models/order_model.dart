@@ -68,6 +68,10 @@ class OrderItem with _$OrderItem {
     required double quantity,
     String? farmerId,
     String? farmerName,
+    // Cumulative quantity successfully packed across all packing sessions.
+    // Only written by PackingService. Legacy orders have no value (0.0); use
+    // PackingCalculator.packedQuantityOf to interpret them.
+    @Default(0.0) double packedQuantity,
   }) = _OrderItem;
 
   factory OrderItem.fromJson(Map<String, dynamic> json) =>
@@ -226,6 +230,9 @@ class OrderModel with _$OrderModel {
     // Unique IDs for each stage
     String? packagingId,
     String? deliveryId,
+    // Derived from item-level packedQuantity: 'partially_packed' |
+    // 'fully_packed'. Null for orders that never entered packing.
+    String? packingStatus,
     // Charges from schedule
     @Default(0.0) double deliveryCharges,
     @Default(0.0) double cleaningCharges,

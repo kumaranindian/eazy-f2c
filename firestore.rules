@@ -153,6 +153,17 @@ service cloud.firestore {
       // TEMPORARY: Allow all authenticated users full access for debugging
       // TODO: Add proper role-based restrictions after confirming auth works
       allow read, write: if request.auth != null;
+
+      // Packing audit trail: append-only. Operations are created once under a
+      // client-generated id (the idempotency key) and can never be edited or
+      // removed, so history stays auditable.
+      match /packing_operations/{operationId} {
+        allow read: if request.auth != null;
+        allow create: if request.auth != null
+                      && request.resource.data.orderId == orderId
+                      && request.resource.data.operationId == operationId;
+        allow update, delete: if false;
+      }
     }
     
     // Deliveries - Role-based access

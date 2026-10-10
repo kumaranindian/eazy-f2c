@@ -10,7 +10,6 @@ import 'package:f2c/core/widgets/responsive_stat_cards_row.dart';
 import 'package:f2c/features/admin/presentation/widgets/order_details_dialog.dart';
 import 'package:f2c/features/admin/presentation/widgets/edit_order_dialog.dart';
 import 'package:f2c/features/admin/providers/hub_providers.dart';
-import 'package:f2c/features/admin/providers/farmer_providers.dart';
 
 // Provider for all orders
 final adminOrdersProvider = StreamProvider.autoDispose<List<OrderModel>>((ref) {
@@ -1034,58 +1033,11 @@ class _AdminOrdersPageState extends ConsumerState<AdminOrdersPage> {
           );
 
           if (shouldFix == true) {
-            // Resolve any missing farmer names from the farmers collection
-            // before falling back to "Unknown".
-            final farmers = await ref.read(farmersStreamProvider.future);
-            final farmerNamesById = {
-              for (final farmer in farmers) farmer.id: farmer.effectiveName,
-            };
-
-            // Update bill
-            final updatedBillItems = order.items.map((orderItem) {
-              final existingBillItem =
-                  bill.items.cast<BillItemModel?>().firstWhere(
-                        (bi) => bi?.productId == orderItem.productId,
-                        orElse: () => null,
-                      );
-
-              final resolvedFarmerName = orderItem.farmerName ??
-                  (orderItem.farmerId != null
-                      ? farmerNamesById[orderItem.farmerId]
-                      : null);
-
-              return BillItemModel(
-                productId: orderItem.productId,
-                productName: orderItem.productName,
-                farmerId: orderItem.farmerId ?? '',
-                farmerName: resolvedFarmerName ?? 'Unknown',
-                orderedQuantity:
-                    existingBillItem?.orderedQuantity ?? orderItem.quantity,
-                orderedUnit: orderItem.unit,
-                orderedPrice: orderItem.price,
-                orderedAmount:
-                    (existingBillItem?.orderedQuantity ?? orderItem.quantity) *
-                        orderItem.price,
-                actualQuantity: orderItem.quantity,
-                actualUnit: orderItem.unit,
-                actualPrice: orderItem.price,
-                actualAmount: orderItem.quantity * orderItem.price,
-                weightVariation: orderItem.quantity -
-                    (existingBillItem?.orderedQuantity ?? orderItem.quantity),
-                priceVariation: (orderItem.quantity -
-                        (existingBillItem?.orderedQuantity ??
-                            orderItem.quantity)) *
-                    orderItem.price,
-                variationReason: 'Synced from order',
-              );
-            }).toList();
-
-            await billService.updateBillWithPackagingVariations(
-              billId: bill.billId,
-              updatedItems: updatedBillItems,
+            // Only draft bills are re-derived from the order. Final bills
+            // are immutable snapshots and are returned unchanged.
+            await billService.syncDraftBillWithOrder(
+              orderId: order.id,
               updatedBy: 'admin',
-              packagingNotes:
-                  'Synced from orders page on ${DateFormat('dd/MM/yyyy HH:mm').format(DateTime.now())}',
             );
 
             if (mounted) {

@@ -10,7 +10,10 @@ import 'package:f2c/core/widgets/responsive_data_table.dart';
 import 'package:f2c/core/widgets/responsive_stat_cards_row.dart';
 import 'package:f2c/features/customer/models/order_model.dart';
 import 'package:f2c/features/customer/models/bill_model.dart';
+import 'package:f2c/features/authentication/providers/auth_providers.dart';
 import 'package:f2c/features/customer/services/bill_service.dart';
+import 'package:f2c/features/customer/services/billing_calculator.dart';
+import 'package:f2c/features/packaging/services/packing_service.dart';
 import 'package:f2c/features/admin/presentation/widgets/order_details_dialog.dart';
 import 'package:f2c/features/admin/providers/hub_providers.dart';
 import 'package:f2c/features/admin/providers/farmer_providers.dart';
@@ -340,68 +343,65 @@ class _AdminPackagingPageState extends ConsumerState<AdminPackagingPage> {
 
     final filterControls = [
       Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            decoration: BoxDecoration(
-              border: Border.all(color: Colors.grey[300]!),
-              borderRadius: BorderRadius.circular(6),
-              color: Colors.grey[50],
-            ),
-            child: Consumer(
-              builder: (context, ref, child) {
-                final hubsAsync = ref.watch(hubsStreamProvider);
-                return hubsAsync.when(
-                  data: (hubs) {
-                    final hubNames = [
-                      'All Hubs',
-                      ...hubs.map((h) => h.name).toList()
-                    ];
-                    final validValue = hubNames.contains(_selectedHub)
-                        ? _selectedHub
-                        : 'All Hubs';
-                    return DropdownButton<String>(
-                      value: validValue,
-                      underline: const SizedBox(),
-                      isDense: true,
-                      style: const TextStyle(fontSize: 13),
-                      items: hubNames.map((hub) {
-                        return DropdownMenuItem(
-                            value: hub,
-                            child: Text(hub,
-                                style: const TextStyle(fontSize: 13)));
-                      }).toList(),
-                      onChanged: (value) =>
-                          setState(() => _selectedHub = value!),
-                    );
-                  },
-                  loading: () => DropdownButton<String>(
-                    value: 'All Hubs',
-                    underline: const SizedBox(),
-                    isDense: true,
-                    style: const TextStyle(fontSize: 13),
-                    items: const [
-                      DropdownMenuItem(
-                          value: 'All Hubs',
-                          child: Text('Loading...',
-                              style: TextStyle(fontSize: 13))),
-                    ],
-                    onChanged: null,
-                  ),
-                  error: (_, __) => DropdownButton<String>(
-                    value: 'All Hubs',
-                    underline: const SizedBox(),
-                    isDense: true,
-                    style: const TextStyle(fontSize: 13),
-                    items: const [
-                      DropdownMenuItem(
-                          value: 'All Hubs',
-                          child: Text('Error', style: TextStyle(fontSize: 13))),
-                    ],
-                    onChanged: null,
-                  ),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          border: Border.all(color: Colors.grey[300]!),
+          borderRadius: BorderRadius.circular(6),
+          color: Colors.grey[50],
+        ),
+        child: Consumer(
+          builder: (context, ref, child) {
+            final hubsAsync = ref.watch(hubsStreamProvider);
+            return hubsAsync.when(
+              data: (hubs) {
+                final hubNames = [
+                  'All Hubs',
+                  ...hubs.map((h) => h.name).toList()
+                ];
+                final validValue =
+                    hubNames.contains(_selectedHub) ? _selectedHub : 'All Hubs';
+                return DropdownButton<String>(
+                  value: validValue,
+                  underline: const SizedBox(),
+                  isDense: true,
+                  style: const TextStyle(fontSize: 13),
+                  items: hubNames.map((hub) {
+                    return DropdownMenuItem(
+                        value: hub,
+                        child: Text(hub, style: const TextStyle(fontSize: 13)));
+                  }).toList(),
+                  onChanged: (value) => setState(() => _selectedHub = value!),
                 );
               },
-            ),
-          ),
+              loading: () => DropdownButton<String>(
+                value: 'All Hubs',
+                underline: const SizedBox(),
+                isDense: true,
+                style: const TextStyle(fontSize: 13),
+                items: const [
+                  DropdownMenuItem(
+                      value: 'All Hubs',
+                      child:
+                          Text('Loading...', style: TextStyle(fontSize: 13))),
+                ],
+                onChanged: null,
+              ),
+              error: (_, __) => DropdownButton<String>(
+                value: 'All Hubs',
+                underline: const SizedBox(),
+                isDense: true,
+                style: const TextStyle(fontSize: 13),
+                items: const [
+                  DropdownMenuItem(
+                      value: 'All Hubs',
+                      child: Text('Error', style: TextStyle(fontSize: 13))),
+                ],
+                onChanged: null,
+              ),
+            );
+          },
+        ),
+      ),
       Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         decoration: BoxDecoration(
@@ -414,8 +414,8 @@ class _AdminPackagingPageState extends ConsumerState<AdminPackagingPage> {
           underline: const SizedBox(),
           isDense: true,
           style: const TextStyle(fontSize: 13),
-          items: ['All Statuses', 'Packed', 'Pending', 'Notified']
-              .map((status) {
+          items:
+              ['All Statuses', 'Packed', 'Pending', 'Notified'].map((status) {
             return DropdownMenuItem(
                 value: status,
                 child: Text(status, style: const TextStyle(fontSize: 13)));
@@ -468,19 +468,17 @@ class _AdminPackagingPageState extends ConsumerState<AdminPackagingPage> {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(Icons.date_range,
-                  size: 16, color: Color(0xFF4CAF50)),
+              const Icon(Icons.date_range, size: 16, color: Color(0xFF4CAF50)),
               const SizedBox(width: 6),
               Text(
                 '${DateFormat('dd MMM').format(_startDate!)} - ${DateFormat('dd MMM yyyy').format(_endDate!)}',
-                style:
-                    const TextStyle(fontSize: 12, color: Color(0xFF4CAF50)),
+                style: const TextStyle(fontSize: 12, color: Color(0xFF4CAF50)),
               ),
               const SizedBox(width: 6),
               InkWell(
                 onTap: () => _showDateRangePicker(),
-                child: const Icon(Icons.edit,
-                    size: 14, color: Color(0xFF4CAF50)),
+                child:
+                    const Icon(Icons.edit, size: 14, color: Color(0xFF4CAF50)),
               ),
             ],
           ),
@@ -1004,21 +1002,68 @@ class PackingDialog extends ConsumerStatefulWidget {
 }
 
 class _PackingDialogState extends ConsumerState<PackingDialog> {
-  final Map<String, double> _packedQuantities = {};
+  /// Quantity entered for THIS packing session only, per productId.
+  final Map<String, double> _packNow = {};
   final Map<String, TextEditingController> _controllers = {};
+  final PackingService _packingService = PackingService();
   bool _isProcessing = false;
   Map<String, String> _farmerNamesById = {};
+
+  // One id per logical submission; kept across retries of the same payload so
+  // a timed-out request that did commit is recognised and not re-applied.
+  String _operationId = _newOperationId();
+  String? _lastAttemptSignature;
+
+  static String _newOperationId() {
+    final random = math.Random.secure();
+    final suffix = List.generate(
+      12,
+      (_) => random.nextInt(36).toRadixString(36),
+    ).join();
+    return 'op_${DateTime.now().microsecondsSinceEpoch}_$suffix';
+  }
+
+  double _remainingOf(OrderItem item) =>
+      PackingCalculator.remainingQuantityOf(widget.order, item);
+
+  double _packedOf(OrderItem item) =>
+      PackingCalculator.packedQuantityOf(widget.order, item);
 
   @override
   void initState() {
     super.initState();
-    for (var item in widget.order.items) {
-      _packedQuantities[item.productId] = item.quantity;
+    for (final item in widget.order.items) {
+      final remaining = _remainingOf(item);
+      _packNow[item.productId] = remaining;
       _controllers[item.productId] = TextEditingController(
-        text: item.quantity.toStringAsFixed(2),
+        text: remaining.toStringAsFixed(2),
       );
     }
   }
+
+  /// Null when valid, otherwise a message for the item's field.
+  String? _validationError(OrderItem item) {
+    final value = _packNow[item.productId] ?? 0;
+    if (value.isNaN || value < 0) return 'Must be 0 or more';
+    if (BillingCalculator.toMilli(value) >
+        BillingCalculator.toMilli(_remainingOf(item))) {
+      return 'Max ${_remainingOf(item).toStringAsFixed(2)}';
+    }
+    return null;
+  }
+
+  bool get _hasInvalidEntry =>
+      widget.order.items.any((item) => _validationError(item) != null);
+
+  bool get _hasEntries =>
+      widget.order.items.any((i) => (_packNow[i.productId] ?? 0) > 0);
+
+  /// True when, after this session, nothing remains to pack.
+  bool get _completesOrder => widget.order.items.every((item) {
+        final after = BillingCalculator.toMilli(_remainingOf(item)) -
+            BillingCalculator.toMilli(_packNow[item.productId] ?? 0);
+        return after <= 0;
+      });
 
   String? _resolveFarmerName(OrderItem item) {
     if (item.farmerName != null && item.farmerName!.isNotEmpty) {
@@ -1104,7 +1149,7 @@ class _PackingDialogState extends ConsumerState<PackingDialog> {
               ),
               const SizedBox(height: 8),
               Text(
-                'Enter actual packed quantities for each item. System will automatically adjust the final bill.',
+                'Enter only the quantity packed in this session. Earlier sessions are kept; the order is billed and sent to delivery only once everything is packed.',
                 style: TextStyle(fontSize: 13, color: Colors.grey[600]),
               ),
               const SizedBox(height: 16),
@@ -1145,14 +1190,27 @@ class _PackingDialogState extends ConsumerState<PackingDialog> {
                     widget.order.items,
                     farmerIdOf: (item) => item.farmerId,
                     farmerNameOf: _resolveFarmerName,
-                    itemBuilder: (item, _) =>
-                        _buildPackItemRow(item, isMobile),
+                    itemBuilder: (item, _) => _buildPackItemRow(item, isMobile),
                   ),
                 ),
               ),
               const SizedBox(height: 16),
               _buildBillingSummary(),
-              const SizedBox(height: 24),
+              const SizedBox(height: 16),
+              if (!_completesOrder &&
+                  (_hasEntries ||
+                      widget.order.items.any((i) => _packedOf(i) > 0)))
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: TextButton.icon(
+                    onPressed: _isProcessing || _hasInvalidEntry
+                        ? null
+                        : _confirmShortClose,
+                    icon: const Icon(Icons.flag_outlined, size: 18),
+                    label: const Text('Close short & finalize'),
+                  ),
+                ),
+              const SizedBox(height: 8),
               if (isMobile)
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -1163,9 +1221,23 @@ class _PackingDialogState extends ConsumerState<PackingDialog> {
                     ),
                     const SizedBox(height: 12),
                     ElevatedButton.icon(
-                      onPressed: _isProcessing ? null : _saveAndMarkPacked,
-                      icon: const Icon(Icons.save),
-                      label: const Text('Save & Mark Packed'),
+                      onPressed: _isProcessing ||
+                              _hasInvalidEntry ||
+                              (!_hasEntries &&
+                                  !PackingCalculator.isFullyPacked(
+                                      widget.order))
+                          ? null
+                          : _submit,
+                      icon: _isProcessing
+                          ? const SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : const Icon(Icons.save),
+                      label: Text(_completesOrder
+                          ? 'Save & Mark Packed'
+                          : 'Save Partial Packing'),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xFF4CAF50),
                         foregroundColor: Colors.white,
@@ -1186,9 +1258,24 @@ class _PackingDialogState extends ConsumerState<PackingDialog> {
                     const SizedBox(width: 16),
                     Expanded(
                       child: ElevatedButton.icon(
-                        onPressed: _isProcessing ? null : _saveAndMarkPacked,
-                        icon: const Icon(Icons.save),
-                        label: const Text('Save & Mark Packed'),
+                        onPressed: _isProcessing ||
+                                _hasInvalidEntry ||
+                                (!_hasEntries &&
+                                    !PackingCalculator.isFullyPacked(
+                                        widget.order))
+                            ? null
+                            : _submit,
+                        icon: _isProcessing
+                            ? const SizedBox(
+                                width: 16,
+                                height: 16,
+                                child:
+                                    CircularProgressIndicator(strokeWidth: 2),
+                              )
+                            : const Icon(Icons.save),
+                        label: Text(_completesOrder
+                            ? 'Save & Mark Packed'
+                            : 'Save Partial Packing'),
                         style: ElevatedButton.styleFrom(
                           backgroundColor: const Color(0xFF4CAF50),
                           foregroundColor: Colors.white,
@@ -1231,38 +1318,32 @@ class _PackingDialogState extends ConsumerState<PackingDialog> {
 
   Widget _buildPackItemRow(OrderItem item, bool isMobile) {
     final orderedQty = item.quantity;
-    final packedQty = _packedQuantities[item.productId] ?? orderedQty;
-    final difference = packedQty - orderedQty;
+    final packedSoFar = _packedOf(item);
+    final remaining = _remainingOf(item);
+    final packNow = _packNow[item.productId] ?? 0;
+    final error = _validationError(item);
     final farmerName = _resolveFarmerName(item);
+    final done = remaining == 0;
 
-    // Shared with both the desktop 3-column layout and the mobile card
-    // layout below, so the actual quantity-update logic exists in exactly
-    // one place regardless of which layout renders.
-    void decrement() {
-      final current = _packedQuantities[item.productId] ?? orderedQty;
-      final increment = _getIncrementStep(item.unit);
-      final newValue = (current - increment).clamp(0.0, orderedQty * 2);
+    String amount(double qty) => '₹${BillingCalculator.lineAmount(
+          unitPrice: item.price,
+          quantity: qty,
+        ).toStringAsFixed(2)}';
+
+    void setPackNow(double value) {
+      final clamped = value.clamp(0.0, remaining);
       setState(() {
-        _packedQuantities[item.productId] = newValue;
-        _controllers[item.productId]?.text = newValue.toStringAsFixed(2);
+        _packNow[item.productId] = clamped;
+        _controllers[item.productId]?.text = clamped.toStringAsFixed(2);
       });
     }
 
-    void increment() {
-      final current = _packedQuantities[item.productId] ?? orderedQty;
-      final step = _getIncrementStep(item.unit);
-      final newValue = current + step;
-      setState(() {
-        _packedQuantities[item.productId] = newValue;
-        _controllers[item.productId]?.text = newValue.toStringAsFixed(2);
-      });
-    }
+    void decrement() => setPackNow(packNow - _getIncrementStep(item.unit));
+    void increment() => setPackNow(packNow + _getIncrementStep(item.unit));
 
     void onQuantityTextChanged(String value) {
       final parsed = double.tryParse(value);
-      if (parsed != null) {
-        setState(() => _packedQuantities[item.productId] = parsed);
-      }
+      setState(() => _packNow[item.productId] = parsed ?? 0);
     }
 
     // A larger minimum tap target than the icons' visual size, so +/- are
@@ -1271,6 +1352,7 @@ class _PackingDialogState extends ConsumerState<PackingDialog> {
 
     final quantityField = TextField(
       controller: _controllers[item.productId],
+      enabled: !done && !_isProcessing,
       keyboardType: const TextInputType.numberWithOptions(decimal: true),
       textAlign: TextAlign.center,
       style: const TextStyle(
@@ -1278,45 +1360,125 @@ class _PackingDialogState extends ConsumerState<PackingDialog> {
         fontWeight: FontWeight.bold,
         color: Colors.orange,
       ),
-      decoration: const InputDecoration(
+      decoration: InputDecoration(
         isDense: true,
-        contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-        border: OutlineInputBorder(),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+        border: const OutlineInputBorder(),
+        errorText: error,
+        errorStyle: const TextStyle(fontSize: 10),
       ),
       onChanged: onQuantityTextChanged,
     );
 
-    if (isMobile) {
-      return Container(
-        margin: const EdgeInsets.only(bottom: 12),
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          border: Border.all(color: Colors.grey[300]!),
-          borderRadius: BorderRadius.circular(8),
+    final stepper = Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        IconButton(
+          icon: const Icon(Icons.remove_circle_outline),
+          onPressed: done || _isProcessing ? null : decrement,
+          padding: EdgeInsets.zero,
+          constraints: stepButtonConstraints,
         ),
+        SizedBox(width: isMobile ? 80 : 70, child: quantityField),
+        IconButton(
+          icon: const Icon(Icons.add_circle_outline),
+          onPressed: done || _isProcessing ? null : increment,
+          padding: EdgeInsets.zero,
+          constraints: stepButtonConstraints,
+        ),
+      ],
+    );
+
+    Widget column(String label, Color color, String value, String sub) {
+      return Expanded(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            Text(label, style: TextStyle(fontSize: 11, color: color)),
+            const SizedBox(height: 4),
             Text(
-              item.productName,
-              style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15),
+              value,
+              style: TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.bold,
+                color: color,
+              ),
             ),
-            Text(
-              '₹${item.price.toStringAsFixed(0)}/${item.unit}',
-              style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+            Text(sub, style: TextStyle(fontSize: 12, color: Colors.grey[600])),
+          ],
+        ),
+      );
+    }
+
+    final header = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                item.productName,
+                style: TextStyle(
+                  fontWeight: FontWeight.w600,
+                  fontSize: isMobile ? 15 : 14,
+                ),
+              ),
             ),
-            _buildFarmerNameTag(farmerName),
-            const Divider(height: 20),
+            if (done)
+              const Chip(
+                label: Text('Packed', style: TextStyle(fontSize: 11)),
+                visualDensity: VisualDensity.compact,
+                backgroundColor: Color(0xFFE8F5E9),
+              ),
+          ],
+        ),
+        Text(
+          '₹${item.price.toStringAsFixed(0)}/${item.unit}',
+          style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+        ),
+        _buildFarmerNameTag(farmerName),
+      ],
+    );
+
+    return Container(
+      margin: EdgeInsets.only(bottom: isMobile ? 12 : 16),
+      padding: EdgeInsets.all(isMobile ? 12 : 16),
+      decoration: BoxDecoration(
+        border: Border.all(color: Colors.grey[300]!),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          header,
+          isMobile ? const Divider(height: 20) : const SizedBox(height: 12),
+          if (isMobile) ...[
             _MobileQuantityLine(
               label: 'ORDERED',
               labelColor: Colors.blue,
               valueText: '${orderedQty.toStringAsFixed(2)} ${item.unit}',
               valueColor: Colors.blue,
-              amountText: '₹${(orderedQty * item.price).toStringAsFixed(2)}',
+              amountText: amount(orderedQty),
+            ),
+            const SizedBox(height: 8),
+            _MobileQuantityLine(
+              label: 'PACKED SO FAR',
+              labelColor: Colors.green,
+              valueText: '${packedSoFar.toStringAsFixed(2)} ${item.unit}',
+              valueColor: Colors.green,
+              amountText: amount(packedSoFar),
+            ),
+            const SizedBox(height: 8),
+            _MobileQuantityLine(
+              label: 'REMAINING',
+              labelColor: Colors.grey,
+              valueText: '${remaining.toStringAsFixed(2)} ${item.unit}',
+              valueColor: remaining == 0 ? Colors.grey : Colors.red,
+              amountText: amount(remaining),
             ),
             const SizedBox(height: 12),
             const Text(
-              'PACKED',
+              'PACK NOW',
               style: TextStyle(
                 fontSize: 11,
                 color: Colors.orange,
@@ -1326,158 +1488,89 @@ class _PackingDialogState extends ConsumerState<PackingDialog> {
             const SizedBox(height: 6),
             Row(
               children: [
-                IconButton(
-                  icon: const Icon(Icons.remove_circle_outline),
-                  onPressed: decrement,
-                  padding: EdgeInsets.zero,
-                  constraints: stepButtonConstraints,
-                ),
-                const SizedBox(width: 4),
-                SizedBox(width: 80, child: quantityField),
-                const SizedBox(width: 4),
-                IconButton(
-                  icon: const Icon(Icons.add_circle_outline),
-                  onPressed: increment,
-                  padding: EdgeInsets.zero,
-                  constraints: stepButtonConstraints,
-                ),
+                stepper,
                 const Spacer(),
                 Text(
-                  '₹${(packedQty * item.price).toStringAsFixed(2)}',
+                  amount(packNow),
                   style: TextStyle(fontSize: 13, color: Colors.grey[700]),
                 ),
               ],
             ),
-            const SizedBox(height: 12),
-            _MobileQuantityLine(
-              label: 'DIFFERENCE',
-              labelColor: Colors.grey,
-              valueText:
-                  '${difference > 0 ? '+' : ''}${difference.toStringAsFixed(2)} ${item.unit}',
-              valueColor: difference == 0
-                  ? Colors.grey
-                  : (difference > 0 ? Colors.green : Colors.red),
-              amountText:
-                  '${difference > 0 ? '+' : ''}₹${(difference * item.price).toStringAsFixed(2)}',
-            ),
-          ],
-        ),
-      );
-    }
-
-    return Container(
-      margin: const EdgeInsets.only(bottom: 16),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        border: Border.all(color: Colors.grey[300]!),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            item.productName,
-            style: const TextStyle(fontWeight: FontWeight.w600),
-          ),
-          Text(
-            '₹${item.price.toStringAsFixed(0)}/${item.unit}',
-            style: TextStyle(fontSize: 12, color: Colors.grey[600]),
-          ),
-          _buildFarmerNameTag(farmerName),
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text('ORDERED',
-                        style: TextStyle(fontSize: 11, color: Colors.blue)),
-                    const SizedBox(height: 4),
-                    Text(
-                      '${orderedQty.toStringAsFixed(2)} ${item.unit}',
-                      style: const TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.blue),
-                    ),
-                    Text(
-                      '₹${(orderedQty * item.price).toStringAsFixed(2)}',
-                      style: TextStyle(fontSize: 12, color: Colors.grey[600]),
-                    ),
-                  ],
-                ),
-              ),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text('PACKED',
-                        style: TextStyle(fontSize: 11, color: Colors.orange)),
-                    const SizedBox(height: 4),
-                    Row(
-                      children: [
-                        IconButton(
-                          icon: const Icon(Icons.remove_circle_outline),
-                          onPressed: decrement,
-                          padding: EdgeInsets.zero,
-                          constraints: stepButtonConstraints,
-                        ),
-                        SizedBox(width: 60, child: quantityField),
-                        IconButton(
-                          icon: const Icon(Icons.add_circle_outline),
-                          onPressed: increment,
-                          padding: EdgeInsets.zero,
-                          constraints: stepButtonConstraints,
-                        ),
-                      ],
-                    ),
-                    Text(
-                      '₹${(packedQty * item.price).toStringAsFixed(2)}',
-                      style: TextStyle(fontSize: 12, color: Colors.grey[600]),
-                    ),
-                  ],
-                ),
-              ),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text('DIFFERENCE',
-                        style: TextStyle(fontSize: 11, color: Colors.grey)),
-                    const SizedBox(height: 4),
-                    Text(
-                      '${difference > 0 ? '+' : ''}${difference.toStringAsFixed(2)} ${item.unit}',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        color: difference == 0
-                            ? Colors.grey
-                            : (difference > 0 ? Colors.green : Colors.red),
+          ] else
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                column(
+                    'ORDERED',
+                    Colors.blue,
+                    '${orderedQty.toStringAsFixed(2)} ${item.unit}',
+                    amount(orderedQty)),
+                column(
+                    'PACKED SO FAR',
+                    Colors.green,
+                    '${packedSoFar.toStringAsFixed(2)} ${item.unit}',
+                    amount(packedSoFar)),
+                column(
+                    'REMAINING',
+                    remaining == 0 ? Colors.grey : Colors.red,
+                    '${remaining.toStringAsFixed(2)} ${item.unit}',
+                    amount(remaining)),
+                Expanded(
+                  flex: 2,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text('PACK NOW',
+                          style: TextStyle(fontSize: 11, color: Colors.orange)),
+                      const SizedBox(height: 4),
+                      stepper,
+                      Text(
+                        amount(packNow),
+                        style: TextStyle(fontSize: 12, color: Colors.grey[600]),
                       ),
-                    ),
-                    Text(
-                      '${difference > 0 ? '+' : ''}₹${(difference * item.price).toStringAsFixed(2)}',
-                      style: TextStyle(fontSize: 12, color: Colors.grey[600]),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
-            ],
-          ),
+              ],
+            ),
         ],
       ),
     );
   }
 
   Widget _buildBillingSummary() {
-    double originalTotal = widget.order.totalAmount;
-    double newTotal = 0;
-    for (var item in widget.order.items) {
-      final packedQty = _packedQuantities[item.productId] ?? item.quantity;
-      newTotal += packedQty * item.price;
+    // Derived from persisted packed quantities plus this session's entries;
+    // never from a running total. Price is the order-level snapshot.
+    final items = widget.order.items;
+    final orderedTotal = BillingCalculator.subtotal(items, (i) => i.quantity);
+    final packedValue = BillingCalculator.subtotal(items, (i) => _packedOf(i));
+    final sessionValue = BillingCalculator.subtotal(
+      items,
+      (i) => _packNow[i.productId] ?? 0,
+    );
+    final afterSession = packedValue + sessionValue;
+    final difference = afterSession - orderedTotal;
+
+    Widget line(String label, String value, {Color? color, bool bold = false}) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: 4),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Flexible(
+              child: Text(label, style: const TextStyle(color: Colors.grey)),
+            ),
+            Text(
+              value,
+              style: TextStyle(
+                fontWeight: bold ? FontWeight.bold : FontWeight.w600,
+                color: color,
+              ),
+            ),
+          ],
+        ),
+      );
     }
-    final difference = newTotal - originalTotal;
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -1487,40 +1580,19 @@ class _PackingDialogState extends ConsumerState<PackingDialog> {
       ),
       child: Column(
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              const Text('Original Total',
-                  style: TextStyle(color: Colors.grey)),
-              Text('₹${originalTotal.toStringAsFixed(2)}',
-                  style: const TextStyle(fontWeight: FontWeight.w600)),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              const Text('New Total', style: TextStyle(color: Colors.grey)),
-              Text('₹${newTotal.toStringAsFixed(2)}',
-                  style: const TextStyle(fontWeight: FontWeight.w600)),
-            ],
-          ),
+          line('Ordered value', '₹${orderedTotal.toStringAsFixed(2)}'),
+          line('Packed in earlier sessions',
+              '₹${packedValue.toStringAsFixed(2)}'),
+          line('This session', '₹${sessionValue.toStringAsFixed(2)}'),
           const Divider(height: 16),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              const Text('Difference',
-                  style: TextStyle(fontWeight: FontWeight.w600)),
-              Text(
-                '${difference > 0 ? '+' : ''}₹${difference.toStringAsFixed(2)}',
-                style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                  color: difference == 0
-                      ? Colors.grey
-                      : (difference > 0 ? Colors.green : Colors.red),
-                ),
-              ),
-            ],
+          line('Packed value after save', '₹${afterSession.toStringAsFixed(2)}',
+              bold: true),
+          line(
+            'Vs ordered',
+            '${difference > 0 ? '+' : ''}₹${difference.toStringAsFixed(2)}',
+            color: difference == 0
+                ? Colors.grey
+                : (difference > 0 ? Colors.green : Colors.red),
           ),
         ],
       ),
@@ -1684,8 +1756,11 @@ class _PackingDialogState extends ConsumerState<PackingDialog> {
           );
 
           if (shouldFix == true) {
-            // Update bill to match order
-            await _autoFixBill(bill);
+            // Only a draft bill is re-derived; final bills are immutable.
+            await billService.syncDraftBillWithOrder(
+              orderId: widget.order.id,
+              updatedBy: 'admin',
+            );
           }
         }
       }
@@ -1694,7 +1769,8 @@ class _PackingDialogState extends ConsumerState<PackingDialog> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Unable to verify the bill for this order. Please try again.'),
+            content: Text(
+                'Unable to verify the bill for this order. Please try again.'),
             backgroundColor: Colors.red,
           ),
         );
@@ -1706,214 +1782,122 @@ class _PackingDialogState extends ConsumerState<PackingDialog> {
     }
   }
 
-  Future<void> _autoFixBill(BillModel bill) async {
-    try {
-      final billService = BillService();
-
-      // Create updated bill items from current order
-      final updatedBillItems = widget.order.items.map((orderItem) {
-        // Find existing bill item
-        final existingBillItem = bill.items.cast<BillItemModel?>().firstWhere(
-              (bi) => bi?.productId == orderItem.productId,
-              orElse: () => null,
-            );
-
-        return BillItemModel(
-          productId: orderItem.productId,
-          productName: orderItem.productName,
-          farmerId: orderItem.farmerId ?? '',
-          farmerName: orderItem.farmerName ?? 'Unknown',
-          orderedQuantity:
-              existingBillItem?.orderedQuantity ?? orderItem.quantity,
-          orderedUnit: orderItem.unit,
-          orderedPrice: orderItem.price,
-          orderedAmount:
-              (existingBillItem?.orderedQuantity ?? orderItem.quantity) *
-                  orderItem.price,
-          actualQuantity: orderItem.quantity,
-          actualUnit: orderItem.unit,
-          actualPrice: orderItem.price,
-          actualAmount: orderItem.quantity * orderItem.price,
-          weightVariation: orderItem.quantity -
-              (existingBillItem?.orderedQuantity ?? orderItem.quantity),
-          priceVariation: (orderItem.quantity -
-                  (existingBillItem?.orderedQuantity ?? orderItem.quantity)) *
-              orderItem.price,
-          variationReason: 'Synced from order',
-        );
-      }).toList();
-
-      // Update bill
-      await billService.updateBillWithPackagingVariations(
-        billId: bill.billId,
-        updatedItems: updatedBillItems,
-        updatedBy: 'admin',
-        packagingNotes:
-            'Bill synced with order on ${DateFormat('dd/MM/yyyy HH:mm').format(DateTime.now())}',
-      );
-
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Row(
-              children: [
-                Icon(Icons.check_circle, color: Colors.white),
-                SizedBox(width: 12),
-                Text('✓ Bill updated successfully'),
-              ],
-            ),
-            backgroundColor: Colors.green,
-            duration: Duration(seconds: 2),
-          ),
-        );
-      }
-    } catch (e) {
-      AppLogger.error('Failed to update bill', e);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Unable to update the bill. Please try again.'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-    }
-  }
-
-  Future<void> _saveAndMarkPacked() async {
+  /// Saves this session (if anything was entered) and, when nothing remains
+  /// (or the packer explicitly closes the order short), finalizes the order
+  /// and bill. Both steps are idempotent, so a retry is always safe.
+  Future<void> _submit({String? shortCloseReason}) async {
+    if (_isProcessing) return;
     setState(() => _isProcessing = true);
 
+    final lines = [
+      for (final item in widget.order.items)
+        if ((_packNow[item.productId] ?? 0) > 0)
+          PackingLine(
+            productId: item.productId,
+            quantity: _packNow[item.productId]!,
+          ),
+    ];
+    final signature = lines
+        .map((l) => '${l.productId}:${BillingCalculator.toMilli(l.quantity)}')
+        .join('|');
+    if (signature != _lastAttemptSignature) {
+      _operationId = _newOperationId();
+      _lastAttemptSignature = signature;
+    }
+
     try {
-      final orderRef =
-          FirebaseFirestore.instance.collection('orders').doc(widget.order.id);
-
-      double newTotal = 0;
-      final updatedItems = widget.order.items.map((item) {
-        final packedQty = _packedQuantities[item.productId] ?? item.quantity;
-        newTotal += packedQty * item.price;
-        return item.copyWith(quantity: packedQty);
-      }).toList();
-
-      final updateData = {
-        'status': 'ready',
-        'readyAt': Timestamp.fromDate(DateTime.now()),
-        'items': updatedItems.map((item) => item.toJson()).toList(),
-        'totalAmount': newTotal,
-      };
-
-      // Generate packagingId if not already present
-      if (widget.order.packagingId == null ||
-          widget.order.packagingId!.isEmpty) {
-        final packagingId =
-            'PKG${DateTime.now().millisecondsSinceEpoch.toString().substring(0, 8).toUpperCase()}';
-        updateData['packagingId'] = packagingId;
-        updateData['preparingAt'] = Timestamp.fromDate(DateTime.now());
-        print('Generated packagingId: $packagingId');
+      final packedBy = ref.read(currentUserProvider).valueOrNull?.id ?? 'admin';
+      var fullyPacked = PackingCalculator.isFullyPacked(widget.order);
+      if (lines.isNotEmpty) {
+        final result = await _packingService.savePackingSession(
+          orderId: widget.order.id,
+          operationId: _operationId,
+          lines: lines,
+          packedBy: packedBy,
+        );
+        fullyPacked = result.packingStatus == 'fully_packed';
       }
 
-      // Ensure deliveryDate is set if not already present (required for Delivery page query)
-      if (widget.order.deliveryDate == null) {
-        updateData['deliveryDate'] = Timestamp.fromDate(DateTime.now());
-      }
-
-      // Generate and save deliveryId if not already present
-      if (widget.order.deliveryId == null) {
-        final deliveryId =
-            'DLV${DateTime.now().millisecondsSinceEpoch.toString().substring(0, 8).toUpperCase()}';
-        updateData['deliveryId'] = deliveryId;
-        print('Generated deliveryId: $deliveryId');
-      }
-
-      print('Updating order ${widget.order.id} with status: ready');
-      await orderRef.update(updateData);
-      print('Order updated successfully');
-
-      // NEW: Automatically update bill with packed quantities
-      try {
-        final billService = BillService();
-        var bill = await billService.getBillByOrderId(widget.order.id);
-
-        if (bill == null) {
-          // Create bill if it doesn't exist
-          print(
-              'No bill found, creating new bill for order ${widget.order.id}');
-          // Bill will be created by admin when needed
-        } else {
-          // Update existing bill with packed quantities
-          print('Updating bill ${bill.billId} with packed quantities');
-
-          final updatedBillItems = updatedItems.map((orderItem) {
-            final originalItem = widget.order.items.firstWhere(
-              (oi) => oi.productId == orderItem.productId,
-            );
-            final packedQty =
-                _packedQuantities[orderItem.productId] ?? orderItem.quantity;
-            final variation = packedQty - originalItem.quantity;
-
-            return BillItemModel(
-              productId: orderItem.productId,
-              productName: orderItem.productName,
-              farmerId: orderItem.farmerId ?? '',
-              farmerName: orderItem.farmerName ?? 'Unknown',
-              orderedQuantity: originalItem.quantity,
-              orderedUnit: orderItem.unit,
-              orderedPrice: orderItem.price,
-              orderedAmount: originalItem.quantity * orderItem.price,
-              actualQuantity: packedQty,
-              actualUnit: orderItem.unit,
-              actualPrice: orderItem.price,
-              actualAmount: packedQty * orderItem.price,
-              weightVariation: variation,
-              priceVariation: variation * orderItem.price,
-              variationReason:
-                  variation != 0 ? 'Weight variation during packaging' : null,
-            );
-          }).toList();
-
-          await billService.updateBillWithPackagingVariations(
-            billId: bill.billId,
-            updatedItems: updatedBillItems,
-            updatedBy: 'admin',
-            packagingNotes:
-                'Updated from packaging on ${DateFormat('dd/MM/yyyy HH:mm').format(DateTime.now())}',
-          );
-
-          print('Bill updated successfully');
-        }
-      } catch (billError) {
-        print('Warning: Failed to update bill: $billError');
-        // Don't fail the whole operation if bill update fails
+      var finalized = false;
+      if (fullyPacked || shortCloseReason != null) {
+        await _packingService.finalizeOrder(
+          orderId: widget.order.id,
+          finalizedBy: packedBy,
+          shortCloseReason: fullyPacked ? null : shortCloseReason,
+        );
+        finalized = true;
       }
 
       if (mounted) {
         Navigator.pop(context);
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
+          SnackBar(
             content: Row(
               children: [
-                Icon(Icons.check_circle, color: Colors.white),
-                SizedBox(width: 12),
-                Text('Order packed and bill updated successfully'),
+                const Icon(Icons.check_circle, color: Colors.white),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(finalized
+                      ? 'Order packed and bill finalized'
+                      : 'Partial packing saved. Order stays in packaging.'),
+                ),
               ],
             ),
             backgroundColor: Colors.green,
           ),
         );
       }
+    } on PackingException catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(e.message), backgroundColor: Colors.red),
+        );
+      }
     } catch (e) {
-      AppLogger.error('Failed to mark order as packed', e);
+      AppLogger.error('Failed to save packing', e);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Unable to update packing status. Please try again.'),
+            content:
+                Text('Unable to save packing. Tap save again to retry safely.'),
             backgroundColor: Colors.red,
           ),
         );
       }
     } finally {
-      if (mounted) {
-        setState(() => _isProcessing = false);
-      }
+      if (mounted) setState(() => _isProcessing = false);
+    }
+  }
+
+  Future<void> _confirmShortClose() async {
+    final controller = TextEditingController();
+    final reason = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Close order short?'),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          decoration: const InputDecoration(
+            labelText: 'Reason (required)',
+            helperText: 'Unpacked quantities will not be billed.',
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, controller.text.trim()),
+            child: const Text('Close & finalize'),
+          ),
+        ],
+      ),
+    );
+    controller.dispose();
+    if (reason != null && reason.isNotEmpty) {
+      await _submit(shortCloseReason: reason);
     }
   }
 }
@@ -1954,7 +1938,9 @@ class _MobileQuantityLine extends StatelessWidget {
               Text(
                 valueText,
                 style: TextStyle(
-                    fontSize: 15, fontWeight: FontWeight.bold, color: valueColor),
+                    fontSize: 15,
+                    fontWeight: FontWeight.bold,
+                    color: valueColor),
               ),
             ],
           ),
