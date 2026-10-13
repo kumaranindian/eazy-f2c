@@ -7,7 +7,7 @@ import 'package:f2c/features/customer/services/billing_calculator.dart';
 class PackingException implements Exception {
   PackingException(this.code, this.message);
 
-  /// 'invalid_quantity' | 'over_pack' | 'unknown_item' | 'not_packable' |
+  /// 'invalid_quantity' | 'already_packed' | 'unknown_item' | 'not_packable' |
   /// 'incomplete' | 'bill_finalized' | 'not_found'
   final String code;
   final String message;
@@ -141,13 +141,14 @@ class PackingService {
         final previous = BillingCalculator.toMilli(
             PackingCalculator.packedQuantityOf(order, item));
         final remaining = BillingCalculator.toMilli(item.quantity) - previous;
-        if (add > remaining) {
+        // The packer enters the actual weighed quantity, which may differ
+        // from the ordered one, so exceeding the remainder is allowed. Only an
+        // item that is already complete is rejected, which also stops a stale
+        // double-submit from being counted twice.
+        if (remaining <= 0) {
           throw PackingException(
-            'over_pack',
-            '${item.productName}: only '
-                '${BillingCalculator.fromMilli(remaining < 0 ? 0 : remaining)} '
-                '${item.unit} remaining, cannot pack '
-                '${BillingCalculator.fromMilli(add)}.',
+            'already_packed',
+            '${item.productName} is already fully packed.',
           );
         }
         final resulting = previous + add;

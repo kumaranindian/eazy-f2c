@@ -157,17 +157,145 @@ void main() {
     });
   });
 
+  group('real-world packing scenarios', () {
+    // 10 items priced 10, 20, ... 100 (qty 1 each) -> subtotal 550.
+    List<OrderItem> tenItems() => [
+          for (var i = 1; i <= 10; i++) _item('p$i', i * 10.0, 1, 'kg'),
+        ];
+
+    test('10 items: 5 packed completely first, remaining 5 later', () async {
+      await seed(tenItems());
+
+      final first = await pack('s1', {for (var i = 1; i <= 5; i++) 'p$i': 1});
+      expect(first.packingStatus, 'partially_packed');
+
+      var order = await readOrder();
+      expect(order.status, OrderStatus.preparing);
+      expect(order.packingStatus, 'partially_packed');
+      expect(order.items.take(5).map((i) => i.packedQuantity), everyElement(1));
+      expect(order.items.skip(5).map((i) => i.packedQuantity), everyElement(0));
+      // Not finalizable yet, and nothing billed/finalized by the partial save.
+      await expectLater(
+        packing.finalizeOrder(orderId: orderId, finalizedBy: 'p'),
+        throwsA(isA<PackingException>()
+            .having((e) => e.code, 'code', 'incomplete')),
+      );
+      expect((await readBill()).status, 'draft');
+
+      final second = await pack('s2', {for (var i = 6; i <= 10; i++) 'p$i': 1});
+      expect(second.packingStatus, 'fully_packed');
+
+      final result =
+          await packing.finalizeOrder(orderId: orderId, finalizedBy: 'p');
+      expect(result.totalAmount, 550);
+
+      order = await readOrder();
+      expect(order.status, OrderStatus.ready);
+      expect(order.packingStatus, 'fully_packed');
+      expect(order.totalAmount, 550);
+      final bill = await readBill();
+      expect(bill.status, 'final');
+      expect(bill.actualSubtotal, 550);
+      expect(bill.actualTotal, 590); // + 30 delivery + 10 cleaning
+      expect(bill.totalVariation, 0);
+    });
+
+    test('10 kg ordered: 8 kg first, then 2 kg', () async {
+      await seed([_item('rice', 55.5, 10, 'kg')]);
+
+      final first = await pack('s1', {'rice': 8});
+      expect(first.packingStatus, 'partially_packed');
+      var order = await readOrder();
+      expect(order.items.single.packedQuantity, 8);
+      expect(PackingCalculator.remainingQuantityOf(order, order.items.single),
+          2);
+
+      final second = await pack('s2', {'rice': 2});
+      expect(second.packingStatus, 'fully_packed');
+
+      final result =
+          await packing.finalizeOrder(orderId: orderId, finalizedBy: 'p');
+      expect(result.totalAmount, 555); // 10 kg x 55.5
+
+      order = await readOrder();
+      expect(order.items.single.quantity, 10);
+      expect(order.items.single.packedQuantity, 10);
+      expect(order.totalAmount, 555);
+      final bill = await readBill();
+      expect(bill.actualSubtotal, 555);
+      expect(bill.actualTotal, 595);
+      expect(bill.totalVariation, 0);
+    });
+
+    test('10 kg ordered: 8 kg, then actual weighed 2.3 kg is billed as entered',
+        () async {
+      await seed([_item('rice', 55.5, 10, 'kg')]);
+      await pack('s1', {'rice': 8});
+      final second = await pack('s2', {'rice': 2.3});
+      expect(second.packingStatus, 'fully_packed');
+
+      await packing.finalizeOrder(orderId: orderId, finalizedBy: 'p');
+
+      final order = await readOrder();
+      expect(order.items.single.quantity, 10.3);
+      expect(order.totalAmount, 571.65); // 10.3 x 55.5
+      final bill = await readBill();
+      expect(bill.items.single.orderedQuantity, 10);
+      expect(bill.items.single.actualQuantity, 10.3);
+      expect(bill.actualSubtotal, 571.65);
+      expect(bill.actualTotal, 611.65);
+      expect(bill.totalVariation, closeTo(16.65, 0.001));
+      expect(bill.hasVariations, isTrue);
+    });
+
+    test('mixed: some items done, others split by quantity across 3 sessions',
+        () async {
+      await seed([
+        _item('a', 40, 5, 'kg'),
+        _item('b', 30, 10, 'kg'),
+        _item('c', 20, 4, 'bunch'),
+      ]);
+      await pack('s1', {'a': 5, 'b': 4}); // a done, b 4/10
+      var order = await readOrder();
+      expect(order.packingStatus, 'partially_packed');
+
+      await pack('s2', {'b': 4}); // b 8/10
+      order = await readOrder();
+      expect(order.packingStatus, 'partially_packed');
+      expect(order.items.map((i) => i.packedQuantity), [5, 8, 0]);
+
+      final last = await pack('s3', {'b': 2, 'c': 4});
+      expect(last.packingStatus, 'fully_packed');
+      await packing.finalizeOrder(orderId: orderId, finalizedBy: 'p');
+
+      order = await readOrder();
+      expect(order.items.map((i) => i.quantity), [5, 10, 4]);
+      expect(order.totalAmount, 5 * 40 + 10 * 30 + 4 * 20);
+      expect((await readBill()).actualSubtotal, 580);
+    });
+  });
+
   group('validation and atomicity', () {
-    test('over-packing is rejected and nothing is partially applied', () async {
+    test('packing more than ordered is accepted and billed as entered',
+        () async {
       await seed(standardItems());
       await pack('op1', {'tomato': 4});
+      final result = await pack('op2', {'tomato': 2}); // 1 left, 2 entered
+      expect(result.packingStatus, isNot('fully_packed')); // onion/spinach open
+      final order = await readOrder();
+      expect(order.items.map((i) => i.packedQuantity), [6, 0, 0]);
+    });
+
+    test('packing an already complete item is rejected atomically', () async {
+      await seed(standardItems());
+      await pack('op1', {'tomato': 5});
       await expectLater(
-        pack('op2', {'onion': 1, 'tomato': 2}), // tomato only has 1 left
-        throwsA(
-            isA<PackingException>().having((e) => e.code, 'code', 'over_pack')),
+        pack('op2', {'onion': 1, 'tomato': 1}),
+        throwsA(isA<PackingException>()
+            .having((e) => e.code, 'code', 'already_packed')),
       );
       final order = await readOrder();
-      expect(order.items.map((i) => i.packedQuantity), [4, 0, 0]);
+      expect(order.items.map((i) => i.packedQuantity), [5, 0, 0]);
       final ops = await firestore
           .collection('orders')
           .doc(orderId)
@@ -220,7 +348,7 @@ void main() {
       await expectLater(
         pack('b', {'tomato': 5}),
         throwsA(
-            isA<PackingException>().having((e) => e.code, 'code', 'over_pack')),
+            isA<PackingException>().having((e) => e.code, 'code', 'already_packed')),
       );
       expect((await readOrder()).items.single.packedQuantity, 5);
     });

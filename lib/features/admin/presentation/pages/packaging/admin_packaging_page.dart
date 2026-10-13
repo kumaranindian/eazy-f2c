@@ -1045,10 +1045,6 @@ class _PackingDialogState extends ConsumerState<PackingDialog> {
   String? _validationError(OrderItem item) {
     final value = _packNow[item.productId] ?? 0;
     if (value.isNaN || value < 0) return 'Must be 0 or more';
-    if (BillingCalculator.toMilli(value) >
-        BillingCalculator.toMilli(_remainingOf(item))) {
-      return 'Max ${_remainingOf(item).toStringAsFixed(2)}';
-    }
     return null;
   }
 
@@ -1331,7 +1327,7 @@ class _PackingDialogState extends ConsumerState<PackingDialog> {
         ).toStringAsFixed(2)}';
 
     void setPackNow(double value) {
-      final clamped = value.clamp(0.0, remaining);
+      final clamped = value < 0 ? 0.0 : value;
       setState(() {
         _packNow[item.productId] = clamped;
         _controllers[item.productId]?.text = clamped.toStringAsFixed(2);
