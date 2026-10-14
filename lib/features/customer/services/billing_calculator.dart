@@ -82,6 +82,7 @@ class PackingCalculator {
 
   /// Quantity still to pack; never negative.
   static double remainingQuantityOf(OrderModel order, OrderItem item) {
+    if (item.packingClosed) return 0.0;
     final milli = BillingCalculator.toMilli(item.quantity) -
         BillingCalculator.toMilli(packedQuantityOf(order, item));
     return BillingCalculator.fromMilli(milli < 0 ? 0 : milli);

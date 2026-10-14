@@ -207,8 +207,8 @@ void main() {
       expect(first.packingStatus, 'partially_packed');
       var order = await readOrder();
       expect(order.items.single.packedQuantity, 8);
-      expect(PackingCalculator.remainingQuantityOf(order, order.items.single),
-          2);
+      expect(
+          PackingCalculator.remainingQuantityOf(order, order.items.single), 2);
 
       final second = await pack('s2', {'rice': 2});
       expect(second.packingStatus, 'fully_packed');
@@ -272,6 +272,211 @@ void main() {
       expect(order.items.map((i) => i.quantity), [5, 10, 4]);
       expect(order.totalAmount, 5 * 40 + 10 * 30 + 4 * 20);
       expect((await readBill()).actualSubtotal, 580);
+    });
+  });
+
+  group('product isolation and persistence', () {
+    List<OrderItem> riceSugarOil() => [
+          _item('rice', 50, 10, 'kg'),
+          _item('sugar', 40, 5, 'kg'),
+          _item('oil', 120, 8, 'L'),
+        ];
+
+    List<double> packed(OrderModel o) =>
+        o.items.map((i) => i.packedQuantity).toList();
+
+    test('spec sessions: 4 rice; +3 rice +2 sugar; then the rest', () async {
+      await seed(riceSugarOil());
+
+      await pack('s1', {'rice': 4});
+      var order = await readOrder();
+      expect(packed(order), [4, 0, 0]);
+      expect(order.packingStatus, 'partially_packed');
+      expect(PackingCalculator.remainingQuantityOf(order, order.items[0]), 6);
+      expect(PackingCalculator.remainingQuantityOf(order, order.items[1]), 5);
+      expect(PackingCalculator.remainingQuantityOf(order, order.items[2]), 8);
+
+      await pack('s2', {'rice': 3, 'sugar': 2});
+      order = await readOrder();
+      expect(packed(order), [7, 2, 0]);
+      expect(order.packingStatus, 'partially_packed');
+
+      final last = await pack('s3', {'rice': 3, 'sugar': 3, 'oil': 8});
+      expect(last.packingStatus, 'fully_packed');
+      expect(packed(await readOrder()), [10, 5, 8]);
+    });
+
+    test('completing one product does not complete the order', () async {
+      await seed(riceSugarOil());
+      final result = await pack('s1', {'rice': 10});
+      expect(result.packingStatus, 'partially_packed');
+      final order = await readOrder();
+      expect(packed(order), [10, 0, 0]);
+      expect(PackingCalculator.isFullyPacked(order), isFalse);
+      expect(order.status, OrderStatus.preparing);
+      await expectLater(
+        packing.finalizeOrder(orderId: orderId, finalizedBy: 'p'),
+        throwsA(isA<PackingException>()
+            .having((e) => e.code, 'code', 'incomplete')),
+      );
+    });
+
+    test('a session only touches the named item and unrelated fields',
+        () async {
+      await seed(riceSugarOil());
+      final before = await readOrder();
+      await pack('s1', {'sugar': 1.5});
+      final after = await readOrder();
+
+      expect(packed(after), [0, 1.5, 0]);
+      for (final i in [0, 2]) {
+        expect(after.items[i].toJson(), before.items[i].toJson());
+      }
+      expect(after.items[1].quantity, before.items[1].quantity);
+      expect(after.customerId, before.customerId);
+      expect(after.deliveryCharges, before.deliveryCharges);
+      expect(after.paymentStatus, before.paymentStatus);
+      expect(after.paymentMethod, before.paymentMethod);
+      expect(after.totalAmount, before.totalAmount);
+    });
+
+    test('earlier operation records are never changed by later sessions',
+        () async {
+      await seed(riceSugarOil());
+      await pack('s1', {'rice': 4});
+      final ops = firestore
+          .collection('orders')
+          .doc(orderId)
+          .collection('packing_operations');
+      final first = (await ops.doc('s1').get()).data();
+      await pack('s2', {'sugar': 2});
+      expect((await ops.doc('s1').get()).data(), first);
+      expect((await ops.get()).docs.length, 2);
+    });
+
+    test('a rejected session leaves no trace (no false success)', () async {
+      await seed(riceSugarOil());
+      await expectLater(
+        pack('bad', {'rice': 1, 'ghost': 1}),
+        throwsA(isA<PackingException>()
+            .having((e) => e.code, 'code', 'unknown_item')),
+      );
+      final order = await readOrder();
+      expect(packed(order), [0, 0, 0]);
+      expect(order.packingStatus, isNull);
+      expect(order.status, OrderStatus.confirmed);
+      final ops = await firestore
+          .collection('orders')
+          .doc(orderId)
+          .collection('packing_operations')
+          .get();
+      expect(ops.docs, isEmpty);
+    });
+
+    test('three-decimal quantities are exact and a gram is the unit', () async {
+      await seed([_item('rice', 50, 10, 'kg')]);
+      await pack('a', {'rice': 8.1});
+      await pack('b', {'rice': 2.05});
+      expect((await readOrder()).items.single.packedQuantity, 10.15);
+    });
+  });
+
+  group('adjusting an item to its packed quantity', () {
+    Future<PackingResult> packClosing(
+            String op, Map<String, double> q, Set<String> close) =>
+        packing.savePackingSession(
+          orderId: orderId,
+          operationId: op,
+          packedBy: 'packer',
+          lines: q.entries
+              .map((e) => PackingLine(productId: e.key, quantity: e.value))
+              .toList(),
+          closeProductIds: close,
+        );
+
+    test('8 kg ordered, 7.92 kg packed and closed: balance is not billed',
+        () async {
+      await seed([_item('rice', 50, 8, 'kg')]);
+      final result = await packClosing('s1', {'rice': 7.92}, {'rice'});
+      expect(result.packingStatus, 'fully_packed');
+
+      var order = await readOrder();
+      expect(order.items.single.packedQuantity, 7.92);
+      expect(order.items.single.packingClosed, isTrue);
+      expect(
+          PackingCalculator.remainingQuantityOf(order, order.items.single), 0);
+
+      final done =
+          await packing.finalizeOrder(orderId: orderId, finalizedBy: 'p');
+      expect(done.totalAmount, 396); // 7.92 x 50, no short-close reason needed
+
+      order = await readOrder();
+      expect(order.status, OrderStatus.ready);
+      expect(order.items.single.quantity, 7.92);
+      final bill = await readBill();
+      expect(bill.items.single.orderedQuantity, 8);
+      expect(bill.items.single.actualQuantity, 7.92);
+      expect(bill.actualSubtotal, 396);
+      expect(bill.actualTotal, 436); // + 30 delivery + 10 cleaning
+      expect(bill.totalVariation, closeTo(-4, 0.001));
+    });
+
+    test('closing one item does not touch or complete the others', () async {
+      await seed([_item('rice', 50, 8, 'kg'), _item('sugar', 40, 5, 'kg')]);
+      final result = await packClosing('s1', {'rice': 7.92}, {'rice'});
+      expect(result.packingStatus, 'partially_packed');
+      final order = await readOrder();
+      expect(order.items[0].packingClosed, isTrue);
+      expect(order.items[1].packingClosed, isFalse);
+      expect(order.items[1].packedQuantity, 0);
+      expect(order.status, OrderStatus.preparing);
+    });
+
+    test('a later session can close an item packed in earlier sessions',
+        () async {
+      await seed([_item('rice', 50, 10, 'kg')]);
+      await pack('s1', {'rice': 8});
+      await packClosing('s2', {}, {'rice'}); // adjust only, nothing new
+      final order = await readOrder();
+      expect(order.items.single.packedQuantity, 8);
+      expect(order.items.single.packingClosed, isTrue);
+      expect(PackingCalculator.isFullyPacked(order), isTrue);
+    });
+
+    test('cannot close an item with nothing packed, or pack a closed item',
+        () async {
+      await seed([_item('rice', 50, 8, 'kg')]);
+      await expectLater(
+        packClosing('s1', {}, {'rice'}),
+        throwsA(isA<PackingException>()
+            .having((e) => e.code, 'code', 'nothing_packed')),
+      );
+      await packClosing('s2', {'rice': 7.92}, {'rice'});
+      await expectLater(
+        pack('s3', {'rice': 0.08}),
+        throwsA(isA<PackingException>()
+            .having((e) => e.code, 'code', 'already_packed')),
+      );
+      expect((await readOrder()).items.single.packedQuantity, 7.92);
+    });
+
+    test('retrying the same closing operation applies once', () async {
+      await seed([_item('rice', 50, 8, 'kg')]);
+      final first = await packClosing('s1', {'rice': 7.92}, {'rice'});
+      final retry = await packClosing('s1', {'rice': 7.92}, {'rice'});
+      expect(first.replayed, isFalse);
+      expect(retry.replayed, isTrue);
+      expect((await readOrder()).items.single.packedQuantity, 7.92);
+    });
+
+    test('unknown item to close is rejected atomically', () async {
+      await seed([_item('rice', 50, 8, 'kg')]);
+      await expectLater(
+        packClosing('s1', {'rice': 1}, {'ghost'}),
+        throwsA(isA<PackingException>()
+            .having((e) => e.code, 'code', 'unknown_item')),
+      );
+      expect((await readOrder()).items.single.packedQuantity, 0);
     });
   });
 
@@ -347,8 +552,8 @@ void main() {
       await pack('a', {'tomato': 5});
       await expectLater(
         pack('b', {'tomato': 5}),
-        throwsA(
-            isA<PackingException>().having((e) => e.code, 'code', 'already_packed')),
+        throwsA(isA<PackingException>()
+            .having((e) => e.code, 'code', 'already_packed')),
       );
       expect((await readOrder()).items.single.packedQuantity, 5);
     });

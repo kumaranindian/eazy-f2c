@@ -72,6 +72,10 @@ class OrderItem with _$OrderItem {
     // Only written by PackingService. Legacy orders have no value (0.0); use
     // PackingCalculator.packedQuantityOf to interpret them.
     @Default(0.0) double packedQuantity,
+    // True once the packer accepted packedQuantity as this item's final
+    // quantity although it is below the ordered quantity (e.g. 7.92 of 8 kg).
+    // The unpacked balance is then neither pending nor billed.
+    @Default(false) bool packingClosed,
   }) = _OrderItem;
 
   factory OrderItem.fromJson(Map<String, dynamic> json) =>

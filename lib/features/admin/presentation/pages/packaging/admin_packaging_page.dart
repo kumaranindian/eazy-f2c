@@ -995,7 +995,10 @@ class _AdminPackagingPageState extends ConsumerState<AdminPackagingPage> {
 class PackingDialog extends ConsumerStatefulWidget {
   final OrderModel order;
 
-  const PackingDialog({super.key, required this.order});
+  /// Override for tests; defaults to the Firestore-backed service.
+  final PackingService? packingService;
+
+  const PackingDialog({super.key, required this.order, this.packingService});
 
   @override
   ConsumerState<PackingDialog> createState() => _PackingDialogState();
@@ -1005,7 +1008,12 @@ class _PackingDialogState extends ConsumerState<PackingDialog> {
   /// Quantity entered for THIS packing session only, per productId.
   final Map<String, double> _packNow = {};
   final Map<String, TextEditingController> _controllers = {};
-  final PackingService _packingService = PackingService();
+
+  /// Items the packer chose to close at their packed quantity this session
+  /// (e.g. 7.92 of 8 kg): the balance is neither pending nor billed.
+  final Set<String> _closeNow = {};
+  late final PackingService _packingService =
+      widget.packingService ?? PackingService();
   bool _isProcessing = false;
   Map<String, String> _farmerNamesById = {};
 
@@ -1032,19 +1040,59 @@ class _PackingDialogState extends ConsumerState<PackingDialog> {
   @override
   void initState() {
     super.initState();
+    // Nothing is pre-filled: an item is only packed when the packer enters a
+    // quantity (or taps "Pack remaining") for it. Pre-filling the remaining
+    // quantity made untouched items get packed along with the edited one.
     for (final item in widget.order.items) {
-      final remaining = _remainingOf(item);
-      _packNow[item.productId] = remaining;
-      _controllers[item.productId] = TextEditingController(
-        text: remaining.toStringAsFixed(2),
-      );
+      _packNow[item.productId] = 0;
+      _controllers[item.productId] = TextEditingController();
     }
   }
+
+  void _setPackNow(OrderItem item, double value) {
+    final next = value.isNaN || value < 0 ? 0.0 : value;
+    setState(() {
+      _packNow[item.productId] = next;
+      _controllers[item.productId]?.text =
+          next == 0 ? '' : _formatQuantity(next);
+    });
+  }
+
+  /// Quantity that will be packed in total for [item] if this session saves.
+  double _packedAfterSession(OrderItem item) => BillingCalculator.fromMilli(
+        BillingCalculator.toMilli(_packedOf(item)) +
+            BillingCalculator.toMilli(_packNow[item.productId] ?? 0),
+      );
+
+  void _toggleClose(OrderItem item) {
+    setState(() {
+      if (!_closeNow.remove(item.productId)) _closeNow.add(item.productId);
+    });
+  }
+
+  void _packAllRemaining() {
+    for (final item in widget.order.items) {
+      final remaining = _remainingOf(item);
+      if (remaining > 0) _setPackNow(item, remaining);
+    }
+  }
+
+  static String _formatQuantity(double value) {
+    final text = value.toStringAsFixed(3);
+    return text.replaceFirst(RegExp(r'\.?0+$'), '');
+  }
+
+  int get _itemsPackingNow => widget.order.items
+      .where((i) => BillingCalculator.toMilli(_packNow[i.productId] ?? 0) > 0)
+      .length;
 
   /// Null when valid, otherwise a message for the item's field.
   String? _validationError(OrderItem item) {
     final value = _packNow[item.productId] ?? 0;
     if (value.isNaN || value < 0) return 'Must be 0 or more';
+    if (_closeNow.contains(item.productId) && _packedAfterSession(item) <= 0) {
+      return 'Enter packed qty to adjust';
+    }
     return null;
   }
 
@@ -1056,6 +1104,7 @@ class _PackingDialogState extends ConsumerState<PackingDialog> {
 
   /// True when, after this session, nothing remains to pack.
   bool get _completesOrder => widget.order.items.every((item) {
+        if (_closeNow.contains(item.productId)) return true;
         final after = BillingCalculator.toMilli(_remainingOf(item)) -
             BillingCalculator.toMilli(_packNow[item.productId] ?? 0);
         return after <= 0;
@@ -1145,7 +1194,7 @@ class _PackingDialogState extends ConsumerState<PackingDialog> {
               ),
               const SizedBox(height: 8),
               Text(
-                'Enter only the quantity packed in this session. Earlier sessions are kept; the order is billed and sent to delivery only once everything is packed.',
+                'Enter the quantity packed in this session only for the items you are packing now; items left empty are not changed. Earlier sessions are kept; the order is billed and sent to delivery only once everything is packed.',
                 style: TextStyle(fontSize: 13, color: Colors.grey[600]),
               ),
               const SizedBox(height: 16),
@@ -1174,11 +1223,26 @@ class _PackingDialogState extends ConsumerState<PackingDialog> {
                 ],
               ),
               const Divider(height: 32),
-              const Text(
-                'Pack Items',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+              Row(
+                children: [
+                  const Expanded(
+                    child: Text(
+                      'Pack Items',
+                      style:
+                          TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                  TextButton(
+                    onPressed: _isProcessing ? null : _packAllRemaining,
+                    child: const Text('Pack all remaining'),
+                  ),
+                ],
               ),
-              const SizedBox(height: 16),
+              Text(
+                'Packing now: $_itemsPackingNow of ${widget.order.items.length} items',
+                style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+              ),
+              const SizedBox(height: 12),
               Flexible(
                 child: ListView(
                   shrinkWrap: true,
@@ -1220,6 +1284,7 @@ class _PackingDialogState extends ConsumerState<PackingDialog> {
                       onPressed: _isProcessing ||
                               _hasInvalidEntry ||
                               (!_hasEntries &&
+                                  _closeNow.isEmpty &&
                                   !PackingCalculator.isFullyPacked(
                                       widget.order))
                           ? null
@@ -1257,6 +1322,7 @@ class _PackingDialogState extends ConsumerState<PackingDialog> {
                         onPressed: _isProcessing ||
                                 _hasInvalidEntry ||
                                 (!_hasEntries &&
+                                    _closeNow.isEmpty &&
                                     !PackingCalculator.isFullyPacked(
                                         widget.order))
                             ? null
@@ -1326,13 +1392,7 @@ class _PackingDialogState extends ConsumerState<PackingDialog> {
           quantity: qty,
         ).toStringAsFixed(2)}';
 
-    void setPackNow(double value) {
-      final clamped = value < 0 ? 0.0 : value;
-      setState(() {
-        _packNow[item.productId] = clamped;
-        _controllers[item.productId]?.text = clamped.toStringAsFixed(2);
-      });
-    }
+    void setPackNow(double value) => _setPackNow(item, value);
 
     void decrement() => setPackNow(packNow - _getIncrementStep(item.unit));
     void increment() => setPackNow(packNow + _getIncrementStep(item.unit));
@@ -1360,6 +1420,7 @@ class _PackingDialogState extends ConsumerState<PackingDialog> {
         isDense: true,
         contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
         border: const OutlineInputBorder(),
+        hintText: '0',
         errorText: error,
         errorStyle: const TextStyle(fontSize: 10),
       ),
@@ -1436,6 +1497,66 @@ class _PackingDialogState extends ConsumerState<PackingDialog> {
       ],
     );
 
+    final packedAfter = _packedAfterSession(item);
+    final closing = _closeNow.contains(item.productId);
+    final unbilled = BillingCalculator.fromMilli(
+      math.max(
+        0,
+        BillingCalculator.toMilli(orderedQty) -
+            BillingCalculator.toMilli(packedAfter),
+      ),
+    );
+    final canAdjust = !done && packedAfter > 0 && unbilled > 0;
+
+    final packRemainingButton = done
+        ? (item.packingClosed && unbilled > 0
+            ? Padding(
+                padding: const EdgeInsets.only(top: 4),
+                child: Text(
+                  'Closed at ${_formatQuantity(packedSoFar)} ${item.unit}; '
+                  '${_formatQuantity(unbilled)} ${item.unit} not billed',
+                  style: TextStyle(fontSize: 12, color: Colors.orange[800]),
+                ),
+              )
+            : const SizedBox.shrink())
+        : Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Wrap(
+                crossAxisAlignment: WrapCrossAlignment.center,
+                children: [
+                  TextButton(
+                    onPressed:
+                        _isProcessing ? null : () => setPackNow(remaining),
+                    child: Text(
+                      'Pack remaining (${_formatQuantity(remaining)} ${item.unit})',
+                      style: const TextStyle(fontSize: 12),
+                    ),
+                  ),
+                  IconButton(
+                    tooltip: closing
+                        ? 'Undo: keep remaining quantity pending'
+                        : 'Adjust to packed quantity (balance not billed)',
+                    icon: Icon(
+                      Icons.sync,
+                      color: closing ? Colors.orange[800] : null,
+                    ),
+                    onPressed: _isProcessing || (!canAdjust && !closing)
+                        ? null
+                        : () => _toggleClose(item),
+                  ),
+                ],
+              ),
+              if (closing)
+                Text(
+                  'Will close at ${_formatQuantity(packedAfter)} ${item.unit}; '
+                  '${_formatQuantity(unbilled)} ${item.unit} '
+                  '(${amount(unbilled)}) will not be billed',
+                  style: TextStyle(fontSize: 12, color: Colors.orange[800]),
+                ),
+            ],
+          );
+
     return Container(
       margin: EdgeInsets.only(bottom: isMobile ? 12 : 16),
       padding: EdgeInsets.all(isMobile ? 12 : 16),
@@ -1492,6 +1613,7 @@ class _PackingDialogState extends ConsumerState<PackingDialog> {
                 ),
               ],
             ),
+            packRemainingButton,
           ] else
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -1524,6 +1646,7 @@ class _PackingDialogState extends ConsumerState<PackingDialog> {
                         amount(packNow),
                         style: TextStyle(fontSize: 12, color: Colors.grey[600]),
                       ),
+                      packRemainingButton,
                     ],
                   ),
                 ),
@@ -1795,6 +1918,7 @@ class _PackingDialogState extends ConsumerState<PackingDialog> {
     ];
     final signature = lines
         .map((l) => '${l.productId}:${BillingCalculator.toMilli(l.quantity)}')
+        .followedBy((_closeNow.toList()..sort()).map((id) => 'close:$id'))
         .join('|');
     if (signature != _lastAttemptSignature) {
       _operationId = _newOperationId();
@@ -1804,12 +1928,13 @@ class _PackingDialogState extends ConsumerState<PackingDialog> {
     try {
       final packedBy = ref.read(currentUserProvider).valueOrNull?.id ?? 'admin';
       var fullyPacked = PackingCalculator.isFullyPacked(widget.order);
-      if (lines.isNotEmpty) {
+      if (lines.isNotEmpty || _closeNow.isNotEmpty) {
         final result = await _packingService.savePackingSession(
           orderId: widget.order.id,
           operationId: _operationId,
           lines: lines,
           packedBy: packedBy,
+          closeProductIds: {..._closeNow},
         );
         fullyPacked = result.packingStatus == 'fully_packed';
       }

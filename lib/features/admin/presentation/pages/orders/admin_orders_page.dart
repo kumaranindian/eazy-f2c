@@ -5,6 +5,10 @@ import 'package:intl/intl.dart';
 import 'package:f2c/features/customer/models/order_model.dart';
 import 'package:f2c/features/customer/models/bill_model.dart';
 import 'package:f2c/features/customer/services/bill_service.dart';
+import 'package:f2c/core/shared/logger/app_logger.dart';
+import 'package:f2c/features/authentication/providers/auth_providers.dart';
+import 'package:f2c/features/packaging/services/order_recovery_service.dart';
+import 'package:f2c/features/packaging/services/packing_service.dart';
 import 'package:f2c/core/widgets/responsive_data_table.dart';
 import 'package:f2c/core/widgets/responsive_stat_cards_row.dart';
 import 'package:f2c/features/admin/presentation/widgets/order_details_dialog.dart';
@@ -39,6 +43,7 @@ class _AdminOrdersPageState extends ConsumerState<AdminOrdersPage> {
   DateTime? _endDate;
   int _currentPage = 1;
   final int _itemsPerPage = 10;
+  bool _isReverting = false;
 
   @override
   void initState() {
@@ -678,6 +683,17 @@ class _AdminOrdersPageState extends ConsumerState<AdminOrdersPage> {
             constraints: const BoxConstraints(),
           ),
           const SizedBox(width: 8),
+          if (_canRevertToConfirmed(order)) ...[
+            IconButton(
+              icon: const Icon(Icons.settings_backup_restore,
+                  size: 18, color: Color(0xFFE91E63)),
+              onPressed: () => _showRevertToConfirmedDialog(order),
+              tooltip: 'Revert to Confirmed',
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(),
+            ),
+            const SizedBox(width: 8),
+          ],
           // Edit button - available for pending and confirmed orders
           if (order.status == OrderStatus.pending ||
               order.status == OrderStatus.confirmed) ...[
@@ -878,6 +894,168 @@ class _AdminOrdersPageState extends ConsumerState<AdminOrdersPage> {
         _endDate = picked.end;
       });
     }
+  }
+
+  bool _canRevertToConfirmed(OrderModel order) =>
+      OrderRecoveryEligibility.blockedReason(order) == null &&
+      OrderRecoveryEligibility.hasDownstreamState(order);
+
+  Future<void> _showRevertToConfirmedDialog(OrderModel order) async {
+    final reasonController = TextEditingController();
+    final packedItems = order.items.where((i) => i.packedQuantity > 0).length;
+    final reason = await showDialog<String>(
+      context: context,
+      builder: (dialogContext) {
+        String? error;
+        return StatefulBuilder(
+          builder: (context, setDialogState) => AlertDialog(
+            title: const Text('Revert to Confirmed'),
+            content: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 480),
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Order ${order.id}',
+                        style: const TextStyle(fontWeight: FontWeight.bold)),
+                    Text(order.customerName),
+                    const SizedBox(height: 8),
+                    Text('Current status: ${order.status.displayName}'),
+                    const Text('Target status: Confirmed'),
+                    const SizedBox(height: 12),
+                    Text(
+                      'Packing, packaging/delivery IDs and ready timestamps '
+                      'for THIS order will be cleared, packed quantities '
+                      'reset ($packedItems item(s) packed), and its bill '
+                      'returned to draft with the ordered amounts. '
+                      'Items, prices, customer details and payment data are '
+                      "kept, and a full snapshot is saved to the order's "
+                      'audit trail. Other orders are not touched.',
+                    ),
+                    const SizedBox(height: 8),
+                    if (order.status == OrderStatus.in_transit) ...[
+                      const Text(
+                        'This order is out for delivery. Make sure the '
+                        'delivery person is told it was recalled.',
+                        style: TextStyle(
+                            color: Colors.red, fontWeight: FontWeight.bold),
+                      ),
+                      const SizedBox(height: 8),
+                    ],
+                    const Text(
+                      'Messages already sent (e.g. WhatsApp) cannot be '
+                      'recalled.',
+                      style: TextStyle(color: Colors.orange),
+                    ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: reasonController,
+                      maxLines: 2,
+                      decoration: InputDecoration(
+                        labelText: 'Reason (required)',
+                        border: const OutlineInputBorder(),
+                        errorText: error,
+                      ),
+                      onChanged: (_) {
+                        if (error != null) setDialogState(() => error = null);
+                      },
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(dialogContext),
+                child: const Text('Cancel'),
+              ),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFFE91E63),
+                  foregroundColor: Colors.white,
+                ),
+                onPressed: () {
+                  final text = reasonController.text.trim();
+                  if (text.isEmpty) {
+                    setDialogState(() => error = 'Please enter a reason');
+                    return;
+                  }
+                  Navigator.pop(dialogContext, text);
+                },
+                child: const Text('Revert to Confirmed'),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+    reasonController.dispose();
+    if (reason == null || !mounted) return;
+    await _revertToConfirmed(order, reason);
+  }
+
+  Future<void> _revertToConfirmed(OrderModel order, String reason) async {
+    if (_isReverting) return;
+    setState(() => _isReverting = true);
+    showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const PopScope(
+        canPop: false,
+        child: Center(
+          child: Card(
+            child: Padding(
+              padding: EdgeInsets.all(24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  CircularProgressIndicator(),
+                  SizedBox(height: 16),
+                  Text('Reverting order...'),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    String? message;
+    var success = false;
+    try {
+      final admin = ref.read(currentUserProvider).valueOrNull?.id ?? 'admin';
+      final result = await OrderRecoveryService().revertToConfirmed(
+        orderId: order.id,
+        operationId: '${DateTime.now().microsecondsSinceEpoch}',
+        revertedBy: admin,
+        reason: reason,
+      );
+      success = true;
+      message = 'Order reverted to Confirmed. '
+          '${result.billsReset} bill(s) reset to draft.';
+      AppLogger.info(
+          'Order ${order.id} reverted to confirmed from ${result.previousStatus}');
+    } on PackingException catch (e) {
+      message = e.message;
+    } catch (e) {
+      AppLogger.error('Failed to revert order ${order.id}', e);
+      message = 'Unable to revert this order. Nothing was changed '
+          'unless a verification warning was shown; check the order and retry.';
+    } finally {
+      if (mounted) {
+        Navigator.of(context, rootNavigator: true).pop();
+        setState(() => _isReverting = false);
+      }
+    }
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message ?? ''),
+        backgroundColor: success ? Colors.green : Colors.red,
+        duration: const Duration(seconds: 5),
+      ),
+    );
   }
 
   Future<void> _syncOrderAndBill(OrderModel order) async {

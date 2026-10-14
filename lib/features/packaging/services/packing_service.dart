@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:f2c/features/customer/models/bill_model.dart';
 import 'package:f2c/features/customer/models/order_model.dart';
@@ -7,13 +9,38 @@ import 'package:f2c/features/customer/services/billing_calculator.dart';
 class PackingException implements Exception {
   PackingException(this.code, this.message);
 
-  /// 'invalid_quantity' | 'already_packed' | 'unknown_item' | 'not_packable' |
+  /// 'invalid_quantity' | 'already_packed' | 'nothing_packed' | 'unknown_item' | 'not_packable' |
   /// 'incomplete' | 'bill_finalized' | 'not_found'
   final String code;
   final String message;
 
   @override
   String toString() => message;
+}
+
+/// Runs [body] in a Firestore transaction and rethrows any [PackingException]
+/// it raised as-is. On Flutter Web the SDK boxes exceptions thrown inside a
+/// transaction callback, so a plain `on PackingException` never matches and the
+/// UI would show a generic failure instead of the real business-rule message.
+Future<T> runPackingTransaction<T>(
+  FirebaseFirestore firestore,
+  Future<T> Function(Transaction transaction) body,
+) async {
+  PackingException? rejection;
+  try {
+    return await firestore.runTransaction<T>((transaction) async {
+      try {
+        return await body(transaction);
+      } on PackingException catch (e) {
+        rejection = e;
+        rethrow;
+      }
+    });
+  } catch (_) {
+    final captured = rejection;
+    if (captured != null) throw captured;
+    rethrow;
+  }
 }
 
 class PackingLine {
@@ -87,11 +114,12 @@ class PackingService {
     required String operationId,
     required List<PackingLine> lines,
     required String packedBy,
+    Set<String> closeProductIds = const {},
   }) async {
     final orderRef = _firestore.collection('orders').doc(orderId);
     final opRef = _operations(orderId).doc(operationId);
 
-    return _firestore.runTransaction((transaction) async {
+    return runPackingTransaction(_firestore, (transaction) async {
       final opSnap = await transaction.get(opRef);
       final orderSnap = await transaction.get(orderRef);
       if (!orderSnap.exists) {
@@ -125,33 +153,46 @@ class PackingService {
         sessionMilli[line.productId] =
             (sessionMilli[line.productId] ?? 0) + milli;
       }
-      if (sessionMilli.isEmpty) {
+      if (sessionMilli.isEmpty && closeProductIds.isEmpty) {
         throw PackingException('invalid_quantity',
             'Enter a quantity to pack for at least one item.');
       }
 
       final opLines = <Map<String, dynamic>>[];
       final updatedItems = <OrderItem>[];
+      final pendingClose = {...closeProductIds};
       for (final item in order.items) {
-        final add = sessionMilli.remove(item.productId);
-        if (add == null) {
+        final add = sessionMilli.remove(item.productId) ?? 0;
+        final close = pendingClose.remove(item.productId);
+        if (add == 0 && !close) {
           updatedItems.add(item);
           continue;
         }
         final previous = BillingCalculator.toMilli(
             PackingCalculator.packedQuantityOf(order, item));
-        final remaining = BillingCalculator.toMilli(item.quantity) - previous;
+        final remaining = item.packingClosed
+            ? 0
+            : BillingCalculator.toMilli(item.quantity) - previous;
         // The packer enters the actual weighed quantity, which may differ
         // from the ordered one, so exceeding the remainder is allowed. Only an
         // item that is already complete is rejected, which also stops a stale
         // double-submit from being counted twice.
-        if (remaining <= 0) {
+        if (remaining <= 0 && (add > 0 || close)) {
           throw PackingException(
             'already_packed',
             '${item.productName} is already fully packed.',
           );
         }
         final resulting = previous + add;
+        if (close && resulting <= 0) {
+          throw PackingException(
+            'nothing_packed',
+            '${item.productName}: pack some quantity before adjusting it.',
+          );
+        }
+        final released = close
+            ? math.max(0, BillingCalculator.toMilli(item.quantity) - resulting)
+            : 0;
         opLines.add({
           'productId': item.productId,
           'productName': item.productName,
@@ -160,14 +201,21 @@ class PackingService {
           'quantity': BillingCalculator.fromMilli(add),
           'previousPackedQuantity': BillingCalculator.fromMilli(previous),
           'resultingPackedQuantity': BillingCalculator.fromMilli(resulting),
+          if (close) 'closedAtPackedQuantity': true,
+          if (close) 'unbilledQuantity': BillingCalculator.fromMilli(released),
         });
         updatedItems.add(
-          item.copyWith(packedQuantity: BillingCalculator.fromMilli(resulting)),
+          item.copyWith(
+            packedQuantity: BillingCalculator.fromMilli(resulting),
+            packingClosed: close || item.packingClosed,
+          ),
         );
       }
-      if (sessionMilli.isNotEmpty) {
-        throw PackingException('unknown_item',
-            'Item ${sessionMilli.keys.first} is not part of this order.');
+      if (sessionMilli.isNotEmpty || pendingClose.isNotEmpty) {
+        throw PackingException(
+            'unknown_item',
+            'Item ${(sessionMilli.keys.followedBy(pendingClose)).first} '
+                'is not part of this order.');
       }
 
       final updated = order.copyWith(items: updatedItems);
@@ -226,13 +274,20 @@ class PackingService {
     final billRef =
         billQuery.docs.isEmpty ? null : billQuery.docs.first.reference;
 
-    return _firestore.runTransaction((transaction) async {
+    return runPackingTransaction(_firestore, (transaction) async {
       final orderSnap = await transaction.get(orderRef);
       if (!orderSnap.exists) {
         throw PackingException('not_found', 'Order not found.');
       }
       final order = OrderModel.fromFirestore(orderSnap);
       final billSnap = billRef == null ? null : await transaction.get(billRef);
+      // Audit records are create-only, so a re-finalization after the order
+      // was reverted to confirmed needs its own document.
+      final firstFinalize = await transaction.get(opRef);
+      final finalizeRef = firstFinalize.exists
+          ? _operations(orderId).doc(
+              '${finalizeOperationId}_${DateTime.now().microsecondsSinceEpoch}')
+          : opRef;
 
       if (PackingCalculator.isFinalized(order)) {
         return FinalizeResult(
@@ -318,8 +373,8 @@ class PackingService {
             'DLV${DateTime.now().millisecondsSinceEpoch.toString().substring(0, 8)}';
       }
       transaction.update(orderRef, orderUpdate);
-      transaction.set(opRef, {
-        'operationId': finalizeOperationId,
+      transaction.set(finalizeRef, {
+        'operationId': finalizeRef.id,
         'orderId': orderId,
         'type': 'finalize',
         'status': 'applied',
