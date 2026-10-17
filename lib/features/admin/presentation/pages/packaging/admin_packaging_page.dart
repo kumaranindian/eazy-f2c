@@ -1181,6 +1181,21 @@ class _PackingDialogState extends ConsumerState<PackingDialog> {
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
+                  Tooltip(
+                    message:
+                        'Enter the quantity packed in this session only for the items you are packing now; items left empty are not changed. Earlier sessions are kept; the order is billed and sent to delivery only once everything is packed.',
+                    triggerMode: TooltipTriggerMode.tap,
+                    showDuration: const Duration(seconds: 10),
+                    constraints: const BoxConstraints(maxWidth: 320),
+                    padding: const EdgeInsets.all(12),
+                    child: Padding(
+                      padding: const EdgeInsets.all(8),
+                      child: Icon(
+                        Icons.info_outline,
+                        color: Colors.grey[600],
+                      ),
+                    ),
+                  ),
                   IconButton(
                     icon: const Icon(Icons.sync, color: Color(0xFF2196F3)),
                     tooltip: 'Sync Order & Bill',
@@ -1191,11 +1206,6 @@ class _PackingDialogState extends ConsumerState<PackingDialog> {
                     onPressed: () => Navigator.pop(context),
                   ),
                 ],
-              ),
-              const SizedBox(height: 8),
-              Text(
-                'Enter the quantity packed in this session only for the items you are packing now; items left empty are not changed. Earlier sessions are kept; the order is billed and sent to delivery only once everything is packed.',
-                style: TextStyle(fontSize: 13, color: Colors.grey[600]),
               ),
               const SizedBox(height: 16),
               Row(
