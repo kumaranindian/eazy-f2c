@@ -541,11 +541,20 @@ class OrderDetailsDialog extends StatelessWidget {
     try {
       final billService = BillService();
       // Refresh a draft bill from the persisted order; final bills are kept as-is.
-      final bill = await billService.syncDraftBillWithOrder(
+      final syncedBill = await billService.syncDraftBillWithOrder(
         orderId: order.id,
         updatedBy: FirebaseAuth.instance.currentUser?.uid ?? 'admin',
       );
       
+      // Orders saved without a bill (failed bill step, or placed before
+      // billing existed) get one created from the order the first time an
+      // admin opens it.
+      final bill = syncedBill ??
+          await billService.getOrCreateBillForOrder(
+            order: order,
+            createdBy: FirebaseAuth.instance.currentUser?.uid ?? 'admin',
+          );
+
       if (bill == null) {
         if (!context.mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(

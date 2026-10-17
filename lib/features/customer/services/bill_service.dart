@@ -12,13 +12,6 @@ class BillService {
 
   final FirebaseFirestore _firestore;
 
-  /// Generate a unique bill number
-  String _generateBillNumber(DateTime date) {
-    final dateStr = DateFormat('yyyyMMdd').format(date);
-    final timeStr = DateFormat('HHmmss').format(date);
-    return 'BILL-$dateStr-$timeStr';
-  }
-
   /// Converts persisted order lines into bill lines. Every code path that
   /// builds bill items from an order goes through here.
   static List<BillItemModel> billItemsFromOrder(OrderModel order) {
@@ -36,8 +29,14 @@ class BillService {
     }).toList();
   }
 
-  /// Generate bill from order
-  Future<BillModel> generateBillFromOrder({
+  /// Fixed bill document id for an order. Checkout and the on-demand repair
+  /// both write to this id, so an order can never end up with two bills even
+  /// when two writers race.
+  static String billDocIdForOrder(String orderId) => 'bill_$orderId';
+
+  /// A draft bill for [order]. Pure: shared by checkout (which writes it in
+  /// the same transaction as the order) and by [generateBillFromOrder].
+  static BillModel buildDraftBill({
     required OrderModel order,
     required String customerName,
     required String customerPhone,
@@ -45,13 +44,12 @@ class BillService {
     String? customerAddress,
     required String scheduleName,
     required String generatedBy,
-  }) async {
-    final billItems = billItemsFromOrder(order);
-
-    final billNumber = _generateBillNumber(DateTime.now());
-
-    final bill = BillModel(
-      billId: '', // Will be set by Firestore
+    String billId = '',
+    DateTime? now,
+  }) {
+    final generatedAt = now ?? DateTime.now();
+    return BillModel(
+      billId: billId,
       orderId: order.id,
       customerId: order.customerId,
       customerName: customerName,
@@ -62,24 +60,128 @@ class BillService {
       deliveryDate: order.deliveryDate ?? order.createdAt,
       scheduleId: order.scheduleId ?? '',
       scheduleName: scheduleName,
-      items: billItems,
+      items: billItemsFromOrder(order),
       orderedSubtotal: order.subtotal,
       deliveryCharges: order.deliveryCharges,
       cleaningCharges: order.cleaningCharges,
       orderedTotal: order.grandTotal,
       paymentMethod: order.paymentMethod ?? 'cash',
       paymentStatus: order.paymentStatus ?? 'pending',
-      billNumber: billNumber,
-      generatedAt: DateTime.now(),
+      billNumber: _billNumberFor(generatedAt),
+      generatedAt: generatedAt,
       generatedBy: generatedBy,
       hasVariations: false,
       status: 'draft',
     );
+  }
+
+  static String _billNumberFor(DateTime date) {
+    final dateStr = DateFormat('yyyyMMdd').format(date);
+    final timeStr = DateFormat('HHmmss').format(date);
+    return 'BILL-$dateStr-$timeStr';
+  }
+
+  /// Generate bill from order
+  Future<BillModel> generateBillFromOrder({
+    required OrderModel order,
+    required String customerName,
+    required String customerPhone,
+    String? customerEmail,
+    String? customerAddress,
+    required String scheduleName,
+    required String generatedBy,
+  }) async {
+    final bill = buildDraftBill(
+      order: order,
+      customerName: customerName,
+      customerPhone: customerPhone,
+      customerEmail: customerEmail,
+      customerAddress: customerAddress,
+      scheduleName: scheduleName,
+      generatedBy: generatedBy,
+    );
 
     // Save to Firestore
     final docRef = await _firestore.collection('bills').add(bill.toFirestore());
-    
+
     return bill.copyWith(billId: docRef.id);
+  }
+
+  /// Returns the order's bill, creating it only if none exists (orders whose
+  /// checkout-time bill step failed, or that predate billing). An existing
+  /// bill is returned untouched, whatever its status.
+  ///
+  /// A missing bill is rebuilt to match the order's stage: pending through
+  /// preparing orders get a draft (packing finalizes it later); ready,
+  /// in-transit and delivered orders get a final bill, because their order
+  /// lines already hold the billed (packed) quantities. Cancelled orders get
+  /// no bill. Customer contact details come from the `customers` record,
+  /// falling back to what the order itself holds.
+  Future<BillModel?> getOrCreateBillForOrder({
+    required OrderModel order,
+    required String createdBy,
+  }) async {
+    final existing = await getBillByOrderId(order.id);
+    if (existing != null) return existing;
+    if (order.status == OrderStatus.cancelled) return null;
+
+    var phone = '';
+    String? email = order.customerEmail;
+    try {
+      final customerDoc =
+          await _firestore.collection('customers').doc(order.customerId).get();
+      final data = customerDoc.data();
+      if (data != null) {
+        phone = (data['phone'] as String?) ?? '';
+        final customerEmail = data['email'] as String?;
+        if (customerEmail != null && customerEmail.isNotEmpty) {
+          email = customerEmail;
+        }
+      }
+    } catch (_) {
+      // Contact details are optional on a bill; fall back to the order's.
+    }
+
+    final bill = buildDraftBill(
+      order: order,
+      customerName: order.customerName,
+      customerPhone: phone,
+      customerEmail: email,
+      customerAddress: order.apartmentName,
+      scheduleName: order.scheduleName ?? '',
+      generatedBy: createdBy,
+      billId: billDocIdForOrder(order.id),
+    );
+
+    final data = bill.toFirestore();
+    const finalStages = {
+      OrderStatus.ready,
+      OrderStatus.in_transit,
+      OrderStatus.delivered,
+    };
+    if (finalStages.contains(order.status)) {
+      final items = finalBillItems(
+        order: order,
+        billable: {for (final i in order.items) i.productId: i.quantity},
+        existing: const [],
+      );
+      data.addAll(finalBillFields(
+        items: items,
+        deliveryCharges: order.deliveryCharges,
+        cleaningCharges: order.cleaningCharges,
+        orderedTotal: order.grandTotal,
+        updatedBy: createdBy,
+        packagingNotes: 'Bill created from order after the fact',
+      ));
+    }
+
+    final ref = _firestore.collection('bills').doc(billDocIdForOrder(order.id));
+    await _firestore.runTransaction((transaction) async {
+      // Another admin (or checkout) may have created it in the meantime.
+      if ((await transaction.get(ref)).exists) return;
+      transaction.set(ref, data);
+    });
+    return getBillById(ref.id);
   }
 
   /// Bill lines for a finalized order. [billable] maps productId to the
