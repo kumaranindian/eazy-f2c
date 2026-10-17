@@ -234,4 +234,108 @@ void main() {
     final bill = (await billService.getBillByOrderId(orderRef.id))!;
     expectBillMatchesOrder(bill, await readOrder());
   });
+
+  group('getOrCreateBillForOrder (orders saved without a bill)', () {
+    late DocumentReference<Map<String, dynamic>> orphanRef;
+
+    Future<OrderModel> saveOrphan(OrderStatus status) async {
+      final order = _order([_item('a', 50, 2), _item('b', 20, 1)])
+          .copyWith(id: 'orphan-1', status: status);
+      orphanRef = firestore.collection('orders').doc('orphan-1');
+      await orphanRef.set(order.toFirestore());
+      return OrderModel.fromFirestore(await orphanRef.get());
+    }
+
+    Future<int> billCount(String orderId) async => (await firestore
+            .collection('bills')
+            .where('orderId', isEqualTo: orderId)
+            .get())
+        .docs
+        .length;
+
+    test('creates a draft bill for a confirmed order, exactly once', () async {
+      final order = await saveOrphan(OrderStatus.confirmed);
+      await firestore
+          .collection('customers')
+          .doc('customer-1')
+          .set({'phone': '98765', 'email': 'real@example.com'});
+
+      final first = await billService.getOrCreateBillForOrder(
+          order: order, createdBy: 'admin');
+      final second = await billService.getOrCreateBillForOrder(
+          order: order, createdBy: 'admin');
+
+      expect(first!.status, 'draft');
+      expect(first.customerPhone, '98765');
+      expect(first.customerEmail, 'real@example.com');
+      expectBillMatchesOrder(first, order);
+      expect(second!.billId, first.billId);
+      expect(await billCount('orphan-1'), 1);
+    });
+
+    test('an existing bill is returned untouched', () async {
+      final order = await saveOrphan(OrderStatus.confirmed);
+      final existing = await billService.generateBillFromOrder(
+        order: order,
+        customerName: 'Original',
+        customerPhone: '111',
+        scheduleName: 'S',
+        generatedBy: 'customer-1',
+      );
+
+      final bill = await billService.getOrCreateBillForOrder(
+          order: order, createdBy: 'admin');
+
+      expect(bill!.billId, existing.billId);
+      expect(bill.customerName, 'Original');
+      expect(await billCount('orphan-1'), 1);
+    });
+
+    test('a delivered order gets a final bill at its billed quantities',
+        () async {
+      final order = await saveOrphan(OrderStatus.delivered);
+
+      final bill = (await billService.getOrCreateBillForOrder(
+          order: order, createdBy: 'admin'))!;
+
+      expect(bill.status, 'final');
+      expect(bill.finalSubtotal, order.subtotal);
+      expect(bill.finalTotal, order.grandTotal);
+      expect(bill.paymentStatus, order.paymentStatus ?? 'pending');
+      expect(bill.totalVariation, 0);
+    });
+
+    test('a cancelled order gets no bill', () async {
+      final order = await saveOrphan(OrderStatus.cancelled);
+
+      final bill = await billService.getOrCreateBillForOrder(
+          order: order, createdBy: 'admin');
+
+      expect(bill, isNull);
+      expect(await billCount('orphan-1'), 0);
+    });
+
+    test('works when the customer record is missing', () async {
+      final order = await saveOrphan(OrderStatus.pending);
+
+      final bill = (await billService.getOrCreateBillForOrder(
+          order: order, createdBy: 'admin'))!;
+
+      expect(bill.customerPhone, '');
+      expect(bill.customerEmail, order.customerEmail);
+    });
+
+    test('a draft created this way is finalized by packing like any other',
+        () async {
+      final order = await saveOrphan(OrderStatus.confirmed);
+      await billService.getOrCreateBillForOrder(
+          order: order, createdBy: 'admin');
+
+      final synced = await billService.syncDraftBillWithOrder(
+          orderId: 'orphan-1', updatedBy: 'admin');
+
+      expect(synced!.status, 'draft');
+      expectBillMatchesOrder(synced, order);
+    });
+  });
 }

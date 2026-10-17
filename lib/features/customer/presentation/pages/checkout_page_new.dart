@@ -1372,6 +1372,26 @@ class _CheckoutPageNewState extends ConsumerState<CheckoutPageNew> {
             );
 
             transaction.set(orderRef, order.toFirestore());
+
+            // The bill is written in the same transaction, so an order can
+            // never be saved without its bill.
+            final billRef = firestore
+                .collection('bills')
+                .doc(BillService.billDocIdForOrder(orderRef.id));
+            transaction.set(
+              billRef,
+              BillService.buildDraftBill(
+                order: order,
+                customerName: customer.name,
+                customerPhone: customer.phone,
+                customerEmail: customer.email,
+                customerAddress: '${customer.apartmentName}',
+                scheduleName: cart.scheduleName,
+                generatedBy: customer.id,
+                billId: billRef.id,
+                now: now,
+              ).toFirestore(),
+            );
           }
         }
       });
