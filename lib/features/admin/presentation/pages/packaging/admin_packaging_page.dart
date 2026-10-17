@@ -13,6 +13,7 @@ import 'package:f2c/features/customer/models/bill_model.dart';
 import 'package:f2c/features/authentication/providers/auth_providers.dart';
 import 'package:f2c/features/customer/services/bill_service.dart';
 import 'package:f2c/features/customer/services/billing_calculator.dart';
+import 'package:f2c/features/customer/services/pdf_service.dart';
 import 'package:f2c/features/packaging/services/packing_service.dart';
 import 'package:f2c/features/admin/presentation/widgets/order_details_dialog.dart';
 import 'package:f2c/features/admin/providers/hub_providers.dart';
@@ -57,6 +58,7 @@ class AdminPackagingPage extends ConsumerStatefulWidget {
 
 class _AdminPackagingPageState extends ConsumerState<AdminPackagingPage> {
   bool _showOrderPicking = true;
+  bool _showMobileFilters = false;
   String _searchQuery = '';
   String _selectedHub = 'All Hubs';
   String _selectedStatus = 'All Statuses';
@@ -136,21 +138,46 @@ class _AdminPackagingPageState extends ConsumerState<AdminPackagingPage> {
           ),
         ],
       ),
-      body: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _buildStatsCards(newOrdersAsync, inProgressAsync),
-          _buildTabBar(),
-          _buildFiltersRow(),
-          Expanded(
-            child: _showOrderPicking
-                ? _buildOrderPickingTable(newOrdersAsync)
-                : _buildFarmerPickingTab(),
-          ),
-        ],
+      body: LayoutBuilder(
+        builder: (context, constraints) {
+          final isMobile = constraints.maxWidth < _mobileBreakpoint;
+
+          // On mobile the stats/tabs/filters stack would eat the whole
+          // viewport, so the entire page scrolls as one list instead.
+          if (isMobile) {
+            return ListView(
+              children: [
+                _buildStatsCards(newOrdersAsync, inProgressAsync,
+                    isMobile: true),
+                _buildTabBar(isMobile: true),
+                _buildFiltersRow(isMobile: true),
+                if (_showOrderPicking)
+                  _buildOrderPickingTable(newOrdersAsync, isMobile: true)
+                else
+                  _buildFarmerPickingTab(),
+              ],
+            );
+          }
+
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _buildStatsCards(newOrdersAsync, inProgressAsync),
+              _buildTabBar(),
+              _buildFiltersRow(),
+              Expanded(
+                child: _showOrderPicking
+                    ? _buildOrderPickingTable(newOrdersAsync)
+                    : _buildFarmerPickingTab(),
+              ),
+            ],
+          );
+        },
       ),
     );
   }
+
+  static const double _mobileBreakpoint = 700;
 
   Widget _buildBreadcrumb() {
     return Container(
@@ -174,8 +201,9 @@ class _AdminPackagingPageState extends ConsumerState<AdminPackagingPage> {
 
   Widget _buildStatsCards(
     AsyncValue<List<OrderModel>> newOrders,
-    AsyncValue<List<OrderModel>> inProgress,
-  ) {
+    AsyncValue<List<OrderModel>> inProgress, {
+    bool isMobile = false,
+  }) {
     final totalOrders =
         (newOrders.value?.length ?? 0) + (inProgress.value?.length ?? 0);
     final packedCount =
@@ -190,6 +218,57 @@ class _AdminPackagingPageState extends ConsumerState<AdminPackagingPage> {
             .length ??
         0;
     final notifiedCount = 1; // Placeholder
+
+    if (isMobile) {
+      final chips = [
+        ('Total', totalOrders, const Color(0xFF2196F3)),
+        ('Packed', packedCount, const Color(0xFF4CAF50)),
+        ('In Progress', inProgressCount, const Color(0xFFFF9800)),
+        ('Pending', pendingCount, const Color(0xFFFFC107)),
+        ('Notified', notifiedCount, const Color(0xFF9C27B0)),
+      ];
+      return Container(
+        color: Colors.white,
+        padding: const EdgeInsets.symmetric(vertical: 10),
+        child: SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: Row(
+            children: [
+              for (final chip in chips)
+                Container(
+                  margin: const EdgeInsets.only(right: 8),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: chip.$3.withOpacity(0.08),
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: chip.$3.withOpacity(0.25)),
+                  ),
+                  child: Row(
+                    children: [
+                      Text(
+                        '${chip.$2}',
+                        style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.bold,
+                          color: chip.$3,
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        chip.$1,
+                        style: const TextStyle(
+                            fontSize: 12, color: Colors.black87),
+                      ),
+                    ],
+                  ),
+                ),
+            ],
+          ),
+        ),
+      );
+    }
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
@@ -234,25 +313,36 @@ class _AdminPackagingPageState extends ConsumerState<AdminPackagingPage> {
   Widget _buildStatCard(
       String title, String value, IconData icon, Color color) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.05),
-        borderRadius: BorderRadius.circular(8),
+        color: color.withOpacity(0.06),
+        borderRadius: BorderRadius.circular(10),
         border: Border.all(color: color.withOpacity(0.2)),
       ),
       child: Row(
         children: [
-          Icon(icon, color: color, size: 20),
-          const SizedBox(width: 8),
-          Text(
-            title,
-            style: const TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w500,
-              color: Colors.black87,
+          Container(
+            padding: const EdgeInsets.all(6),
+            decoration: BoxDecoration(
+              color: color.withOpacity(0.12),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Icon(icon, color: color, size: 18),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              title,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w500,
+                color: Colors.black87,
+              ),
             ),
           ),
-          const Spacer(),
+          const SizedBox(width: 6),
           Text(
             value,
             style: TextStyle(
@@ -266,31 +356,48 @@ class _AdminPackagingPageState extends ConsumerState<AdminPackagingPage> {
     );
   }
 
-  Widget _buildTabBar() {
+  Widget _buildTabBar({bool isMobile = false}) {
+    final orderTab = _buildTab(
+        'Order Picking', _showOrderPicking, Icons.inventory_2_outlined,
+        isMobile: isMobile);
+    final farmerTab = _buildTab(
+        'Farmer Picking Lists', !_showOrderPicking, Icons.agriculture_outlined,
+        isMobile: isMobile);
+
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+      padding: EdgeInsets.fromLTRB(
+          isMobile ? 16 : 24, isMobile ? 2 : 16, isMobile ? 16 : 24, isMobile ? 10 : 16),
       color: Colors.white,
-      child: Row(
-        children: [
-          _buildTab(
-              'Order Picking', _showOrderPicking, Icons.inventory_2_outlined),
-          const SizedBox(width: 16),
-          _buildTab('Farmer Picking Lists', !_showOrderPicking,
-              Icons.agriculture_outlined),
-        ],
-      ),
+      child: isMobile
+          ? Row(
+              children: [
+                Expanded(child: orderTab),
+                const SizedBox(width: 8),
+                Expanded(child: farmerTab),
+              ],
+            )
+          : Row(
+              children: [
+                orderTab,
+                const SizedBox(width: 16),
+                farmerTab,
+              ],
+            ),
     );
   }
 
-  Widget _buildTab(String label, bool isSelected, IconData icon) {
+  Widget _buildTab(String label, bool isSelected, IconData icon,
+      {bool isMobile = false}) {
     return InkWell(
+      borderRadius: BorderRadius.circular(8),
       onTap: () {
         setState(() {
           _showOrderPicking = label == 'Order Picking';
         });
       },
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+        padding: EdgeInsets.symmetric(
+            horizontal: isMobile ? 8 : 20, vertical: isMobile ? 8 : 12),
         decoration: BoxDecoration(
           color: isSelected ? const Color(0xFF4CAF50) : Colors.transparent,
           borderRadius: BorderRadius.circular(8),
@@ -299,6 +406,8 @@ class _AdminPackagingPageState extends ConsumerState<AdminPackagingPage> {
           ),
         ),
         child: Row(
+          mainAxisSize: isMobile ? MainAxisSize.max : MainAxisSize.min,
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(
               icon,
@@ -306,12 +415,16 @@ class _AdminPackagingPageState extends ConsumerState<AdminPackagingPage> {
               color: isSelected ? Colors.white : Colors.grey[600],
             ),
             const SizedBox(width: 8),
-            Text(
-              label,
-              style: TextStyle(
-                color: isSelected ? Colors.white : Colors.grey[700],
-                fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
-                fontSize: 14,
+            Flexible(
+              child: Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: isSelected ? Colors.white : Colors.grey[700],
+                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                  fontSize: isMobile ? 13 : 14,
+                ),
               ),
             ),
           ],
@@ -320,7 +433,7 @@ class _AdminPackagingPageState extends ConsumerState<AdminPackagingPage> {
     );
   }
 
-  Widget _buildFiltersRow() {
+  Widget _buildFiltersRow({bool isMobile = false}) {
     final searchField = TextField(
       onChanged: (value) => setState(() => _searchQuery = value),
       decoration: InputDecoration(
@@ -496,9 +609,45 @@ class _AdminPackagingPageState extends ConsumerState<AdminPackagingPage> {
       ),
     );
 
+    if (isMobile) {
+      return Container(
+        padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          border: Border(top: BorderSide(color: Colors.grey[200]!)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                Expanded(child: searchField),
+                const SizedBox(width: 8),
+                IconButton.outlined(
+                  tooltip: _showMobileFilters ? 'Hide filters' : 'Filters',
+                  isSelected: _showMobileFilters,
+                  icon: const Icon(Icons.tune, size: 20),
+                  selectedIcon: const Icon(Icons.close, size: 20),
+                  onPressed: () => setState(
+                      () => _showMobileFilters = !_showMobileFilters),
+                ),
+              ],
+            ),
+            if (_showMobileFilters) ...[
+              const SizedBox(height: 10),
+              Wrap(spacing: 8, runSpacing: 8, children: filterControls),
+            ],
+          ],
+        ),
+      );
+    }
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-      color: Colors.white,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        border: Border(top: BorderSide(color: Colors.grey[200]!)),
+      ),
       child: LayoutBuilder(
         builder: (context, constraints) {
           // Below this width the dropdowns + search field don't fit on one
@@ -539,13 +688,19 @@ class _AdminPackagingPageState extends ConsumerState<AdminPackagingPage> {
     );
   }
 
-  Widget _buildOrderPickingTable(AsyncValue<List<OrderModel>> ordersAsync) {
+  Widget _buildOrderPickingTable(AsyncValue<List<OrderModel>> ordersAsync,
+      {bool isMobile = false}) {
     return ordersAsync.when(
       data: (orders) {
         final filteredOrders = _filterOrders(orders);
 
         if (filteredOrders.isEmpty) {
-          return _buildEmptyState();
+          return isMobile
+              ? Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 48),
+                  child: _buildEmptyState(),
+                )
+              : _buildEmptyState();
         }
 
         final totalPages = (filteredOrders.length / _itemsPerPage).ceil();
@@ -553,6 +708,26 @@ class _AdminPackagingPageState extends ConsumerState<AdminPackagingPage> {
         final endIndex =
             (startIndex + _itemsPerPage).clamp(0, filteredOrders.length);
         final paginatedOrders = filteredOrders.sublist(startIndex, endIndex);
+
+        if (isMobile) {
+          return Padding(
+            padding: const EdgeInsets.all(12),
+            child: Column(
+              children: [
+                for (final order in paginatedOrders) _buildOrderCard(order),
+                Container(
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: Colors.grey[200]!),
+                  ),
+                  child: _buildPaginationControls(
+                      filteredOrders.length, totalPages),
+                ),
+              ],
+            ),
+          );
+        }
 
         return Container(
           margin: const EdgeInsets.all(16),
@@ -587,9 +762,184 @@ class _AdminPackagingPageState extends ConsumerState<AdminPackagingPage> {
           ),
         );
       },
-      loading: () => const Center(child: CircularProgressIndicator()),
-      error: (error, stack) => const Center(
-        child: Text('Unable to load packing orders. Please try again.'),
+      loading: () => const Padding(
+        padding: EdgeInsets.all(48),
+        child: Center(child: CircularProgressIndicator()),
+      ),
+      error: (error, stack) => const Padding(
+        padding: EdgeInsets.all(48),
+        child: Center(
+          child: Text('Unable to load packing orders. Please try again.'),
+        ),
+      ),
+    );
+  }
+
+  /// Mobile replacement for a table row: the same data and the same actions
+  /// as [_buildTableRow], stacked into a tappable-friendly card.
+  Widget _buildOrderCard(OrderModel order) {
+    final pkgId =
+        order.packagingId ?? 'PKG${order.id.substring(0, 8).toUpperCase()}';
+    final orderId = 'ORD${order.id.substring(0, 8).toUpperCase()}';
+    final status = _getOrderStatus(order);
+    final scheduleInfo = order.scheduleName ?? order.scheduleId ?? 'N/A';
+    final hubInfo = order.hubName ?? 'N/A';
+    final deliveryInfo = order.deliveryDate != null
+        ? '${DateFormat('dd MMM').format(order.deliveryDate!)}${order.deliveryTimeSlot != null ? ', ${order.deliveryTimeSlot}' : ''}'
+        : 'N/A';
+
+    Widget detail(IconData icon, String label, String value) {
+      return Padding(
+        padding: const EdgeInsets.only(top: 6),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(icon, size: 15, color: Colors.grey[500]),
+            const SizedBox(width: 8),
+            SizedBox(
+              width: 68,
+              child: Text(label,
+                  style: TextStyle(fontSize: 12, color: Colors.grey[600])),
+            ),
+            Expanded(
+              child: Text(value,
+                  style: const TextStyle(
+                      fontSize: 12.5, fontWeight: FontWeight.w500)),
+            ),
+          ],
+        ),
+      );
+    }
+
+    Color statusColor;
+    switch (status) {
+      case 'Preparing':
+        statusColor = const Color(0xFFFFC107);
+        break;
+      case 'Packed':
+        statusColor = const Color(0xFF4CAF50);
+        break;
+      default:
+        statusColor = const Color(0xFF2196F3);
+    }
+
+    final primaryLabel = status == 'Pending'
+        ? 'Start'
+        : status == 'Preparing'
+            ? 'Continue'
+            : status == 'Packed'
+                ? 'Notify'
+                : null;
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: Colors.grey[200]!),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.04),
+            blurRadius: 6,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  order.customerName,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                      fontSize: 15, fontWeight: FontWeight.w600),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: statusColor.withOpacity(0.12),
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Text(
+                  status,
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    color: statusColor,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          Wrap(
+            spacing: 12,
+            children: [
+              Text(pkgId,
+                  style: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: Color(0xFF9C27B0))),
+              Text(orderId,
+                  style: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: Color(0xFF2196F3))),
+            ],
+          ),
+          const SizedBox(height: 6),
+          const Divider(height: 12),
+          detail(Icons.event_note_outlined, 'Schedule', scheduleInfo),
+          detail(Icons.store_outlined, 'Hub', hubInfo),
+          detail(Icons.local_shipping_outlined, 'Delivery', deliveryInfo),
+          detail(Icons.shopping_basket_outlined, 'Items',
+              '${order.items.length}'),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              if (primaryLabel != null)
+                Expanded(
+                  child: ElevatedButton(
+                    onPressed: status == 'Packed'
+                        ? () {}
+                        : () => _showPackingDialog(order),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: statusColor,
+                      foregroundColor: Colors.white,
+                      minimumSize: const Size(60, 40),
+                    ),
+                    child: Text(primaryLabel),
+                  ),
+                )
+              else
+                const Spacer(),
+              const SizedBox(width: 8),
+              IconButton.outlined(
+                icon: const Icon(Icons.visibility_outlined, size: 18),
+                onPressed: () => _showOrderDetails(order),
+                tooltip: 'View',
+              ),
+              IconButton.outlined(
+                icon: const Icon(Icons.send_outlined, size: 18),
+                onPressed: () {},
+                tooltip: 'Send',
+              ),
+              IconButton.outlined(
+                icon: const Icon(Icons.print_outlined, size: 18),
+                onPressed: () => _printPackingSlip(order),
+                tooltip: 'Print',
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }
@@ -965,10 +1315,40 @@ class _AdminPackagingPageState extends ConsumerState<AdminPackagingPage> {
     );
   }
 
-  void _printPackingSlip(OrderModel order) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Printing packing slip...')),
-    );
+  /// Opens the order's bill in a new tab for browser print / save as PDF.
+  Future<void> _printPackingSlip(OrderModel order) async {
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      final bill = await BillService().getOrCreateBillForOrder(
+        order: order,
+        createdBy: ref.read(currentUserProvider).valueOrNull?.id ?? 'admin',
+      );
+      if (bill == null) {
+        messenger.showSnackBar(
+          const SnackBar(
+            content: Text('No bill found for this order yet.'),
+            backgroundColor: Colors.orange,
+          ),
+        );
+        return;
+      }
+      await PdfService().downloadBillPdf(bill);
+      messenger.showSnackBar(
+        const SnackBar(
+          content: Text(
+              'Bill opened in new tab. Use browser print (Ctrl+P) to print or save as PDF.'),
+          backgroundColor: Colors.green,
+        ),
+      );
+    } catch (e) {
+      AppLogger.error('Failed to open bill for printing', e);
+      messenger.showSnackBar(
+        const SnackBar(
+          content: Text('Unable to open the bill. Please try again.'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
   }
 
   void _showDateRangePicker() async {
@@ -1137,136 +1517,171 @@ class _PackingDialogState extends ConsumerState<PackingDialog> {
     });
     final screenSize = MediaQuery.of(context).size;
     final isMobile = screenSize.width < 600;
-    final horizontalInset = isMobile ? 16.0 : 40.0;
-    // Desktop keeps the existing 600px-wide dialog; mobile uses almost the
-    // full viewport width with safe margins instead of the old fixed width,
-    // which was wider than the viewport on phones and caused the squeeze.
-    final maxDialogWidth = isMobile
-        ? screenSize.width - horizontalInset * 2
-        : math.min(600.0, screenSize.width - horizontalInset * 2);
-    // Bounding the dialog's height lets the item list (below) become the
-    // scrollable region instead of the whole dialog growing past the
-    // viewport on orders with many items.
-    final maxDialogHeight = screenSize.height * 0.9;
+    final pad = isMobile ? 16.0 : 24.0;
 
-    return Dialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      insetPadding: EdgeInsets.symmetric(
-        horizontal: horizontalInset,
-        vertical: 24,
+    final submitDisabled = _isProcessing ||
+        _hasInvalidEntry ||
+        (!_hasEntries &&
+            _closeNow.isEmpty &&
+            !PackingCalculator.isFullyPacked(widget.order));
+    final submitButton = ElevatedButton.icon(
+      onPressed: submitDisabled ? null : _submit,
+      icon: _isProcessing
+          ? const SizedBox(
+              width: 16,
+              height: 16,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            )
+          : const Icon(Icons.save),
+      label: Text(
+        _completesOrder ? 'Save & Mark Packed' : 'Save Partial Packing',
       ),
-      child: ConstrainedBox(
-        constraints: BoxConstraints(
-          maxWidth: maxDialogWidth,
-          maxHeight: maxDialogHeight,
-        ),
-        child: Padding(
-          padding: EdgeInsets.all(isMobile ? 16 : 24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
+      style: ElevatedButton.styleFrom(
+        backgroundColor: const Color(0xFF4CAF50),
+        foregroundColor: Colors.white,
+        minimumSize: const Size(0, 48),
+      ),
+    );
+    final cancelButton = OutlinedButton(
+      onPressed: () => Navigator.pop(context),
+      style: OutlinedButton.styleFrom(minimumSize: const Size(0, 48)),
+      child: const Text('Cancel'),
+    );
+
+    Widget infoChip(IconData icon, String text) {
+      return Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 15, color: Colors.grey[600]),
+          const SizedBox(width: 6),
+          Flexible(
+            child: Text(
+              text,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(fontSize: 13, color: Colors.grey[800]),
+            ),
+          ),
+        ],
+      );
+    }
+
+    // Header and footer stay pinned; everything between them scrolls, so the
+    // action buttons are always reachable however many items the order has.
+    final content = Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Container(
+          padding: EdgeInsets.fromLTRB(pad, isMobile ? 8 : 16, 8, 8),
+          decoration: BoxDecoration(
+            border: Border(bottom: BorderSide(color: Colors.grey[200]!)),
+          ),
+          child: Row(
             children: [
-              Row(
-                children: [
-                  const Icon(Icons.inventory_2, color: Color(0xFF9C27B0)),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Text(
-                      'Pack Order #${widget.order.id.substring(0, 8)}',
-                      style: TextStyle(
-                        fontSize: isMobile ? 17 : 20,
-                        fontWeight: FontWeight.bold,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
+              const Icon(Icons.inventory_2, color: Color(0xFF9C27B0)),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  'Pack Order #${widget.order.id.substring(0, 8)}',
+                  style: TextStyle(
+                    fontSize: isMobile ? 17 : 20,
+                    fontWeight: FontWeight.bold,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              Tooltip(
+                message:
+                    'Enter the quantity packed in this session only for the items you are packing now; items left empty are not changed. Earlier sessions are kept; the order is billed and sent to delivery only once everything is packed.',
+                triggerMode: TooltipTriggerMode.tap,
+                showDuration: const Duration(seconds: 10),
+                constraints: const BoxConstraints(maxWidth: 320),
+                padding: const EdgeInsets.all(12),
+                child: Padding(
+                  padding: const EdgeInsets.all(8),
+                  child: Icon(
+                    Icons.info_outline,
+                    color: Colors.grey[600],
+                  ),
+                ),
+              ),
+              IconButton(
+                icon: const Icon(Icons.sync, color: Color(0xFF2196F3)),
+                tooltip: 'Sync Order & Bill',
+                onPressed: _isProcessing ? null : _syncOrderAndBill,
+              ),
+              IconButton(
+                icon: const Icon(Icons.close),
+                onPressed: () => Navigator.pop(context),
+              ),
+            ],
+          ),
+        ),
+        Flexible(
+          child: ListView(
+            padding: EdgeInsets.all(pad),
+            shrinkWrap: true,
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 10,
+                ),
+                decoration: BoxDecoration(
+                  color: Colors.grey[50],
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.grey[200]!),
+                ),
+                child: Wrap(
+                  spacing: 24,
+                  runSpacing: 8,
+                  children: [
+                    infoChip(Icons.person_outline, widget.order.customerName),
+                    infoChip(
+                      Icons.calendar_today_outlined,
+                      DateFormat('dd/MM/yyyy').format(widget.order.createdAt),
                     ),
-                  ),
-                  Tooltip(
-                    message:
-                        'Enter the quantity packed in this session only for the items you are packing now; items left empty are not changed. Earlier sessions are kept; the order is billed and sent to delivery only once everything is packed.',
-                    triggerMode: TooltipTriggerMode.tap,
-                    showDuration: const Duration(seconds: 10),
-                    constraints: const BoxConstraints(maxWidth: 320),
-                    padding: const EdgeInsets.all(12),
-                    child: Padding(
-                      padding: const EdgeInsets.all(8),
-                      child: Icon(
-                        Icons.info_outline,
-                        color: Colors.grey[600],
-                      ),
-                    ),
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.sync, color: Color(0xFF2196F3)),
-                    tooltip: 'Sync Order & Bill',
-                    onPressed: _isProcessing ? null : _syncOrderAndBill,
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.close),
-                    onPressed: () => Navigator.pop(context),
-                  ),
-                ],
+                  ],
+                ),
               ),
               const SizedBox(height: 16),
               Row(
                 children: [
-                  const Text('Customer',
-                      style: TextStyle(fontWeight: FontWeight.w600)),
-                  const Spacer(),
-                  Flexible(
-                    child: Text(
-                      widget.order.customerName,
-                      textAlign: TextAlign.right,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 8),
-              Row(
-                children: [
-                  const Text('Order Date',
-                      style: TextStyle(fontWeight: FontWeight.w600)),
-                  const Spacer(),
-                  Text(DateFormat('dd/MM/yyyy').format(widget.order.createdAt)),
-                ],
-              ),
-              const Divider(height: 32),
-              Row(
-                children: [
-                  const Expanded(
-                    child: Text(
-                      'Pack Items',
-                      style:
-                          TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'Pack Items',
+                          style: TextStyle(
+                              fontSize: 16, fontWeight: FontWeight.bold),
+                        ),
+                        Text(
+                          'Packing now: $_itemsPackingNow of ${widget.order.items.length} items',
+                          style:
+                              TextStyle(fontSize: 12, color: Colors.grey[600]),
+                        ),
+                      ],
                     ),
                   ),
                   TextButton(
                     onPressed: _isProcessing ? null : _packAllRemaining,
-                    child: const Text('Pack all remaining'),
+                    child: Text(
+                      isMobile ? 'Pack all' : 'Pack all remaining',
+                    ),
                   ),
                 ],
               ),
-              Text(
-                'Packing now: $_itemsPackingNow of ${widget.order.items.length} items',
-                style: TextStyle(fontSize: 12, color: Colors.grey[600]),
-              ),
               const SizedBox(height: 12),
-              Flexible(
-                child: ListView(
-                  shrinkWrap: true,
-                  children: buildFarmerGroupedWidgets(
-                    widget.order.items,
-                    farmerIdOf: (item) => item.farmerId,
-                    farmerNameOf: _resolveFarmerName,
-                    itemBuilder: (item, _) => _buildPackItemRow(item, isMobile),
-                  ),
-                ),
+              ...buildFarmerGroupedWidgets(
+                widget.order.items,
+                farmerIdOf: (item) => item.farmerId,
+                farmerNameOf: _resolveFarmerName,
+                itemBuilder: (item, _) => _buildPackItemRow(item, isMobile),
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 4),
               _buildBillingSummary(),
-              const SizedBox(height: 16),
               if (!_completesOrder &&
                   (_hasEntries ||
                       widget.order.items.any((i) => _packedOf(i) > 0)))
@@ -1280,86 +1695,52 @@ class _PackingDialogState extends ConsumerState<PackingDialog> {
                     label: const Text('Close short & finalize'),
                   ),
                 ),
-              const SizedBox(height: 8),
-              if (isMobile)
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    OutlinedButton(
-                      onPressed: () => Navigator.pop(context),
-                      child: const Text('Cancel'),
-                    ),
-                    const SizedBox(height: 12),
-                    ElevatedButton.icon(
-                      onPressed: _isProcessing ||
-                              _hasInvalidEntry ||
-                              (!_hasEntries &&
-                                  _closeNow.isEmpty &&
-                                  !PackingCalculator.isFullyPacked(
-                                      widget.order))
-                          ? null
-                          : _submit,
-                      icon: _isProcessing
-                          ? const SizedBox(
-                              width: 16,
-                              height: 16,
-                              child: CircularProgressIndicator(strokeWidth: 2),
-                            )
-                          : const Icon(Icons.save),
-                      label: Text(_completesOrder
-                          ? 'Save & Mark Packed'
-                          : 'Save Partial Packing'),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF4CAF50),
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                      ),
-                    ),
-                  ],
-                )
-              else
-                Row(
-                  children: [
-                    Expanded(
-                      child: OutlinedButton(
-                        onPressed: () => Navigator.pop(context),
-                        child: const Text('Cancel'),
-                      ),
-                    ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: ElevatedButton.icon(
-                        onPressed: _isProcessing ||
-                                _hasInvalidEntry ||
-                                (!_hasEntries &&
-                                    _closeNow.isEmpty &&
-                                    !PackingCalculator.isFullyPacked(
-                                        widget.order))
-                            ? null
-                            : _submit,
-                        icon: _isProcessing
-                            ? const SizedBox(
-                                width: 16,
-                                height: 16,
-                                child:
-                                    CircularProgressIndicator(strokeWidth: 2),
-                              )
-                            : const Icon(Icons.save),
-                        label: Text(_completesOrder
-                            ? 'Save & Mark Packed'
-                            : 'Save Partial Packing'),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF4CAF50),
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(vertical: 12),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
             ],
           ),
         ),
+        Container(
+          padding: EdgeInsets.fromLTRB(pad, 12, pad, isMobile ? 12 : 16),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            border: Border(top: BorderSide(color: Colors.grey[200]!)),
+          ),
+          child: SafeArea(
+            top: false,
+            child: isMobile
+                ? Row(
+                    children: [
+                      Expanded(child: cancelButton),
+                      const SizedBox(width: 12),
+                      Expanded(flex: 2, child: submitButton),
+                    ],
+                  )
+                : Row(
+                    children: [
+                      Expanded(child: cancelButton),
+                      const SizedBox(width: 16),
+                      Expanded(child: submitButton),
+                    ],
+                  ),
+          ),
+        ),
+      ],
+    );
+
+    // Phones get a full-screen sheet; larger screens keep the 600px dialog.
+    if (isMobile) {
+      return Dialog.fullscreen(child: SafeArea(child: content));
+    }
+
+    return Dialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      clipBehavior: Clip.antiAlias,
+      insetPadding: const EdgeInsets.symmetric(horizontal: 40, vertical: 24),
+      child: ConstrainedBox(
+        constraints: BoxConstraints(
+          maxWidth: math.min(640.0, screenSize.width - 80),
+          maxHeight: screenSize.height * 0.9,
+        ),
+        child: content,
       ),
     );
   }
@@ -1438,17 +1819,22 @@ class _PackingDialogState extends ConsumerState<PackingDialog> {
     );
 
     final stepper = Row(
-      mainAxisSize: MainAxisSize.min,
+      mainAxisSize: isMobile ? MainAxisSize.max : MainAxisSize.min,
       children: [
-        IconButton(
-          icon: const Icon(Icons.remove_circle_outline),
+        IconButton.outlined(
+          icon: const Icon(Icons.remove),
           onPressed: done || _isProcessing ? null : decrement,
           padding: EdgeInsets.zero,
           constraints: stepButtonConstraints,
         ),
-        SizedBox(width: isMobile ? 80 : 70, child: quantityField),
-        IconButton(
-          icon: const Icon(Icons.add_circle_outline),
+        const SizedBox(width: 8),
+        if (isMobile)
+          Expanded(child: quantityField)
+        else
+          SizedBox(width: 70, child: quantityField),
+        const SizedBox(width: 8),
+        IconButton.outlined(
+          icon: const Icon(Icons.add),
           onPressed: done || _isProcessing ? null : increment,
           padding: EdgeInsets.zero,
           constraints: stepButtonConstraints,
@@ -1571,51 +1957,59 @@ class _PackingDialogState extends ConsumerState<PackingDialog> {
       margin: EdgeInsets.only(bottom: isMobile ? 12 : 16),
       padding: EdgeInsets.all(isMobile ? 12 : 16),
       decoration: BoxDecoration(
-        border: Border.all(color: Colors.grey[300]!),
-        borderRadius: BorderRadius.circular(8),
+        color: done ? const Color(0xFFF6FBF6) : Colors.white,
+        border: Border.all(
+          color: done ? const Color(0xFFC8E6C9) : Colors.grey[300]!,
+        ),
+        borderRadius: BorderRadius.circular(10),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           header,
-          isMobile ? const Divider(height: 20) : const SizedBox(height: 12),
+          const SizedBox(height: 12),
           if (isMobile) ...[
-            _MobileQuantityLine(
-              label: 'ORDERED',
-              labelColor: Colors.blue,
-              valueText: '${orderedQty.toStringAsFixed(2)} ${item.unit}',
-              valueColor: Colors.blue,
-              amountText: amount(orderedQty),
-            ),
-            const SizedBox(height: 8),
-            _MobileQuantityLine(
-              label: 'PACKED SO FAR',
-              labelColor: Colors.green,
-              valueText: '${packedSoFar.toStringAsFixed(2)} ${item.unit}',
-              valueColor: Colors.green,
-              amountText: amount(packedSoFar),
-            ),
-            const SizedBox(height: 8),
-            _MobileQuantityLine(
-              label: 'REMAINING',
-              labelColor: Colors.grey,
-              valueText: '${remaining.toStringAsFixed(2)} ${item.unit}',
-              valueColor: remaining == 0 ? Colors.grey : Colors.red,
-              amountText: amount(remaining),
-            ),
-            const SizedBox(height: 12),
-            const Text(
-              'PACK NOW',
-              style: TextStyle(
-                fontSize: 11,
-                color: Colors.orange,
-                fontWeight: FontWeight.w600,
+            Container(
+              padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
+              decoration: BoxDecoration(
+                color: Colors.grey[50],
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  column(
+                    'ORDERED',
+                    Colors.blue,
+                    '${_formatQuantity(orderedQty)} ${item.unit}',
+                    amount(orderedQty),
+                  ),
+                  column(
+                    'PACKED',
+                    Colors.green,
+                    '${_formatQuantity(packedSoFar)} ${item.unit}',
+                    amount(packedSoFar),
+                  ),
+                  column(
+                    'REMAINING',
+                    remaining == 0 ? Colors.grey : Colors.red,
+                    '${_formatQuantity(remaining)} ${item.unit}',
+                    amount(remaining),
+                  ),
+                ],
               ),
             ),
-            const SizedBox(height: 6),
+            const SizedBox(height: 12),
             Row(
               children: [
-                stepper,
+                const Text(
+                  'PACK NOW',
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: Colors.orange,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
                 const Spacer(),
                 Text(
                   amount(packNow),
@@ -1623,6 +2017,8 @@ class _PackingDialogState extends ConsumerState<PackingDialog> {
                 ),
               ],
             ),
+            const SizedBox(height: 6),
+            stepper,
             packRemainingButton,
           ] else
             Row(
@@ -2030,58 +2426,6 @@ class _PackingDialogState extends ConsumerState<PackingDialog> {
     if (reason != null && reason.isNotEmpty) {
       await _submit(shortCloseReason: reason);
     }
-  }
-}
-
-/// A label + quantity + amount line used by the mobile Pack Order card
-/// layout for the Ordered and Difference sections (Packed has its own
-/// layout since it also hosts the quantity controls).
-class _MobileQuantityLine extends StatelessWidget {
-  const _MobileQuantityLine({
-    required this.label,
-    required this.labelColor,
-    required this.valueText,
-    required this.valueColor,
-    required this.amountText,
-  });
-
-  final String label;
-  final Color labelColor;
-  final String valueText;
-  final Color valueColor;
-  final String amountText;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.center,
-      children: [
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(label,
-                  style: TextStyle(
-                      fontSize: 11,
-                      color: labelColor,
-                      fontWeight: FontWeight.w600)),
-              const SizedBox(height: 2),
-              Text(
-                valueText,
-                style: TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.bold,
-                    color: valueColor),
-              ),
-            ],
-          ),
-        ),
-        Text(
-          amountText,
-          style: TextStyle(fontSize: 13, color: Colors.grey[700]),
-        ),
-      ],
-    );
   }
 }
 
