@@ -18,6 +18,8 @@ import 'package:f2c/features/packaging/services/packing_service.dart';
 import 'package:f2c/features/admin/presentation/widgets/order_details_dialog.dart';
 import 'package:f2c/features/admin/providers/hub_providers.dart';
 import 'package:f2c/features/admin/providers/farmer_providers.dart';
+import 'package:f2c/features/admin/presentation/widgets/schedule_name_filter.dart';
+import 'package:f2c/features/admin/utils/schedule_filter.dart';
 
 // Provider for packaging orders (confirmed and preparing status)
 final packagingOrdersProvider =
@@ -61,6 +63,7 @@ class _AdminPackagingPageState extends ConsumerState<AdminPackagingPage> {
   bool _showMobileFilters = false;
   String _searchQuery = '';
   String _selectedHub = 'All Hubs';
+  String? _selectedSchedule;
   String _selectedStatus = 'All Statuses';
   String _selectedDateFilter = 'This Week';
   DateTime? _startDate;
@@ -515,6 +518,22 @@ class _AdminPackagingPageState extends ConsumerState<AdminPackagingPage> {
           },
         ),
       ),
+      Consumer(
+        builder: (context, ref, child) {
+          final scheduleOrders = <OrderModel>[
+            ...(ref.watch(packagingOrdersProvider).valueOrNull ?? const <OrderModel>[]),
+            ...(ref.watch(inProgressPackagingProvider).valueOrNull ?? const <OrderModel>[]),
+          ];
+          return ScheduleNameFilter(
+            orders: scheduleOrders,
+            selected: _selectedSchedule,
+            onChanged: (value) => setState(() {
+              _currentPage = 1;
+              _selectedSchedule = value;
+            }),
+          );
+        },
+      ),
       Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         decoration: BoxDecoration(
@@ -650,11 +669,11 @@ class _AdminPackagingPageState extends ConsumerState<AdminPackagingPage> {
       ),
       child: LayoutBuilder(
         builder: (context, constraints) {
-          // Below this width the dropdowns + search field don't fit on one
-          // line without squeezing or overflowing, so stack the search
-          // field above a wrapping row of filter controls instead. Above
-          // it, this renders exactly like the original single Row.
-          final isNarrow = constraints.maxWidth < 700;
+          // Below this width the dropdowns (hub, schedule, status, date) +
+          // search field don't fit on one line without squeezing the search
+          // box or overflowing, so stack the search field above a wrapping
+          // row of filter controls instead.
+          final isNarrow = constraints.maxWidth < 1000;
 
           if (!isNarrow) {
             return Row(
@@ -1235,6 +1254,9 @@ class _AdminPackagingPageState extends ConsumerState<AdminPackagingPage> {
         return order.hubName == _selectedHub;
       }).toList();
     }
+
+    // Apply schedule name filter
+    filtered = ScheduleFilter.apply(filtered, _selectedSchedule);
 
     // Apply status filter
     if (_selectedStatus != 'All Statuses') {
