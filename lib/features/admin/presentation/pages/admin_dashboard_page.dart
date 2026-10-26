@@ -45,6 +45,7 @@ import 'package:f2c/features/admin/presentation/widgets/add_farmer_dialog.dart';
 import 'package:f2c/features/admin/presentation/widgets/edit_farmer_dialog.dart';
 import 'package:f2c/features/admin/presentation/widgets/delete_farmer_dialog.dart';
 import 'package:f2c/features/admin/presentation/widgets/add_product_dialog.dart';
+import 'package:f2c/features/admin/presentation/widgets/bulk_upload_dialog.dart';
 import 'package:f2c/features/admin/presentation/widgets/edit_product_dialog.dart';
 import 'package:f2c/features/admin/presentation/widgets/delete_product_dialog.dart';
 import 'package:f2c/features/admin/presentation/widgets/coming_soon_banner.dart';
@@ -4115,8 +4116,10 @@ class _ProductManagementContentState extends ConsumerState<_ProductManagementCon
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // Header
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          Wrap(
+            alignment: WrapAlignment.spaceBetween,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            runSpacing: 16,
             children: [
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -4138,23 +4141,42 @@ class _ProductManagementContentState extends ConsumerState<_ProductManagementCon
                   ),
                 ],
               ),
-              ElevatedButton.icon(
-                onPressed: () {
-                  showDialog(
-                    context: context,
-                    builder: (context) => const AddProductDialog(),
-                  );
-                },
-                icon: const Icon(Icons.add),
-                label: const Text('Add Product'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.green[700],
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 24,
-                    vertical: 16,
+              Wrap(
+                spacing: 12,
+                runSpacing: 12,
+                children: [
+                  OutlinedButton.icon(
+                    onPressed: () => BulkUploadDialog.show(context),
+                    icon: const Icon(Icons.upload_file),
+                    label: const Text('Bulk Upload'),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: Colors.green[700],
+                      side: BorderSide(color: Colors.green[700]!),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 24,
+                        vertical: 16,
+                      ),
+                    ),
                   ),
-                ),
+                  ElevatedButton.icon(
+                    onPressed: () {
+                      showDialog(
+                        context: context,
+                        builder: (context) => const AddProductDialog(),
+                      );
+                    },
+                    icon: const Icon(Icons.add),
+                    label: const Text('Add Product'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.green[700],
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 24,
+                        vertical: 16,
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
@@ -4536,7 +4558,11 @@ class _ProductManagementContentState extends ConsumerState<_ProductManagementCon
                                                 ImageUrlHelper.getSafeImageUrl(product.imageUrl),
                                                 fit: BoxFit.cover,
                                                 errorBuilder: (context, error, stackTrace) {
-                                                  return const Icon(Icons.broken_image);
+                                                  return Icon(
+                                                    product.imageUrl.isEmpty
+                                                        ? Icons.image_not_supported
+                                                        : Icons.broken_image,
+                                                  );
                                                 },
                                               ),
                                             ),
